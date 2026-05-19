@@ -6,7 +6,12 @@ import {
   type NetworkFamily,
   type WalletNetworkSetting
 } from "../core/networks";
-import { readNetworkSettings, writeNetworkSettings } from "../lib/storage";
+import {
+  readNetworkSettings,
+  readWalletConnectSettings,
+  writeNetworkSettings,
+  writeWalletConnectSettings
+} from "../lib/storage";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -42,10 +47,14 @@ export function SettingsApp() {
   const [newNetworkChainId, setNewNetworkChainId] = useState("");
   const [newNetworkSymbol, setNewNetworkSymbol] = useState("");
   const [newNetworkRpcUrl, setNewNetworkRpcUrl] = useState("");
+  const [walletConnectProjectId, setWalletConnectProjectId] = useState("");
 
   useEffect(() => {
-    readNetworkSettings()
-      .then((savedSettings) => setNetworks(getBuiltInNetworkSettings(savedSettings)))
+    Promise.all([readNetworkSettings(), readWalletConnectSettings()])
+      .then(([savedSettings, walletConnectSettings]) => {
+        setNetworks(getBuiltInNetworkSettings(savedSettings));
+        setWalletConnectProjectId(walletConnectSettings.projectId);
+      })
       .catch((cause: unknown) => {
         setError(cause instanceof Error ? cause.message : "Unable to load network settings.");
         setNetworks(getBuiltInNetworkSettings());
@@ -105,6 +114,7 @@ export function SettingsApp() {
 
     try {
       await writeNetworkSettings(networks);
+      await writeWalletConnectSettings({ projectId: walletConnectProjectId.trim() });
       setSaveStatus("saved");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save network settings.");
@@ -145,6 +155,30 @@ export function SettingsApp() {
             placeholder="Search network, family, or chain ID"
           />
         </label>
+      </section>
+
+      <section className="manual-network-panel">
+        <div className="resolver-heading">
+          <div>
+            <span className="muted">WalletConnect v2</span>
+            <h3>Relay Project</h3>
+          </div>
+          <Settings2 size={16} />
+        </div>
+
+        <div className="manual-network-grid">
+          <label className="manual-rpc-url">
+            <span>Project ID</span>
+            <input
+              value={walletConnectProjectId}
+              onChange={(event) => {
+                setWalletConnectProjectId(event.target.value);
+                setSaveStatus("idle");
+              }}
+              placeholder="WalletConnect Cloud Project ID"
+            />
+          </label>
+        </div>
       </section>
 
       <section className="manual-network-panel">

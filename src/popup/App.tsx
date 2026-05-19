@@ -11,29 +11,48 @@ import {
   Send,
   Settings2,
   ShieldCheck,
+  Unplug,
   Wallet
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useState } from "react";
 import type { Address } from "viem";
+import { formatTokenAmount, formatUsd, type AssetStore, type ChainAssetSnapshot } from "../core/assets";
 import { buildNativeEthTransferPreview, canSignPreview } from "../core/clearSigning";
 import { resolveRecipient, type RecipientResolution } from "../core/ens";
-import {
-  broadcastSignedTransaction,
-  estimateNativeEthTransfer,
-  getEthBalance,
-  type EthBalance,
-  type TransactionFeeEstimate
-} from "../core/rpc";
+import { getBuiltInNetworkSettings, type WalletNetworkSetting } from "../core/networks";
+import { readPortfolioStore, refreshPortfolio } from "../core/portfolio";
+import { broadcastSignedTransaction, estimateNativeEthTransfer, type TransactionFeeEstimate } from "../core/rpc";
 import { createEthereumPasskeyWallet, signEthereumTransfer, type EthereumSignResult } from "../core/tcx";
 import { createPasskeyPrf, unlockPasskeyPrf } from "../core/webauthn";
-import { clearWalletRecord, readWalletRecord, WalletRecord, writeWalletRecord } from "../lib/storage";
+import {
+  clearWalletRecord,
+  readNetworkSettings,
+  readWalletConnectSettings,
+  readWalletRecord,
+  WalletRecord,
+  writeWalletRecord
+} from "../lib/storage";
 
 type Status = "idle" | "creating" | "ready" | "error";
 type ResolverStatus = "idle" | "resolving";
 type FeeStatus = "idle" | "estimating" | "ready" | "error";
 type SigningStatus = "idle" | "signing" | "broadcasting" | "broadcasted" | "error";
-type BalanceStatus = "idle" | "loading" | "ready" | "error";
+type PortfolioLoadStatus = "idle" | "loading" | "ready" | "error";
+type WalletConnectStatus = "idle" | "pairing" | "paired" | "error";
+type WalletConnectSessionsStatus = "idle" | "loading" | "ready" | "error";
+
+interface WalletConnectSessionSummary {
+  topic: string;
+  name: string;
+  description: string;
+  url: string;
+  icons: string[];
+  accounts: string[];
+  chains: string[];
+  methods: string[];
+  expiry?: number;
+}
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -53,18 +72,65 @@ function openSettingsPage() {
   window.open("/src/settings/index.html", "_blank", "noopener,noreferrer");
 }
 
+function sendRuntimeMessage<TResponse>(message: unknown): Promise<TResponse> {
+  return new Promise((resolve, reject) => {
+    if (!chrome.runtime?.sendMessage) {
+      reject(new Error("Chrome runtime messaging is unavailable."));
+      return;
+    }
+
+    chrome.runtime.sendMessage(message, (response) => {
+      const runtimeError = chrome.runtime?.lastError;
+
+      if (runtimeError?.message) {
+        reject(new Error(runtimeError.message));
+        return;
+      }
+
+      if (!response) {
+        reject(new Error("WalletConnect background service did not respond. Reload the extension and try again."));
+        return;
+      }
+
+      resolve(response as TResponse);
+    });
+  });
+}
+
+function txExplorerUrl(hash: string, network: WalletNetworkSetting | null): string | null {
+  switch (network?.chainId) {
+    case 1:
+      return `https://etherscan.io/tx/${hash}`;
+    case 11155111:
+      return `https://sepolia.etherscan.io/tx/${hash}`;
+    case 42161:
+      return `https://arbiscan.io/tx/${hash}`;
+    case 421614:
+      return `https://sepolia.arbiscan.io/tx/${hash}`;
+    case 137:
+      return `https://polygonscan.com/tx/${hash}`;
+    case 80002:
+      return `https://amoy.polygonscan.com/tx/${hash}`;
+    default:
+      return null;
+  }
+}
+
 export function App() {
   const [wallet, setWallet] = useState<WalletRecord | null>(null);
   const [status, setStatus] = useState<Status>("idle");
-  const [balanceStatus, setBalanceStatus] = useState<BalanceStatus>("idle");
-  const [balance, setBalance] = useState<EthBalance | null>(null);
-  const [balanceError, setBalanceError] = useState<string | null>(null);
+  const [portfolioStatus, setPortfolioStatus] = useState<PortfolioLoadStatus>("idle");
+  const [portfolioStore, setPortfolioStore] = useState<AssetStore | null>(null);
+  const [portfolioError, setPortfolioError] = useState<string | null>(null);
+  const [selectedChainId, setSelectedChainId] = useState<string | null>(null);
   const [resolverStatus, setResolverStatus] = useState<ResolverStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [recipientInput, setRecipientInput] = useState("");
   const [recipientResolution, setRecipientResolution] = useState<RecipientResolution>({ kind: "empty", input: "" });
+  const [sendNetworks, setSendNetworks] = useState<WalletNetworkSetting[]>([]);
+  const [selectedSendNetworkId, setSelectedSendNetworkId] = useState<string | null>(null);
   const [amountInput, setAmountInput] = useState("");
   const [feeStatus, setFeeStatus] = useState<FeeStatus>("idle");
   const [feeEstimate, setFeeEstimate] = useState<TransactionFeeEstimate | null>(null);
@@ -74,6 +140,13 @@ export function App() {
   const [signingError, setSigningError] = useState<string | null>(null);
   const [signatureResult, setSignatureResult] = useState<EthereumSignResult | null>(null);
   const [broadcastHash, setBroadcastHash] = useState<string | null>(null);
+  const [walletConnectUri, setWalletConnectUri] = useState("");
+  const [walletConnectStatus, setWalletConnectStatus] = useState<WalletConnectStatus>("idle");
+  const [walletConnectMessage, setWalletConnectMessage] = useState<string | null>(null);
+  const [walletConnectSessionsStatus, setWalletConnectSessionsStatus] = useState<WalletConnectSessionsStatus>("idle");
+  const [walletConnectSessions, setWalletConnectSessions] = useState<WalletConnectSessionSummary[]>([]);
+  const [walletConnectSessionsError, setWalletConnectSessionsError] = useState<string | null>(null);
+  const [disconnectingTopic, setDisconnectingTopic] = useState<string | null>(null);
 
   useEffect(() => {
     readWalletRecord()
@@ -87,47 +160,80 @@ export function App() {
       });
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    readNetworkSettings()
+      .then((settings) => {
+        if (cancelled) {
+          return;
+        }
+
+        const evmNetworks = getBuiltInNetworkSettings(settings).filter(
+          (network) =>
+            network.enabled &&
+            ["ethereum", "arbitrum", "hyperliquid", "polygon", "custom"].includes(network.family) &&
+            typeof network.chainId === "number" &&
+            /^https?:\/\//i.test(network.selectedRpcUrl)
+        );
+
+        setSendNetworks(evmNetworks);
+        setSelectedSendNetworkId((current) =>
+          current && evmNetworks.some((network) => network.networkId === current) ? current : (evmNetworks[0]?.networkId ?? null)
+        );
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : "Unable to load enabled networks.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const displayAddress = useMemo(() => (wallet ? formatAddress(wallet.address) : "No wallet yet"), [wallet]);
-  const displayBalance = useMemo(() => {
+  const displayPortfolioTotal = useMemo(() => {
     if (!wallet) {
-      return "0.00";
+      return "$0.00";
     }
 
-    if (balanceStatus === "loading") {
+    if (portfolioStatus === "loading") {
       return "Loading";
     }
 
-    if (!balance) {
-      return "--";
-    }
-
-    const numericBalance = Number(balance.eth);
-
-    if (!Number.isFinite(numericBalance)) {
-      return balance.eth;
-    }
-
-    if (numericBalance === 0) {
-      return "0.00";
-    }
-
-    if (numericBalance < 0.0001) {
-      return "<0.0001";
-    }
-
-    return numericBalance.toLocaleString(undefined, {
-      maximumFractionDigits: 4
-    });
-  }, [balance, balanceStatus, wallet]);
+    return formatUsd(portfolioStore?.portfolioSnapshot?.totalValueUsd);
+  }, [portfolioStatus, portfolioStore, wallet]);
+  const chainSnapshots = useMemo(
+    () => Object.values(portfolioStore?.chainAssetSnapshots ?? {}),
+    [portfolioStore]
+  );
+  const selectedChain = useMemo(
+    () =>
+      selectedChainId
+        ? (portfolioStore?.chainAssetSnapshots[selectedChainId] ?? null)
+        : (chainSnapshots.find((snapshot) => snapshot.status === "ready") ?? chainSnapshots[0] ?? null),
+    [chainSnapshots, portfolioStore, selectedChainId]
+  );
+  const selectedSendNetwork = useMemo(
+    () => sendNetworks.find((network) => network.networkId === selectedSendNetworkId) ?? sendNetworks[0] ?? null,
+    [selectedSendNetworkId, sendNetworks]
+  );
+  const broadcastExplorerUrl = useMemo(
+    () => (broadcastHash ? txExplorerUrl(broadcastHash, selectedSendNetwork) : null),
+    [broadcastHash, selectedSendNetwork]
+  );
   const previewResult = useMemo(
     () =>
       buildNativeEthTransferPreview({
         from: wallet ? (wallet.address as Address) : null,
         recipient: recipientResolution,
-        amountEth: amountInput,
+        amount: amountInput,
+        network: selectedSendNetwork,
         feeEstimate
       }),
-    [amountInput, feeEstimate, recipientResolution, wallet]
+    [amountInput, feeEstimate, recipientResolution, selectedSendNetwork, wallet]
   );
 
   const basePreviewResult = useMemo(
@@ -135,9 +241,10 @@ export function App() {
       buildNativeEthTransferPreview({
         from: wallet ? (wallet.address as Address) : null,
         recipient: recipientResolution,
-        amountEth: amountInput
+        amount: amountInput,
+        network: selectedSendNetwork
       }),
-    [amountInput, recipientResolution, wallet]
+    [amountInput, recipientResolution, selectedSendNetwork, wallet]
   );
 
   useEffect(() => {
@@ -146,40 +253,58 @@ export function App() {
     setSigningError(null);
     setSignatureResult(null);
     setBroadcastHash(null);
-  }, [amountInput, feeEstimate, recipientResolution]);
+  }, [amountInput, feeEstimate, recipientResolution, selectedSendNetworkId]);
 
   useEffect(() => {
     let cancelled = false;
 
-    setBalance(null);
-    setBalanceError(null);
+    setPortfolioError(null);
 
     if (!wallet) {
-      setBalanceStatus("idle");
+      setPortfolioStore(null);
+      setPortfolioStatus("idle");
       return () => {
         cancelled = true;
       };
     }
 
-    setBalanceStatus("loading");
+    setPortfolioStatus("loading");
 
-    getEthBalance(wallet.address as Address)
-      .then((nextBalance) => {
+    readPortfolioStore()
+      .then((cachedStore) => {
         if (!cancelled) {
-          setBalance(nextBalance);
-          setBalanceStatus("ready");
+          setPortfolioStore(cachedStore);
+        }
+      })
+      .catch(() => undefined);
+
+    refreshPortfolio(wallet.address as Address)
+      .then(({ store }) => {
+        if (!cancelled) {
+          setPortfolioStore(store);
+          setPortfolioStatus("ready");
         }
       })
       .catch((cause: unknown) => {
         if (!cancelled) {
-          setBalanceError(cause instanceof Error ? cause.message : "Unable to load ETH balance.");
-          setBalanceStatus("error");
+          setPortfolioError(cause instanceof Error ? cause.message : "Unable to refresh portfolio.");
+          setPortfolioStatus("error");
         }
       });
 
     return () => {
       cancelled = true;
     };
+  }, [wallet]);
+
+  useEffect(() => {
+    if (!wallet) {
+      setWalletConnectSessions([]);
+      setWalletConnectSessionsStatus("idle");
+      return;
+    }
+
+    void refreshWalletConnectSessions();
   }, [wallet]);
 
   useEffect(() => {
@@ -200,7 +325,8 @@ export function App() {
     estimateNativeEthTransfer({
       from: basePreviewResult.preview.from,
       to: basePreviewResult.preview.to,
-      value: basePreviewResult.preview.amountWei
+      value: basePreviewResult.preview.amountWei,
+      network: selectedSendNetwork ?? undefined
     })
       .then((estimate) => {
         if (!cancelled) {
@@ -218,7 +344,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [basePreviewResult]);
+  }, [basePreviewResult, selectedSendNetwork]);
 
   useEffect(() => {
     let cancelled = false;
@@ -290,6 +416,26 @@ export function App() {
     setStatus("idle");
     setError(null);
     setReceiveOpen(false);
+    setPortfolioStore(null);
+    setSelectedChainId(null);
+  }
+
+  async function handleRefreshPortfolio() {
+    if (!wallet) {
+      return;
+    }
+
+    setPortfolioStatus("loading");
+    setPortfolioError(null);
+
+    try {
+      const { store } = await refreshPortfolio(wallet.address as Address);
+      setPortfolioStore(store);
+      setPortfolioStatus("ready");
+    } catch (cause) {
+      setPortfolioError(cause instanceof Error ? cause.message : "Unable to refresh portfolio.");
+      setPortfolioStatus("error");
+    }
   }
 
   async function handlePreviewAction() {
@@ -317,12 +463,96 @@ export function App() {
       setSignatureResult(result);
       setSigningStatus("broadcasting");
 
-      const hash = await broadcastSignedTransaction(result.serializedTransaction);
+      const hash = await broadcastSignedTransaction(result.serializedTransaction, selectedSendNetwork ?? undefined);
       setBroadcastHash(hash);
       setSigningStatus("broadcasted");
     } catch (cause) {
       setSigningError(cause instanceof Error ? cause.message : "Unable to sign or broadcast transaction.");
       setSigningStatus("error");
+    }
+  }
+
+  async function handleWalletConnectPair() {
+    setWalletConnectStatus("pairing");
+    setWalletConnectMessage(null);
+
+    try {
+      if (!wallet) {
+        throw new Error("Create or unlock a wallet before pairing WalletConnect.");
+      }
+
+      const settings = await readWalletConnectSettings();
+
+      if (!settings.projectId.trim()) {
+        throw new Error("Set WalletConnect Project ID in Network Settings first.");
+      }
+
+      const response = await sendRuntimeMessage<{ result?: { pairings: number; sessions: number }; error?: { message: string } }>({
+        type: "walletconnect_pair",
+        uri: walletConnectUri.trim()
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      setWalletConnectStatus("paired");
+      setWalletConnectMessage(`Pairing sent. Active pairings: ${response.result?.pairings ?? 0}`);
+      await refreshWalletConnectSessions();
+    } catch (cause) {
+      setWalletConnectStatus("error");
+      setWalletConnectMessage(cause instanceof Error ? cause.message : "Unable to pair WalletConnect URI.");
+    }
+  }
+
+  async function refreshWalletConnectSessions() {
+    setWalletConnectSessionsStatus("loading");
+    setWalletConnectSessionsError(null);
+
+    try {
+      const response = await sendRuntimeMessage<{
+        result?: { sessions: WalletConnectSessionSummary[] };
+        error?: { message: string };
+      }>({
+        type: "walletconnect_sessions"
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      setWalletConnectSessions(response.result?.sessions ?? []);
+      setWalletConnectSessionsStatus("ready");
+    } catch (cause) {
+      setWalletConnectSessionsError(cause instanceof Error ? cause.message : "Unable to load WalletConnect sessions.");
+      setWalletConnectSessionsStatus("error");
+    }
+  }
+
+  async function handleWalletConnectDisconnect(topic: string) {
+    setDisconnectingTopic(topic);
+    setWalletConnectSessionsError(null);
+
+    try {
+      const response = await sendRuntimeMessage<{
+        result?: { sessions: WalletConnectSessionSummary[] };
+        error?: { message: string };
+      }>({
+        type: "walletconnect_disconnect",
+        topic
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      setWalletConnectSessions(response.result?.sessions ?? []);
+      setWalletConnectSessionsStatus("ready");
+    } catch (cause) {
+      setWalletConnectSessionsError(cause instanceof Error ? cause.message : "Unable to disconnect WalletConnect session.");
+      setWalletConnectSessionsStatus("error");
+    } finally {
+      setDisconnectingTopic(null);
     }
   }
 
@@ -344,7 +574,7 @@ export function App() {
       <section className="balance-panel">
         <div className="panel-header">
           <div>
-            <span className="muted">Ethereum Mainnet</span>
+            <span className="muted">Multi-chain portfolio</span>
             <h2>{displayAddress}</h2>
           </div>
           <div className={`status-pill ${wallet ? "ready" : ""}`}>
@@ -354,8 +584,8 @@ export function App() {
         </div>
 
         <div className="balance-value">
-          <span>{displayBalance}</span>
-          <small>ETH</small>
+          <span>{displayPortfolioTotal}</span>
+          <small>USD</small>
         </div>
 
         <div className="action-row">
@@ -369,8 +599,18 @@ export function App() {
           </button>
         </div>
 
-        {balanceError ? <p className="inline-error">{balanceError}</p> : null}
+        {portfolioError ? <p className="inline-error">{portfolioError}</p> : null}
       </section>
+
+      {wallet ? (
+        <PortfolioPanel
+          snapshots={chainSnapshots}
+          selectedChain={selectedChain}
+          loading={portfolioStatus === "loading"}
+          onRefresh={handleRefreshPortfolio}
+          onSelect={(networkId) => setSelectedChainId(networkId)}
+        />
+      ) : null}
 
       {wallet && receiveOpen ? (
         <section className="receive-panel" aria-label="Receive ETH">
@@ -445,14 +685,83 @@ export function App() {
         <ResolverResult resolution={recipientResolution} />
       </section>
 
-      <section className="send-panel" aria-label="Send ETH">
+      <section className="resolver-panel" aria-label="WalletConnect">
+        <div className="resolver-heading">
+          <div>
+            <span className="muted">WalletConnect v2</span>
+            <h3>Dapp Pairing</h3>
+          </div>
+          <Settings2 size={16} />
+        </div>
+
+        <label className="recipient-field">
+          <span>Pairing URI</span>
+          <input
+            type="text"
+            value={walletConnectUri}
+            onChange={(event) => {
+              setWalletConnectUri(event.target.value);
+              setWalletConnectStatus("idle");
+              setWalletConnectMessage(null);
+            }}
+            placeholder="wc:..."
+            spellCheck={false}
+          />
+        </label>
+
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={!walletConnectUri.trim() || walletConnectStatus === "pairing"}
+          onClick={handleWalletConnectPair}
+        >
+          {walletConnectStatus === "pairing" ? <Loader2 className="spin" size={17} /> : <Settings2 size={17} />}
+          {walletConnectStatus === "pairing" ? "Pairing..." : "Pair WalletConnect"}
+        </button>
+
+        {walletConnectMessage ? (
+          <p className={walletConnectStatus === "error" ? "resolver-result invalid" : "resolver-result valid"}>
+            {walletConnectMessage}
+          </p>
+        ) : null}
+
+        <WalletConnectSessionsPanel
+          sessions={walletConnectSessions}
+          status={walletConnectSessionsStatus}
+          error={walletConnectSessionsError}
+          disconnectingTopic={disconnectingTopic}
+          onRefresh={refreshWalletConnectSessions}
+          onDisconnect={handleWalletConnectDisconnect}
+        />
+      </section>
+
+      <section className="send-panel" aria-label="Send native token">
         <div className="resolver-heading">
           <div>
             <span className="muted">Clear Signing</span>
-            <h3>Send ETH</h3>
+            <h3>Send {selectedSendNetwork?.nativeCurrencySymbol ?? "Token"}</h3>
           </div>
           <FileCheck2 size={16} />
         </div>
+
+        <label className="recipient-field">
+          <span>Network</span>
+          <select
+            className="network-select"
+            value={selectedSendNetwork?.networkId ?? ""}
+            onChange={(event) => setSelectedSendNetworkId(event.target.value || null)}
+          >
+            {sendNetworks.length > 0 ? (
+              sendNetworks.map((network) => (
+                <option value={network.networkId} key={network.networkId}>
+                  {network.name} - {network.nativeCurrencySymbol}
+                </option>
+              ))
+            ) : (
+              <option value="">No enabled EVM networks</option>
+            )}
+          </select>
+        </label>
 
         <label className="recipient-field">
           <span>Amount</span>
@@ -465,7 +774,7 @@ export function App() {
               placeholder="0.05"
               spellCheck={false}
             />
-            <strong>ETH</strong>
+            <strong>{selectedSendNetwork?.nativeCurrencySymbol ?? "TOKEN"}</strong>
           </div>
         </label>
 
@@ -514,9 +823,11 @@ export function App() {
           <div className="signature-box broadcasted">
             <span>Broadcast hash</span>
             <strong>{broadcastHash}</strong>
-            <a href={`https://etherscan.io/tx/${broadcastHash}`} target="_blank" rel="noreferrer">
-              View on Etherscan
-            </a>
+            {broadcastExplorerUrl ? (
+              <a href={broadcastExplorerUrl} target="_blank" rel="noreferrer">
+                View on explorer
+              </a>
+            ) : null}
           </div>
         ) : null}
 
@@ -526,6 +837,178 @@ export function App() {
       {error ? <p className="error-box">{error}</p> : null}
     </main>
   );
+}
+
+function PortfolioPanel({
+  snapshots,
+  selectedChain,
+  loading,
+  onRefresh,
+  onSelect
+}: {
+  snapshots: ChainAssetSnapshot[];
+  selectedChain: ChainAssetSnapshot | null;
+  loading: boolean;
+  onRefresh: () => void;
+  onSelect: (networkId: string) => void;
+}) {
+  return (
+    <section className="portfolio-panel" aria-label="Multi-chain assets">
+      <div className="resolver-heading">
+        <div>
+          <span className="muted">Assets</span>
+          <h3>Enabled networks</h3>
+        </div>
+        <button type="button" className="mini-icon-button" disabled={loading} onClick={onRefresh} title="Refresh assets">
+          <RefreshCcw className={loading ? "spin" : undefined} size={15} />
+        </button>
+      </div>
+
+      {snapshots.length > 0 ? (
+        <div className="chain-list">
+          {snapshots.map((snapshot) => (
+            <button
+              type="button"
+              className={`chain-row ${selectedChain?.networkId === snapshot.networkId ? "selected" : ""}`}
+              key={snapshot.networkId}
+              onClick={() => onSelect(snapshot.networkId)}
+            >
+              <div>
+                <strong>{snapshot.networkName}</strong>
+                <span>{chainStatusLabel(snapshot)}</span>
+              </div>
+              <div>
+                <strong>{formatUsd(snapshot.totalValueUsd)}</strong>
+                <span>
+                  {snapshot.nativeBalance ? formatTokenAmount(snapshot.nativeBalance) : "--"} {snapshot.nativeCurrencySymbol}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="resolver-hint">Enable networks in Settings, then refresh assets.</p>
+      )}
+
+      {selectedChain ? <ChainAssetDetail snapshot={selectedChain} /> : null}
+    </section>
+  );
+}
+
+function ChainAssetDetail({ snapshot }: { snapshot: ChainAssetSnapshot }) {
+  return (
+    <div className="chain-detail">
+      <div className="preview-row">
+        <span>Network</span>
+        <div>
+          <strong>{snapshot.networkName}</strong>
+          <small>{snapshot.chainId ? `Chain ID ${snapshot.chainId}` : snapshot.family}</small>
+        </div>
+      </div>
+      <div className="preview-row">
+        <span>Native asset</span>
+        <div>
+          <strong>
+            {snapshot.nativeBalance ? formatTokenAmount(snapshot.nativeBalance) : "--"} {snapshot.nativeCurrencySymbol}
+          </strong>
+          <small>{formatUsd(snapshot.totalValueUsd)}</small>
+        </div>
+      </div>
+      <div className="preview-row">
+        <span>Status</span>
+        <div>
+          <strong>{chainStatusLabel(snapshot)}</strong>
+          {snapshot.error ? <small>{snapshot.error}</small> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function chainStatusLabel(snapshot: ChainAssetSnapshot): string {
+  if (snapshot.status === "ready" && snapshot.totalValueUsd === null) {
+    return "Balance ready, price unavailable";
+  }
+
+  if (snapshot.status === "ready") {
+    return "Ready";
+  }
+
+  if (snapshot.status === "unsupported") {
+    return "Adapter pending";
+  }
+
+  return snapshot.status === "error" ? "Refresh failed" : "Refreshing";
+}
+
+function WalletConnectSessionsPanel({
+  sessions,
+  status,
+  error,
+  disconnectingTopic,
+  onRefresh,
+  onDisconnect
+}: {
+  sessions: WalletConnectSessionSummary[];
+  status: WalletConnectSessionsStatus;
+  error: string | null;
+  disconnectingTopic: string | null;
+  onRefresh: () => void;
+  onDisconnect: (topic: string) => void;
+}) {
+  return (
+    <div className="wc-session-panel">
+      <div className="wc-session-heading">
+        <div>
+          <span>Connected dapps</span>
+          <strong>{sessions.length}</strong>
+        </div>
+        <button type="button" className="mini-icon-button" disabled={status === "loading"} onClick={onRefresh} title="Refresh sessions">
+          <RefreshCcw className={status === "loading" ? "spin" : undefined} size={15} />
+        </button>
+      </div>
+
+      {sessions.length > 0 ? (
+        <div className="wc-session-list">
+          {sessions.map((session) => (
+            <div className="wc-session-row" key={session.topic}>
+              <div className="wc-session-icon" aria-hidden="true">
+                {session.icons[0] ? <img src={session.icons[0]} alt="" /> : <Settings2 size={16} />}
+              </div>
+              <div className="wc-session-main">
+                <strong>{session.name}</strong>
+                <span>{session.url || "No origin provided"}</span>
+                <small>{walletConnectSessionMeta(session)}</small>
+              </div>
+              <button
+                type="button"
+                className="wc-disconnect"
+                disabled={disconnectingTopic === session.topic}
+                onClick={() => onDisconnect(session.topic)}
+                title="Disconnect dapp"
+              >
+                {disconnectingTopic === session.topic ? <Loader2 className="spin" size={15} /> : <Unplug size={15} />}
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="resolver-hint">
+          {status === "loading" ? "Loading connected dapps." : "No active WalletConnect sessions."}
+        </p>
+      )}
+
+      {error ? <p className="resolver-result invalid">{error}</p> : null}
+    </div>
+  );
+}
+
+function walletConnectSessionMeta(session: WalletConnectSessionSummary): string {
+  const chainLabel = session.chains.length > 0 ? session.chains.join(", ") : "No chains";
+  const accountLabel = session.accounts.length === 1 ? "1 account" : `${session.accounts.length} accounts`;
+  const expiry = session.expiry ? new Date(session.expiry * 1000).toLocaleDateString() : null;
+
+  return expiry ? `${chainLabel} - ${accountLabel} - expires ${expiry}` : `${chainLabel} - ${accountLabel}`;
 }
 
 function ResolverResult({ resolution }: { resolution: RecipientResolution }) {

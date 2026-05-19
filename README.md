@@ -59,6 +59,8 @@ src/lib/storage.ts      chrome.storage.local with localStorage fallback
 src/background.ts       MV3 service worker placeholder
 ```
 
+Detailed multichain asset design: [`docs/multichain-assets-architecture.md`](docs/multichain-assets-architecture.md)
+
 ## Next Milestones
 
 - End-to-end manual validation in a loaded Chrome extension with a real passkey.

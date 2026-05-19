@@ -11,6 +11,8 @@
   "dependencies": {
     "@consenlabs/tcx-wasm": "^0.9.1",
     "@vitejs/plugin-react": "^6.0.2",
+    "@walletconnect/jsonrpc-utils": "^1.0.8",
+    "@walletconnect/sign-client": "^2.23.9",
     "lucide-react": "^1.16.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.6",

@@ -10,6 +10,8 @@ export default defineConfig({
       input: {
         popup: "src/popup/index.html",
         settings: "src/settings/index.html",
+        content: "src/content/providerBridge.ts",
+        inpage: "src/inpage/ethereumProvider.ts",
         background: "src/background.ts"
       },
       output: {

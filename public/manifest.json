@@ -11,7 +11,27 @@
     "service_worker": "assets/background.js",
     "type": "module"
   },
-  "permissions": ["storage"],
+  "permissions": ["storage", "alarms"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["assets/content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "host_permissions": [
+    "https://*.walletconnect.com/*",
+    "wss://*.walletconnect.com/*",
+    "https://*.walletconnect.org/*",
+    "wss://*.walletconnect.org/*",
+    "https://coins.llama.fi/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/inpage.js"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   }
