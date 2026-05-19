@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Passkey Wallet",
+  "description": "A passkey-unlocked wallet prototype built with tcx-wasm.",
+  "version": "0.1.0",
+  "action": {
+    "default_popup": "src/popup/index.html"
+  },
+  "background": {
+    "service_worker": "assets/background.js",
+    "type": "module"
+  },
+  "permissions": ["storage"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
+}
