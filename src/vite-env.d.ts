@@ -2,6 +2,8 @@
 
 declare const chrome: {
   runtime?: {
+    getURL?(path: string): string;
+    openOptionsPage?(): void;
     onInstalled?: {
       addListener(listener: () => void): void;
     };

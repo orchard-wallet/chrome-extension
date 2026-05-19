@@ -9,6 +9,7 @@ import {
   RefreshCcw,
   Search,
   Send,
+  Settings2,
   ShieldCheck,
   Wallet
 } from "lucide-react";
@@ -36,6 +37,20 @@ type BalanceStatus = "idle" | "loading" | "ready" | "error";
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function openSettingsPage() {
+  if (typeof chrome !== "undefined" && chrome.runtime?.getURL) {
+    window.open(chrome.runtime.getURL("src/settings/index.html"), "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  if (typeof chrome !== "undefined" && chrome.runtime?.openOptionsPage) {
+    chrome.runtime.openOptionsPage();
+    return;
+  }
+
+  window.open("/src/settings/index.html", "_blank", "noopener,noreferrer");
 }
 
 export function App() {
@@ -321,6 +336,9 @@ export function App() {
           <p className="eyebrow">Passkey Wallet</p>
           <h1>Chrome Extension MVP</h1>
         </div>
+        <button type="button" className="settings-icon-button" onClick={openSettingsPage} title="Network settings">
+          <Settings2 size={17} />
+        </button>
       </section>
 
       <section className="balance-panel">

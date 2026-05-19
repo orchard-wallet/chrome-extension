@@ -16,6 +16,7 @@ Chrome Extension wallet prototype using `@consenlabs/tcx-wasm` for local keystor
 - Signed transaction broadcast through Ethereum Mainnet RPC.
 - ETH balance display from Ethereum Mainnet RPC.
 - Receive panel with QR code and copyable address.
+- Built-in network settings for Ethereum, Arbitrum, Hyperliquid, Tron, Bitcoin, Polygon, related testnets, and manual custom RPCs.
 
 ## Run
 
@@ -50,8 +51,10 @@ src/popup/App.tsx       Popup workflow and UI state
 src/core/webauthn.ts    WebAuthn PRF credential creation
 src/core/tcx.ts         tcx-wasm init, keystore creation, account derivation
 src/core/ens.ts         ENS forward/reverse recipient resolution adapter
+src/core/networks.ts    Built-in network and RPC settings
 src/core/clearSigning.ts Clear Signing transaction intent builder
 src/core/rpc.ts         Ethereum Mainnet RPC balance, fee, gas, nonce estimation, and broadcast
+src/settings/SettingsApp.tsx Network settings page
 src/lib/storage.ts      chrome.storage.local with localStorage fallback
 src/background.ts       MV3 service worker placeholder
 ```

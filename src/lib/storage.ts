@@ -1,3 +1,5 @@
+import type { WalletNetworkSetting } from "../core/networks";
+
 export interface WalletRecord {
   address: string;
   credentialId: string;
@@ -8,6 +10,7 @@ export interface WalletRecord {
 }
 
 const WALLET_KEY = "walletRecord";
+const NETWORK_SETTINGS_KEY = "networkSettings";
 
 function hasChromeStorage(): boolean {
   return typeof chrome !== "undefined" && Boolean(chrome.storage?.local);
@@ -47,4 +50,23 @@ export async function clearWalletRecord(): Promise<void> {
   }
 
   localStorage.removeItem(WALLET_KEY);
+}
+
+export async function readNetworkSettings(): Promise<WalletNetworkSetting[]> {
+  if (hasChromeStorage()) {
+    const result = await chromeLocalStorage().get(NETWORK_SETTINGS_KEY);
+    return (result[NETWORK_SETTINGS_KEY] as WalletNetworkSetting[] | undefined) ?? [];
+  }
+
+  const raw = localStorage.getItem(NETWORK_SETTINGS_KEY);
+  return raw ? (JSON.parse(raw) as WalletNetworkSetting[]) : [];
+}
+
+export async function writeNetworkSettings(settings: WalletNetworkSetting[]): Promise<void> {
+  if (hasChromeStorage()) {
+    await chromeLocalStorage().set({ [NETWORK_SETTINGS_KEY]: settings });
+    return;
+  }
+
+  localStorage.setItem(NETWORK_SETTINGS_KEY, JSON.stringify(settings));
 }
