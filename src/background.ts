@@ -13,11 +13,12 @@ import {
   removePendingWalletConnectProposal,
   removeWalletConnectSessionActivity,
   upsertPendingWalletConnectProposal,
+  writeNetworkSettings,
   type PendingWalletConnectProposal,
   type WalletConnectSessionActivity,
   type WalletRecord
 } from "./lib/storage";
-import { getBuiltInNetworkSettings } from "./core/networks";
+import { createCustomNetwork, getBuiltInNetworkSettings, type WalletNetworkSetting } from "./core/networks";
 
 const PORTFOLIO_REFRESH_ALARM = "portfolio-refresh";
 const PORTFOLIO_REFRESH_PERIOD_MINUTES = 15;
@@ -95,8 +96,27 @@ interface WalletConnectSessionLike {
   >;
 }
 
+interface AddEthereumChainParameter {
+  chainId?: string;
+  chainName?: string;
+  nativeCurrency?: {
+    name?: string;
+    symbol?: string;
+    decimals?: number;
+  };
+  rpcUrls?: string[];
+  blockExplorerUrls?: string[];
+}
+
 let signClientPromise: Promise<SignClient> | null = null;
-const SUPPORTED_WALLETCONNECT_METHODS = ["eth_accounts", "eth_requestAccounts", "personal_sign", "eth_sendTransaction"];
+const SUPPORTED_WALLETCONNECT_METHODS = [
+  "eth_accounts",
+  "eth_requestAccounts",
+  "personal_sign",
+  "eth_sendTransaction",
+  "wallet_addEthereumChain",
+  "wallet_switchEthereumChain"
+];
 const SUPPORTED_WALLETCONNECT_EVENTS = ["accountsChanged", "chainChanged"];
 
 function schedulePortfolioRefresh() {
@@ -143,6 +163,153 @@ function jsonRpcError(code: number, message: string) {
   };
 }
 
+function accountPermission(address: Address, origin: string) {
+  return {
+    caveats: [
+      {
+        type: "restrictReturnedAccounts",
+        value: [address]
+      }
+    ],
+    date: Date.now(),
+    id: crypto.randomUUID(),
+    invoker: origin,
+    parentCapability: "eth_accounts"
+  };
+}
+
+function parseEip155ChainId(chainId: unknown): number | null {
+  if (typeof chainId !== "string" || !/^0x[0-9a-f]+$/i.test(chainId)) {
+    return null;
+  }
+
+  const value = BigInt(chainId);
+
+  if (value <= 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+    return null;
+  }
+
+  return Number(value);
+}
+
+function normalizedHttpsUrl(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function mergeNetworkRpcUrls(network: WalletNetworkSetting, rpcUrls: string[]): WalletNetworkSetting {
+  const nextRpcUrls = Array.from(new Set([...network.rpcUrls, ...rpcUrls]));
+
+  return {
+    ...network,
+    enabled: true,
+    selectedRpcUrl: nextRpcUrls.includes(network.selectedRpcUrl) ? network.selectedRpcUrl : nextRpcUrls[0] ?? network.selectedRpcUrl,
+    rpcUrls: nextRpcUrls
+  };
+}
+
+async function verifyRpcChainId(rpcUrl: string, expectedChainId: number): Promise<boolean> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8_000);
+
+  try {
+    const response = await fetch(rpcUrl, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_chainId",
+        params: []
+      }),
+      signal: controller.signal
+    });
+    const payload = (await response.json()) as { result?: unknown };
+    return parseEip155ChainId(payload.result) === expectedChainId;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function enabledEvmNetworks() {
+  const networks = getBuiltInNetworkSettings(await readNetworkSettings());
+  return networks.filter(
+    (network) =>
+      typeof network.chainId === "number" &&
+      network.enabled &&
+      ["ethereum", "arbitrum", "hyperliquid", "polygon", "custom"].includes(network.family)
+  );
+}
+
+async function addEthereumChain(parameter: AddEthereumChainParameter | undefined) {
+  const chainId = parseEip155ChainId(parameter?.chainId);
+  const chainName = parameter?.chainName?.trim();
+  const requestedRpcUrls = parameter?.rpcUrls ?? [];
+  const normalizedRpcUrls = requestedRpcUrls.map(normalizedHttpsUrl);
+  const rpcUrls = Array.from(new Set(normalizedRpcUrls.filter((url): url is string => Boolean(url))));
+  const requestedExplorerUrls = parameter?.blockExplorerUrls ?? [];
+  const normalizedExplorerUrls = requestedExplorerUrls.map(normalizedHttpsUrl);
+  const explorerUrl = normalizedExplorerUrls[0] ?? null;
+  const nativeSymbol = parameter?.nativeCurrency?.symbol?.trim();
+  const nativeName = parameter?.nativeCurrency?.name?.trim();
+  const nativeDecimals = parameter?.nativeCurrency?.decimals;
+
+  if (!chainId || !chainName || !nativeName || !nativeSymbol || nativeDecimals !== 18 || rpcUrls.length === 0) {
+    return jsonRpcError(32602, "Chain ID, chain name, 18-decimal native currency, and at least one HTTPS RPC URL are required.");
+  }
+
+  if (normalizedRpcUrls.some((url) => !url) || normalizedExplorerUrls.some((url) => !url)) {
+    return jsonRpcError(32602, "RPC and block explorer URLs must be valid HTTPS URLs.");
+  }
+
+  if ((await Promise.all(rpcUrls.map((rpcUrl) => verifyRpcChainId(rpcUrl, chainId)))).some((matches) => !matches)) {
+    return jsonRpcError(32602, "Every RPC endpoint must return the requested chain ID.");
+  }
+
+  const currentSettings = await readNetworkSettings();
+  const networks = getBuiltInNetworkSettings(currentSettings);
+  const existing = networks.find((network) => network.chainId === chainId);
+  const nextNetworks = existing
+    ? networks.map((network) =>
+        network.chainId === chainId
+          ? {
+              ...mergeNetworkRpcUrls(network, rpcUrls),
+              explorerUrl: network.explorerUrl ?? explorerUrl ?? undefined
+            }
+          : network
+      )
+    : [
+        ...networks,
+        {
+          ...createCustomNetwork({
+            name: chainName,
+            family: "custom",
+            chain: nativeSymbol,
+            chainId,
+            rpcUrl: rpcUrls[0],
+            nativeCurrencySymbol: nativeSymbol
+          }),
+          explorerUrl: explorerUrl ?? undefined,
+          rpcUrls
+        }
+      ];
+
+  await writeNetworkSettings(nextNetworks);
+  return { result: null };
+}
+
 async function currentWallet(): Promise<WalletRecord> {
   const wallet = await readWalletRecord();
 
@@ -165,19 +332,40 @@ async function handleDappRequest(message: Extract<RuntimeMessage, { type: "dapp_
       return { result: [address] };
     case "eth_accounts":
       return { result: address ? [address] : [] };
+    case "wallet_getPermissions":
+      return { result: address ? [accountPermission(address, message.origin)] : [] };
+    case "wallet_requestPermissions": {
+      const requestedPermissions = message.params?.[0] as Record<string, unknown> | undefined;
+
+      if (!address) {
+        return jsonRpcError(4100, "Wallet is not initialized.");
+      }
+
+      if (!requestedPermissions || !("eth_accounts" in requestedPermissions)) {
+        return jsonRpcError(4200, "Only eth_accounts permission requests are supported.");
+      }
+
+      return { result: [accountPermission(address, message.origin)] };
+    }
+    case "wallet_revokePermissions":
+      return { result: null };
     case "eth_chainId":
       return { result: "0x1" };
     case "net_version":
       return { result: "1" };
     case "wallet_switchEthereumChain": {
       const requested = message.params?.[0] as { chainId?: string } | undefined;
+      const chainId = parseEip155ChainId(requested?.chainId);
 
-      if (!requested?.chainId || requested.chainId === "0x1") {
-        return { result: null };
+      if (!chainId) {
+        return jsonRpcError(32602, "wallet_switchEthereumChain requires a hexadecimal chainId.");
       }
 
-      return jsonRpcError(4902, "Only Ethereum Mainnet is currently active in the injected provider.");
+      const targetNetwork = (await enabledEvmNetworks()).find((network) => network.chainId === chainId);
+      return targetNetwork ? { result: null } : jsonRpcError(4902, "Requested chain is not enabled or has not been added.");
     }
+    case "wallet_addEthereumChain":
+      return addEthereumChain(message.params?.[0] as AddEthereumChainParameter | undefined);
     case "eth_sendTransaction":
     case "eth_signTransaction":
     case "personal_sign":
