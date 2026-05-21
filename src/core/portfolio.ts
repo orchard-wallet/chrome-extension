@@ -2,9 +2,11 @@ import type { Address } from "viem";
 import { readAssetStore, readNetworkSettings, writeAssetStore } from "../lib/storage";
 import type { AssetStore, ChainAssetSnapshot } from "./assets";
 import { balanceKey, emptyAssetStore, isEnabledUnsupportedNetwork, isEvmAssetNetwork } from "./assets";
+import { bitcoinBalanceStorageKey, fetchBitcoinNativeBalance } from "./bitcoinAssets";
 import { balanceStorageKey, createFailedSnapshot, createUnsupportedSnapshot, fetchEvmNativeBalance } from "./evmAssets";
 import { getBuiltInNetworkSettings, type WalletNetworkSetting } from "./networks";
 import { fetchNativeUsdPrices } from "./prices";
+import { fetchTronNativeBalance, tronBalanceStorageKey } from "./tronAssets";
 
 export interface PortfolioRefreshResult {
   store: AssetStore;
@@ -40,23 +42,30 @@ function clearAccountSnapshots(store: AssetStore, accountId: Address, networks: 
   return next;
 }
 
-function applyUsdValues(store: AssetStore, snapshots: ChainAssetSnapshot[]): ChainAssetSnapshot[] {
+function applyUsdValues(store: AssetStore, accountId: string, snapshots: ChainAssetSnapshot[]): ChainAssetSnapshot[] {
   return snapshots.map((snapshot) => {
-    if (!snapshot.nativeAssetId || snapshot.nativeBalance === undefined) {
-      return snapshot;
+    let totalValueUsd = 0;
+    let hasValuedAsset = false;
+
+    for (const assetId of snapshot.assetIds) {
+      const price = store.assetPrices[assetId];
+      const balance = store.assetBalances[balanceKey(accountId, assetId)];
+
+      if (!price || !balance) {
+        continue;
+      }
+
+      const value = Number(balance.decimalAmount) * Number(price.value);
+
+      if (Number.isFinite(value)) {
+        totalValueUsd += value;
+        hasValuedAsset = true;
+      }
     }
-
-    const price = store.assetPrices[snapshot.nativeAssetId];
-
-    if (!price) {
-      return snapshot;
-    }
-
-    const value = Number(snapshot.nativeBalance) * Number(price.value);
 
     return {
       ...snapshot,
-      totalValueUsd: Number.isFinite(value) ? value.toFixed(2) : null
+      totalValueUsd: hasValuedAsset ? totalValueUsd.toFixed(2) : null
     };
   });
 }
@@ -69,21 +78,37 @@ function aggregatePortfolio(accountId: Address, snapshots: ChainAssetSnapshot[])
   const hasMissingValue = snapshots.some((snapshot) => snapshot.totalValueUsd === null);
   const hasError = snapshots.some((snapshot) => snapshot.status === "error");
   const hasReady = snapshots.some((snapshot) => snapshot.status === "ready");
+  const refreshedAt = new Date().toISOString();
+  const staleAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
   return {
     accountId,
     totalValueUsd: hasReady ? total.toFixed(2) : null,
     chainIds: snapshots.map((snapshot) => snapshot.networkId),
+    failedNetworkIds: snapshots.filter((snapshot) => snapshot.status === "error").map((snapshot) => snapshot.networkId),
     status: hasError || hasMissingValue ? "partial" : "ready",
-    refreshedAt: new Date().toISOString()
+    refreshedAt,
+    lastUpdatedAt: refreshedAt,
+    staleAt
   };
 }
 
-export async function refreshPortfolio(accountId: Address): Promise<PortfolioRefreshResult> {
+export async function refreshPortfolio(
+  accountId: Address,
+  chainAccounts?: {
+    ethereum?: string;
+    tron?: string;
+    bitcoin?: string;
+  }
+): Promise<PortfolioRefreshResult> {
   const savedSettings = await readNetworkSettings();
   const networks = getBuiltInNetworkSettings(savedSettings).filter((network) => network.enabled);
   const evmNetworks = networks.filter(isEvmAssetNetwork);
-  const unsupportedNetworks = networks.filter(isEnabledUnsupportedNetwork);
+  const tronNetworks = networks.filter((network) => network.family === "tron");
+  const bitcoinNetworks = networks.filter((network) => network.family === "bitcoin");
+  const unsupportedNetworks = networks.filter(
+    (network) => isEnabledUnsupportedNetwork(network) && network.family !== "tron" && network.family !== "bitcoin"
+  );
   const currentStore = await readAssetStore();
   const store = clearAccountSnapshots(currentStore, accountId, networks);
 
@@ -93,6 +118,18 @@ export async function refreshPortfolio(accountId: Address): Promise<PortfolioRef
       result: await fetchEvmNativeBalance(network, accountId)
     }))
   );
+  const tronResults = await Promise.allSettled(
+    tronNetworks.map(async (network) => ({
+      network,
+      result: await fetchTronNativeBalance(network, accountId, chainAccounts?.tron)
+    }))
+  );
+  const bitcoinResults = await Promise.allSettled(
+    bitcoinNetworks.map(async (network) => ({
+      network,
+      result: await fetchBitcoinNativeBalance(network, accountId, chainAccounts?.bitcoin)
+    }))
+  );
   const snapshots: ChainAssetSnapshot[] = unsupportedNetworks.map((network) => createUnsupportedSnapshot(network, accountId));
   let failedNetworks = 0;
 
@@ -100,7 +137,13 @@ export async function refreshPortfolio(accountId: Address): Promise<PortfolioRef
     if (settled.status === "fulfilled") {
       const { network, result } = settled.value;
       store.assetDefinitions[result.definition.assetId] = result.definition;
+      for (const tokenDefinition of result.tokenDefinitions ?? []) {
+        store.assetDefinitions[tokenDefinition.assetId] = tokenDefinition;
+      }
       store.assetBalances[balanceStorageKey(accountId, result.definition.assetId)] = result.balance;
+      for (const tokenBalance of result.tokenBalances ?? []) {
+        store.assetBalances[balanceStorageKey(accountId, tokenBalance.assetId)] = tokenBalance;
+      }
       snapshots.push(result.snapshot);
 
       if (!network.enabled) {
@@ -110,6 +153,36 @@ export async function refreshPortfolio(accountId: Address): Promise<PortfolioRef
       failedNetworks += 1;
       const network = evmNetworks[evmResults.indexOf(settled)];
       snapshots.push(createFailedSnapshot(network, accountId, settled.reason instanceof Error ? settled.reason.message : "Unable to refresh balance."));
+    }
+  }
+
+  for (const settled of tronResults) {
+    if (settled.status === "fulfilled") {
+      const { result } = settled.value;
+      store.assetDefinitions[result.definition.assetId] = result.definition;
+      if (result.balance) {
+        store.assetBalances[tronBalanceStorageKey(accountId, result.definition.assetId)] = result.balance;
+      }
+      snapshots.push(result.snapshot);
+    } else {
+      failedNetworks += 1;
+      const network = tronNetworks[tronResults.indexOf(settled)];
+      snapshots.push(createFailedSnapshot(network, accountId, settled.reason instanceof Error ? settled.reason.message : "Unable to refresh Tron balance."));
+    }
+  }
+
+  for (const settled of bitcoinResults) {
+    if (settled.status === "fulfilled") {
+      const { result } = settled.value;
+      store.assetDefinitions[result.definition.assetId] = result.definition;
+      if (result.balance) {
+        store.assetBalances[bitcoinBalanceStorageKey(accountId, result.definition.assetId)] = result.balance;
+      }
+      snapshots.push(result.snapshot);
+    } else {
+      failedNetworks += 1;
+      const network = bitcoinNetworks[bitcoinResults.indexOf(settled)];
+      snapshots.push(createFailedSnapshot(network, accountId, settled.reason instanceof Error ? settled.reason.message : "Unable to refresh Bitcoin balance."));
     }
   }
 
@@ -123,7 +196,7 @@ export async function refreshPortfolio(accountId: Address): Promise<PortfolioRef
     // The portfolio remains usable without price data; totals are marked partial below.
   }
 
-  const valuedSnapshots = applyUsdValues(store, snapshots).sort((a, b) => a.networkName.localeCompare(b.networkName));
+  const valuedSnapshots = applyUsdValues(store, accountId, snapshots).sort((a, b) => a.networkName.localeCompare(b.networkName));
 
   for (const snapshot of valuedSnapshots) {
     store.chainAssetSnapshots[snapshot.networkId] = snapshot;

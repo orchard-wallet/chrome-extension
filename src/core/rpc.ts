@@ -18,6 +18,15 @@ export interface EthBalance {
   eth: string;
 }
 
+export interface NetworkHealthCheck {
+  networkId: string;
+  status: "ready" | "unsupported" | "error";
+  latestBlockNumber: string | null;
+  latencyMs: number | null;
+  checkedAt: string;
+  failureReason?: string;
+}
+
 const defaultTransports = [
   http("https://ethereum.publicnode.com"),
   http("https://eth.llamarpc.com"),
@@ -113,6 +122,8 @@ export async function estimateNativeEthTransfer(input: {
   };
 }
 
+export const estimateNativeTokenTransfer = estimateNativeEthTransfer;
+
 export async function getEthBalance(address: Address): Promise<EthBalance> {
   const client = await createMainnetClient();
   const wei = await withTimeout(
@@ -135,4 +146,41 @@ export async function broadcastSignedTransaction(serializedTransaction: Hex, net
       serializedTransaction
     })
   );
+}
+
+export async function checkNetworkHealth(network: WalletNetworkSetting): Promise<NetworkHealthCheck> {
+  if (typeof network.chainId !== "number" || !/^https?:\/\//i.test(network.selectedRpcUrl)) {
+    return {
+      networkId: network.networkId,
+      status: "unsupported",
+      latestBlockNumber: null,
+      latencyMs: null,
+      checkedAt: new Date().toISOString(),
+      failureReason: "Network health is available for HTTP EVM RPC endpoints."
+    };
+  }
+
+  const startedAt = performance.now();
+
+  try {
+    const client = createClientForNetwork(network);
+    const latestBlockNumber = await withTimeout(client.getBlockNumber(), 8_000);
+
+    return {
+      networkId: network.networkId,
+      status: "ready",
+      latestBlockNumber: latestBlockNumber.toString(),
+      latencyMs: Math.round(performance.now() - startedAt),
+      checkedAt: new Date().toISOString()
+    };
+  } catch (cause) {
+    return {
+      networkId: network.networkId,
+      status: "error",
+      latestBlockNumber: null,
+      latencyMs: Math.round(performance.now() - startedAt),
+      checkedAt: new Date().toISOString(),
+      failureReason: cause instanceof Error ? cause.message : "Unable to reach RPC endpoint."
+    };
+  }
 }

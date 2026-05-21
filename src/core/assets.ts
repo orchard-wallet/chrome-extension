@@ -13,6 +13,9 @@ export interface AssetDefinition {
   decimals: number;
   kind: AssetKind;
   priceKey?: string;
+  contractAddress?: string;
+  groupKey?: string;
+  imported?: boolean;
 }
 
 export interface AssetBalance {
@@ -43,8 +46,10 @@ export interface ChainAssetSnapshot {
   assetIds: string[];
   nativeAssetId?: string;
   nativeBalance?: string;
+  tokenAssetIds?: string[];
   totalValueUsd: string | null;
   refreshedAt?: string;
+  staleAt?: string;
   error?: string;
 }
 
@@ -52,8 +57,11 @@ export interface PortfolioSnapshot {
   accountId: string;
   totalValueUsd: string | null;
   chainIds: string[];
+  failedNetworkIds: string[];
   status: PortfolioStatus;
   refreshedAt: string;
+  lastUpdatedAt: string;
+  staleAt: string;
 }
 
 export interface AssetStore {
@@ -84,6 +92,10 @@ export function emptyAssetStore(): AssetStore {
 
 export function nativeAssetId(network: WalletNetworkSetting): string {
   return `${network.networkId}:native`;
+}
+
+export function tokenAssetId(network: WalletNetworkSetting, contractAddress: string): string {
+  return `${network.networkId}:erc20:${contractAddress.toLowerCase()}`;
 }
 
 export function balanceKey(accountId: string, assetId: string): string {

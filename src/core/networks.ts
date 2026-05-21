@@ -10,6 +10,7 @@ export interface WalletNetworkSetting {
   selectedRpcUrl: string;
   rpcUrls: string[];
   nativeCurrencySymbol: string;
+  explorerUrl?: string;
   isCustom?: boolean;
 }
 
@@ -32,7 +33,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: true,
     selectedRpcUrl: "https://eth.llamarpc.com",
     rpcUrls: ["https://eth.llamarpc.com", "https://ethereum-rpc.publicnode.com", "https://cloudflare-eth.com"],
-    nativeCurrencySymbol: "ETH"
+    nativeCurrencySymbol: "ETH",
+    explorerUrl: "https://etherscan.io"
   },
   {
     networkId: "ethereum-sepolia",
@@ -43,7 +45,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: false,
     selectedRpcUrl: "https://ethereum-sepolia-rpc.publicnode.com",
     rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com", "https://rpc.sepolia.org", "https://1rpc.io/sepolia"],
-    nativeCurrencySymbol: "ETH"
+    nativeCurrencySymbol: "ETH",
+    explorerUrl: "https://sepolia.etherscan.io"
   },
   {
     networkId: "ethereum-holesky",
@@ -54,7 +57,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: false,
     selectedRpcUrl: "https://ethereum-holesky-rpc.publicnode.com",
     rpcUrls: ["https://ethereum-holesky-rpc.publicnode.com", "https://holesky.drpc.org"],
-    nativeCurrencySymbol: "ETH"
+    nativeCurrencySymbol: "ETH",
+    explorerUrl: "https://holesky.etherscan.io"
   },
   {
     networkId: "ethereum-hoodi",
@@ -65,7 +69,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: false,
     selectedRpcUrl: "https://rpc.hoodi.ethpandaops.io",
     rpcUrls: ["https://rpc.hoodi.ethpandaops.io"],
-    nativeCurrencySymbol: "ETH"
+    nativeCurrencySymbol: "ETH",
+    explorerUrl: "https://hoodi.etherscan.io"
   },
   {
     networkId: "arbitrum-one",
@@ -76,7 +81,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: true,
     selectedRpcUrl: "https://arb1.arbitrum.io/rpc",
     rpcUrls: ["https://arb1.arbitrum.io/rpc", "https://arbitrum-one-rpc.publicnode.com", "https://1rpc.io/arb"],
-    nativeCurrencySymbol: "ETH"
+    nativeCurrencySymbol: "ETH",
+    explorerUrl: "https://arbiscan.io"
   },
   {
     networkId: "arbitrum-nova",
@@ -87,7 +93,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: false,
     selectedRpcUrl: "https://nova.arbitrum.io/rpc",
     rpcUrls: ["https://nova.arbitrum.io/rpc", "https://arbitrum-nova.publicnode.com"],
-    nativeCurrencySymbol: "ETH"
+    nativeCurrencySymbol: "ETH",
+    explorerUrl: "https://nova.arbiscan.io"
   },
   {
     networkId: "arbitrum-sepolia",
@@ -98,7 +105,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: false,
     selectedRpcUrl: "https://sepolia-rollup.arbitrum.io/rpc",
     rpcUrls: ["https://sepolia-rollup.arbitrum.io/rpc", "https://arbitrum-sepolia-rpc.publicnode.com"],
-    nativeCurrencySymbol: "ETH"
+    nativeCurrencySymbol: "ETH",
+    explorerUrl: "https://sepolia.arbiscan.io"
   },
   {
     networkId: "hyperliquid-mainnet",
@@ -109,7 +117,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: true,
     selectedRpcUrl: "https://rpc.hyperliquid.xyz/evm",
     rpcUrls: ["https://rpc.hyperliquid.xyz/evm", "https://rpc.hypurrscan.io", "https://hyperliquid.drpc.org"],
-    nativeCurrencySymbol: "HYPE"
+    nativeCurrencySymbol: "HYPE",
+    explorerUrl: "https://hyperevmscan.io"
   },
   {
     networkId: "hyperliquid-testnet",
@@ -120,7 +129,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: false,
     selectedRpcUrl: "https://rpc.hyperliquid-testnet.xyz/evm",
     rpcUrls: ["https://rpc.hyperliquid-testnet.xyz/evm"],
-    nativeCurrencySymbol: "HYPE"
+    nativeCurrencySymbol: "HYPE",
+    explorerUrl: "https://testnet.purrsec.com"
   },
   {
     networkId: "tron-mainnet",
@@ -131,7 +141,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: true,
     selectedRpcUrl: "https://api.trongrid.io/jsonrpc",
     rpcUrls: ["https://api.trongrid.io/jsonrpc", "https://tron.drpc.org", "https://rpc.ankr.com/tron_jsonrpc"],
-    nativeCurrencySymbol: "TRX"
+    nativeCurrencySymbol: "TRX",
+    explorerUrl: "https://tronscan.org"
   },
   {
     networkId: "tron-shasta",
@@ -142,7 +153,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: false,
     selectedRpcUrl: "https://api.shasta.trongrid.io/jsonrpc",
     rpcUrls: ["https://api.shasta.trongrid.io/jsonrpc"],
-    nativeCurrencySymbol: "TRX"
+    nativeCurrencySymbol: "TRX",
+    explorerUrl: "https://shasta.tronscan.org"
   },
   {
     networkId: "tron-nile",
@@ -153,7 +165,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: false,
     selectedRpcUrl: "https://nile.trongrid.io/jsonrpc",
     rpcUrls: ["https://nile.trongrid.io/jsonrpc"],
-    nativeCurrencySymbol: "TRX"
+    nativeCurrencySymbol: "TRX",
+    explorerUrl: "https://nile.tronscan.org"
   },
   {
     networkId: "bitcoin-mainnet",
@@ -163,7 +176,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: true,
     selectedRpcUrl: "https://blockstream.info/api",
     rpcUrls: ["https://blockstream.info/api", "https://mempool.space/api"],
-    nativeCurrencySymbol: "BTC"
+    nativeCurrencySymbol: "BTC",
+    explorerUrl: "https://mempool.space"
   },
   {
     networkId: "bitcoin-testnet",
@@ -173,7 +187,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: false,
     selectedRpcUrl: "https://blockstream.info/testnet/api",
     rpcUrls: ["https://blockstream.info/testnet/api", "https://mempool.space/testnet/api"],
-    nativeCurrencySymbol: "tBTC"
+    nativeCurrencySymbol: "tBTC",
+    explorerUrl: "https://mempool.space/testnet"
   },
   {
     networkId: "bitcoin-signet",
@@ -183,7 +198,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: false,
     selectedRpcUrl: "https://mempool.space/signet/api",
     rpcUrls: ["https://mempool.space/signet/api"],
-    nativeCurrencySymbol: "sBTC"
+    nativeCurrencySymbol: "sBTC",
+    explorerUrl: "https://mempool.space/signet"
   },
   {
     networkId: "polygon-mainnet",
@@ -194,7 +210,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: true,
     selectedRpcUrl: "https://polygon-rpc.com",
     rpcUrls: ["https://polygon-rpc.com", "https://polygon-bor-rpc.publicnode.com", "https://1rpc.io/matic"],
-    nativeCurrencySymbol: "POL"
+    nativeCurrencySymbol: "POL",
+    explorerUrl: "https://polygonscan.com"
   },
   {
     networkId: "polygon-amoy",
@@ -205,7 +222,8 @@ const BUILT_IN_NETWORKS: WalletNetworkSetting[] = [
     enabled: false,
     selectedRpcUrl: "https://rpc-amoy.polygon.technology",
     rpcUrls: ["https://rpc-amoy.polygon.technology", "https://polygon-amoy-bor-rpc.publicnode.com"],
-    nativeCurrencySymbol: "POL"
+    nativeCurrencySymbol: "POL",
+    explorerUrl: "https://amoy.polygonscan.com"
   }
 ];
 
@@ -245,6 +263,7 @@ export function getBuiltInNetworkSettings(savedSettings: WalletNetworkSetting[] 
       ...builtIn,
       enabled: saved?.enabled ?? builtIn.enabled,
       selectedRpcUrl,
+      explorerUrl: saved?.explorerUrl ?? builtIn.explorerUrl,
       rpcUrls
     };
   });
@@ -275,6 +294,7 @@ export function createCustomNetwork(input: CustomNetworkInput): WalletNetworkSet
     selectedRpcUrl: rpcUrl,
     rpcUrls: [rpcUrl],
     nativeCurrencySymbol: input.nativeCurrencySymbol.trim() || input.chain.trim() || "COIN",
+    explorerUrl: undefined,
     isCustom: true
   };
 }

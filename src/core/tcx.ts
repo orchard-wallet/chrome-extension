@@ -1,9 +1,14 @@
 import init, { create_keystore, derive_accounts, sign_tx } from "@consenlabs/tcx-wasm";
 import type { Hex } from "viem";
-import type { ClearSigningPreview } from "./clearSigning";
+import type { NativeTransferPreview } from "./clearSigning";
 
 export interface CreatedWallet {
   address: string;
+  chainAccounts: {
+    ethereum: string;
+    tron?: string;
+    bitcoin?: string;
+  };
   derivationPath: string;
   keystoreJson: string;
 }
@@ -13,6 +18,8 @@ export interface EthereumSignResult {
   serializedTransaction: Hex;
   txHash: string;
 }
+
+export type NativeTransferSignResult = EthereumSignResult;
 
 let initPromise: Promise<void> | null = null;
 
@@ -40,6 +47,8 @@ export async function createEthereumPasskeyWallet(input: {
   );
 
   const derivationPath = "m/44'/60'/0'/0/0";
+  const tronDerivationPath = "m/44'/195'/0'/0/0";
+  const bitcoinDerivationPath = "m/84'/0'/0'/0/0";
   const accounts = JSON.parse(
     derive_accounts(
       JSON.stringify({
@@ -51,20 +60,38 @@ export async function createEthereumPasskeyWallet(input: {
             derivationPath,
             chainId: "1",
             network: "MAINNET"
+          },
+          {
+            chain: "TRON",
+            derivationPath: tronDerivationPath,
+            network: "MAINNET"
+          },
+          {
+            chain: "BITCOIN",
+            derivationPath: bitcoinDerivationPath,
+            network: "MAINNET",
+            segWit: "VERSION_0"
           }
         ]
       })
     )
-  ) as Array<{ address: string }>;
+  ) as Array<{ address: string; chain?: string }>;
 
-  const address = accounts[0]?.address;
+  const ethereum = accounts.find((account) => account.chain === "ETHEREUM")?.address ?? accounts[0]?.address;
+  const tron = accounts.find((account) => account.chain === "TRON")?.address;
+  const bitcoin = accounts.find((account) => account.chain === "BITCOIN")?.address;
 
-  if (!address) {
+  if (!ethereum) {
     throw new Error("tcx-wasm did not return an Ethereum address.");
   }
 
   return {
-    address,
+    address: ethereum,
+    chainAccounts: {
+      ethereum,
+      tron,
+      bitcoin
+    },
     derivationPath,
     keystoreJson
   };
@@ -92,7 +119,7 @@ export async function signEthereumTransfer(input: {
   keystoreJson: string;
   key: string;
   derivationPath: string;
-  preview: ClearSigningPreview;
+  preview: NativeTransferPreview;
 }): Promise<EthereumSignResult> {
   await initTcx();
 
@@ -126,3 +153,5 @@ export async function signEthereumTransfer(input: {
     serializedTransaction: normalizeSerializedTransaction(result.signature)
   };
 }
+
+export const signNativeTokenTransfer = signEthereumTransfer;
