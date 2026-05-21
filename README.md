@@ -20,6 +20,14 @@ Chrome Extension wallet prototype using `@consenlabs/tcx-wasm` for local keystor
 
 ## Run
 
+WalletConnect uses a build-time extension environment variable. Configure it before building:
+
+```bash
+VITE_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
+```
+
+This repository includes a local `.env` value for the current extension build.
+
 ```bash
 npm install
 npm run build

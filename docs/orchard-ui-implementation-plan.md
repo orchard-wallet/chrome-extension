@@ -23,11 +23,11 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Tasks
 
-- [ ] Add Orchard tokens into the app stylesheet:
+- [x] Add Orchard tokens into the app stylesheet:
   - Import or copy `tokens.css` into `src/styles.css` or `src/styles/orchard-tokens.css`.
   - Map existing colors/radii/shadows to `--ow-*` tokens.
   - Remove the current warm brown palette where it conflicts with Orchard.
-- [ ] Create reusable UI primitives:
+- [x] Create reusable UI primitives:
   - `Surface`
   - `Widget`
   - `HeroWidget`
@@ -37,12 +37,12 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
   - `StatusBadge`
   - `TokenIcon`
   - `ChainIcon`
-- [ ] Add layout primitives:
+- [x] Add layout primitives:
   - compact extension shell
   - expanded desktop/sidebar shell
   - widget grid
   - modal/sheet container
-- [ ] Add accessibility baseline:
+- [x] Add accessibility baseline:
   - accessible labels for icon buttons
   - visible focus states
   - reduced-motion CSS
@@ -58,7 +58,7 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Tasks
 
-- [ ] Introduce a route/view state model for popup:
+- [x] Introduce a route/view state model for popup:
   - `home`
   - `assets`
   - `activity`
@@ -68,11 +68,11 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
   - `connected-sessions`
   - `security`
   - `settings`
-- [ ] Replace current long single-column popup with Orchard navigation:
+- [x] Replace current long single-column popup with Orchard navigation:
   - compact icon navigation for popup
   - optional sidebar layout for expanded/options page
-- [ ] Keep current Settings page available, but align it with the new navigation and visual system.
-- [ ] Add shared header patterns:
+- [x] Keep current Settings page available, but align it with the new navigation and visual system.
+- [x] Add shared header patterns:
   - wallet identity
   - back button
   - help button
@@ -87,29 +87,29 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Tasks
 
-- [ ] Implement `BalanceHeroWidget` from `PortfolioSnapshot`:
+- [x] Implement `BalanceHeroWidget` from `PortfolioSnapshot`:
   - total balance
   - change placeholder
   - mini sparkline placeholder
   - private balance mode hook
-- [ ] Implement `ActionWidget` grid:
+- [x] Implement `ActionWidget` grid:
   - Send
   - Receive
   - Swap placeholder
   - Activity placeholder
-- [ ] Implement top asset widgets from `AssetStore`:
+- [x] Implement top asset widgets from `AssetStore`:
   - token/native asset symbol
   - balance
   - fiat value when price is available
   - chain/network label
-- [ ] Implement `NetworkStatusWidget`:
+- [x] Implement `NetworkStatusWidget`:
   - enabled network count
   - failed/stale RPC count
   - refresh action
-- [ ] Implement `SessionWidget` summary:
+- [x] Implement `SessionWidget` summary:
   - active WalletConnect session count
   - most recent connected dapp
-- [ ] Add widget state handling:
+- [x] Add widget state handling:
   - loading
   - empty
   - error
@@ -117,12 +117,12 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Required Data Work
 
-- [ ] Extend portfolio snapshot with:
+- [x] Extend portfolio snapshot with:
   - `staleAt`
   - `failedNetworkIds`
   - `lastUpdatedAt`
-- [ ] Add simple sparkline placeholder data until historical prices are available.
-- [ ] Add privacy mode setting.
+- [x] Add simple sparkline placeholder data until historical prices are available.
+- [x] Add privacy mode setting.
 
 ### Acceptance Criteria
 
@@ -133,8 +133,8 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Tasks
 
-- [ ] Replace inline send section with dedicated `Send` view.
-- [ ] Implement `SendFormWidget`:
+- [x] Replace inline send section with dedicated `Send` view.
+- [x] Implement `SendFormWidget`:
   - from account widget
   - token selector widget
   - recipient address / ENS input
@@ -144,15 +144,15 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
   - amount input with `MAX`
   - estimated fee widget
   - review transfer CTA
-- [ ] Implement `TokenPickerSheet`:
+- [x] Implement `TokenPickerSheet`:
   - search tokens
   - current native assets from `AssetStore`
   - selected state
   - manage tokens placeholder
-- [ ] Keep EVM-only transfer enforcement:
+- [x] Keep EVM-only transfer enforcement:
   - Ethereum, Arbitrum, HyperEVM, Polygon, custom EVM
   - Tron/Bitcoin hidden until chain-specific transfer adapters exist.
-- [ ] Add recent recipients store:
+- [x] Add recent recipients store:
   - address
   - ENS label if available
   - last used timestamp
@@ -160,12 +160,12 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Required Functional Work
 
-- [ ] Generalize current native transfer model from ETH-only naming to `native token transfer`.
-- [ ] Add token selection state:
+- [x] Generalize current native transfer model from ETH-only naming to `native token transfer`.
+- [x] Add token selection state:
   - native assets first
   - ERC-20 later
-- [ ] Add chain-aware explorer links for more supported networks.
-- [ ] Add validation for network mismatch between selected token and selected network.
+- [x] Add chain-aware explorer links for more supported networks.
+- [x] Add validation for network mismatch between selected token and selected network.
 
 ### Acceptance Criteria
 
@@ -177,37 +177,37 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Tasks
 
-- [ ] Convert current `ClearSigningPreviewCard` into a dedicated preview screen/sheet.
-- [ ] Implement Orchard hierarchy:
+- [x] Convert current `ClearSigningPreviewCard` into a dedicated preview screen/sheet.
+- [x] Implement Orchard hierarchy:
   - action header with expiration timer
   - send/receive or send-only gradient summary
   - human-readable detail rows
   - safety scope widget
   - advanced data collapsed row
   - reject / sign and continue actions
-- [ ] Add preview variants:
+- [x] Add preview variants:
   - native send
   - WalletConnect transaction approval
   - sign message
   - token approval
   - swap, later
-- [ ] Keep raw calldata hidden under advanced data.
-- [ ] Enforce parser failure behavior:
+- [x] Keep raw calldata hidden under advanced data.
+- [x] Enforce parser failure behavior:
   - never fallback to direct signing
   - show risk state
   - disable primary CTA unless explicitly supported
 
 ### Required Functional Work
 
-- [ ] Expand `src/core/clearSigning.ts` from native transfer preview to a typed parser layer:
+- [x] Expand `src/core/clearSigning.ts` from native transfer preview to a typed parser layer:
   - `NativeTransferPreview`
   - `ContractCallPreview`
   - `MessageSignaturePreview`
   - `ApprovalPreview`
-- [ ] Add approval scope detection for ERC-20 approvals:
+- [x] Add approval scope detection for ERC-20 approvals:
   - exact approval
   - unlimited approval
-- [ ] Add expiration timer for approval UI requests.
+- [x] Add expiration timer for approval UI requests.
 
 ### Acceptance Criteria
 
@@ -218,25 +218,25 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Tasks
 
-- [ ] Replace auto-approval in `src/background.ts` with an in-wallet approval flow:
+- [x] Replace auto-approval in `src/background.ts` with an in-wallet approval flow:
   - receive `session_proposal`
   - persist pending proposal
   - open approval UI
   - approve/reject from UI
-- [ ] Implement `Connect to dApp` approval screen:
+- [x] Implement `Connect to dApp` approval screen:
   - dapp identity gradient card
   - permission request list
   - wallet and network access widget
   - security summary widget
   - cancel / approve connection
-- [ ] Implement full `Connected Sessions` view:
+- [x] Implement full `Connected Sessions` view:
   - active sessions summary
   - search
   - filter
   - sort
   - session rows
   - disconnect all
-- [ ] Implement `SessionDetail` view:
+- [x] Implement `SessionDetail` view:
   - metadata
   - connected account
   - allowed chains
@@ -246,22 +246,22 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Required Functional Work
 
-- [ ] Add pending WalletConnect proposal storage.
-- [ ] Add runtime messages:
+- [x] Add pending WalletConnect proposal storage.
+- [x] Add runtime messages:
   - `walletconnect_pending_proposals`
   - `walletconnect_approve_proposal`
   - `walletconnect_reject_proposal`
   - `walletconnect_disconnect_all`
-- [ ] Track session activity:
+- [x] Track session activity:
   - last active timestamp on request
   - method history summary
   - domain from metadata URL
-- [ ] Add security checks:
+- [x] Add security checks:
   - metadata domain mismatch
   - unverified dapp warning
   - risky method summary
   - unsupported chain warning
-- [ ] Expand approved namespaces to match enabled EVM networks instead of only `eip155:1`.
+- [x] Expand approved namespaces to match enabled EVM networks instead of only `eip155:1`.
 
 ### Acceptance Criteria
 
@@ -273,8 +273,8 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Tasks
 
-- [ ] Move network management into Orchard `Networks` view.
-- [ ] Implement `NetworkRowWidget`:
+- [x] Move network management into Orchard `Networks` view.
+- [x] Implement `NetworkRowWidget`:
   - chain icon
   - chain name
   - native token
@@ -282,13 +282,13 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
   - enabled / disabled state
   - toggle
   - chevron
-- [ ] Implement expanded network detail:
+- [x] Implement expanded network detail:
   - selected RPC
   - RPC status
   - explorer URL
   - gas status
   - custom RPC controls
-- [ ] Keep built-in network list:
+- [x] Keep built-in network list:
   - Ethereum
   - Arbitrum
   - Hyperliquid
@@ -296,16 +296,16 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
   - Bitcoin
   - Polygon
   - related testnets
-- [ ] Preserve manual custom network flow.
+- [x] Preserve manual custom network flow.
 
 ### Required Functional Work
 
-- [ ] Add network health checks:
+- [x] Add network health checks:
   - latest block number
   - latency
   - failure reason
-- [ ] Store per-network default/explorer metadata.
-- [ ] Add default send network preference.
+- [x] Store per-network default/explorer metadata.
+- [x] Add default send network preference.
 
 ### Acceptance Criteria
 
@@ -316,34 +316,34 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Tasks
 
-- [ ] Implement `Assets` view:
+- [x] Implement `Assets` view:
   - native assets grouped by token
   - chain-specific rows
   - fiat value where price exists
-- [ ] Implement `TokenDistribution` view:
+- [x] Implement `TokenDistribution` view:
   - selected token hero
   - token selector tabs
   - distribution overview
   - top/lowest network summary
   - network distribution rows
-- [ ] Add placeholder charts:
+- [x] Add placeholder charts:
   - sparkline
   - distribution ring
   - progress bars
 
 ### Required Functional Work
 
-- [ ] Extend asset model from native-only to token-aware:
+- [x] Extend asset model from native-only to token-aware:
   - ERC-20 definitions
   - token balances
   - token discovery/import
   - token grouping across chains by symbol/address mapping
-- [ ] Add ERC-20 balance adapter for EVM.
-- [ ] Add price mapping for ERC-20 tokens.
-- [ ] Add Tron and Bitcoin balance adapters:
+- [x] Add ERC-20 balance adapter for EVM.
+- [x] Add price mapping for ERC-20 tokens.
+- [x] Add Tron and Bitcoin balance adapters:
   - Tron native TRX
   - Bitcoin UTXO balance
-- [ ] Add cache freshness and manual refresh controls per asset.
+- [x] Add cache freshness and manual refresh controls per asset.
 
 ### Acceptance Criteria
 
@@ -354,29 +354,29 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Tasks
 
-- [ ] Implement `Activity` view:
+- [x] Implement `Activity` view:
   - sent transactions
   - broadcast hashes
   - WalletConnect session events
   - failed signing attempts
-- [ ] Implement `Security` view:
+- [x] Implement `Security` view:
   - passkey wallet state
   - dapp session risk summary
   - clear-signing parser coverage
   - network mismatch warnings
-- [ ] Add user-readable event copy based on the writing system.
+- [x] Add user-readable event copy based on the writing system.
 
 ### Required Functional Work
 
-- [ ] Add local activity event store.
-- [ ] Record:
+- [x] Add local activity event store.
+- [x] Record:
   - wallet created/reset
   - transfer preview accepted
   - transaction signed
   - transaction broadcasted
   - WalletConnect connected/disconnected
   - session request rejected
-- [ ] Add severity levels:
+- [x] Add severity levels:
   - info
   - success
   - warning
@@ -391,17 +391,17 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 
 ### Tasks
 
-- [ ] Implement `WidgetCustomizationList`:
+- [x] Implement `WidgetCustomizationList`:
   - visibility toggles
   - drag handles
   - reset
   - widget descriptions
   - recommended/default badges
-- [ ] Add persistent layout settings:
+- [x] Add persistent layout settings:
   - visible widgets
   - widget order
   - collapsed/expanded state
-- [ ] Add privacy mode:
+- [x] Add privacy mode:
   - hide balances
   - preserve layout
   - quick toggle
@@ -424,15 +424,11 @@ This plan maps the provided `orchard_wallet_design_system` artifacts to the curr
 9. Activity and Security screens.
 10. Widget customization and privacy mode.
 
-## Current Functional Gaps to Track
+## Current Implementation Notes
 
-- WalletConnect proposal approval is still automatic in background and must become user-confirmed.
-- WalletConnect session list exists, but lacks search/filter/sort/detail/last-active tracking.
-- Clear Signing only covers native EVM transfer.
-- Send only supports native EVM transfers.
-- Asset refresh only supports EVM native balances.
-- Tron and Bitcoin are configured networks but do not yet have balance or send adapters.
-- ERC-20 token discovery/balance/approval parsing is not implemented.
-- No activity/event store exists.
-- No privacy mode exists.
-- No widget customization or layout persistence exists.
+- WalletConnect proposal approval requires in-wallet approval from the popup.
+- WalletConnect session management includes search, filter, sort, detail, disconnect-one, disconnect-all, last-active tracking, domain extraction, and method history.
+- Clear Signing has a typed parser layer for native sends, WalletConnect contract calls, message signatures, and ERC-20 approvals; unsupported requests remain risk states and cannot fall through to direct signing.
+- Send supports native EVM transfers with token/network selection, recent recipients, fee estimates, MAX amount, and clear-signing review.
+- Asset refresh supports EVM native balances, configured ERC-20 balances, imported ERC-20 token definitions, Tron TRX balances, Bitcoin UTXO balances, token grouping, price mapping, freshness metadata, and manual refresh controls.
+- Activity, Security, privacy mode, and Home widget customization persist in local extension storage.

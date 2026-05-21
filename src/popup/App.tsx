@@ -1,39 +1,58 @@
 import {
   AlertTriangle,
+  ArrowLeft,
+  Activity,
+  BookOpen,
+  ChevronDown,
   Check,
   Copy,
+  Eye,
+  EyeOff,
   FileCheck2,
   KeyRound,
   Loader2,
+  Maximize2,
+  Network,
   QrCode,
   RefreshCcw,
   Search,
   Send,
   Settings2,
   ShieldCheck,
+  SlidersHorizontal,
   Unplug,
   Wallet
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Address } from "viem";
 import { formatTokenAmount, formatUsd, type AssetStore, type ChainAssetSnapshot } from "../core/assets";
-import { buildNativeEthTransferPreview, canSignPreview } from "../core/clearSigning";
+import { buildNativeTokenTransferPreview, canSignPreview } from "../core/clearSigning";
 import { resolveRecipient, type RecipientResolution } from "../core/ens";
 import { getBuiltInNetworkSettings, type WalletNetworkSetting } from "../core/networks";
 import { readPortfolioStore, refreshPortfolio } from "../core/portfolio";
-import { broadcastSignedTransaction, estimateNativeEthTransfer, type TransactionFeeEstimate } from "../core/rpc";
-import { createEthereumPasskeyWallet, signEthereumTransfer, type EthereumSignResult } from "../core/tcx";
+import { broadcastSignedTransaction, checkNetworkHealth, estimateNativeTokenTransfer, type NetworkHealthCheck, type TransactionFeeEstimate } from "../core/rpc";
+import { createEthereumPasskeyWallet, signNativeTokenTransfer, type NativeTransferSignResult } from "../core/tcx";
 import { createPasskeyPrf, unlockPasskeyPrf } from "../core/webauthn";
 import {
+  appendActivityEvent,
   clearWalletRecord,
+  readActivityEvents,
   readNetworkSettings,
-  readWalletConnectSettings,
+  readRecentRecipients,
+  readWalletUiSettings,
   readWalletRecord,
+  upsertRecentRecipient,
+  writeNetworkSettings,
+  writeWalletUiSettings,
+  type ActivityEvent,
+  type PendingWalletConnectProposal,
+  type RecentRecipient,
   WalletRecord,
   writeWalletRecord
 } from "../lib/storage";
 
+type PopupView = "home" | "assets" | "activity" | "send" | "receive" | "networks" | "connected-sessions" | "security" | "settings";
 type Status = "idle" | "creating" | "ready" | "error";
 type ResolverStatus = "idle" | "resolving";
 type FeeStatus = "idle" | "estimating" | "ready" | "error";
@@ -41,6 +60,7 @@ type SigningStatus = "idle" | "signing" | "broadcasting" | "broadcasted" | "erro
 type PortfolioLoadStatus = "idle" | "loading" | "ready" | "error";
 type WalletConnectStatus = "idle" | "pairing" | "paired" | "error";
 type WalletConnectSessionsStatus = "idle" | "loading" | "ready" | "error";
+type WalletConnectProposalStatus = "idle" | "loading" | "ready" | "error";
 
 interface WalletConnectSessionSummary {
   topic: string;
@@ -52,15 +72,20 @@ interface WalletConnectSessionSummary {
   chains: string[];
   methods: string[];
   expiry?: number;
+  domain?: string;
+  lastActiveAt?: string;
+  methodHistory?: string[];
 }
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-function openSettingsPage() {
+function openSettingsPage(targetView?: string) {
+  const targetPath = `src/settings/index.html${targetView ? `#${targetView}` : ""}`;
+
   if (typeof chrome !== "undefined" && chrome.runtime?.getURL) {
-    window.open(chrome.runtime.getURL("src/settings/index.html"), "_blank", "noopener,noreferrer");
+    window.open(chrome.runtime.getURL(targetPath), "_blank", "noopener,noreferrer");
     return;
   }
 
@@ -69,7 +94,7 @@ function openSettingsPage() {
     return;
   }
 
-  window.open("/src/settings/index.html", "_blank", "noopener,noreferrer");
+  window.open(`/src/settings/index.html${targetView ? `#${targetView}` : ""}`, "_blank", "noopener,noreferrer");
 }
 
 function sendRuntimeMessage<TResponse>(message: unknown): Promise<TResponse> {
@@ -98,6 +123,10 @@ function sendRuntimeMessage<TResponse>(message: unknown): Promise<TResponse> {
 }
 
 function txExplorerUrl(hash: string, network: WalletNetworkSetting | null): string | null {
+  if (network?.explorerUrl) {
+    return `${network.explorerUrl.replace(/\/$/, "")}/tx/${hash}`;
+  }
+
   switch (network?.chainId) {
     case 1:
       return `https://etherscan.io/tx/${hash}`;
@@ -117,20 +146,29 @@ function txExplorerUrl(hash: string, network: WalletNetworkSetting | null): stri
 }
 
 export function App() {
+  const [view, setView] = useState<PopupView>("home");
   const [wallet, setWallet] = useState<WalletRecord | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [portfolioStatus, setPortfolioStatus] = useState<PortfolioLoadStatus>("idle");
   const [portfolioStore, setPortfolioStore] = useState<AssetStore | null>(null);
   const [portfolioError, setPortfolioError] = useState<string | null>(null);
   const [selectedChainId, setSelectedChainId] = useState<string | null>(null);
+  const [networkSettings, setNetworkSettings] = useState<WalletNetworkSetting[]>([]);
+  const [networkHealth, setNetworkHealth] = useState<Record<string, NetworkHealthCheck>>({});
+  const [networkHealthStatus, setNetworkHealthStatus] = useState<"idle" | "loading" | "ready">("idle");
+  const [privacyMode, setPrivacyMode] = useState(false);
+  const [visibleWidgets, setVisibleWidgets] = useState<string[]>([]);
+  const [widgetOrder, setWidgetOrder] = useState<string[]>([]);
   const [resolverStatus, setResolverStatus] = useState<ResolverStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
+  const [recentRecipients, setRecentRecipients] = useState<RecentRecipient[]>([]);
   const [recipientInput, setRecipientInput] = useState("");
   const [recipientResolution, setRecipientResolution] = useState<RecipientResolution>({ kind: "empty", input: "" });
   const [sendNetworks, setSendNetworks] = useState<WalletNetworkSetting[]>([]);
   const [selectedSendNetworkId, setSelectedSendNetworkId] = useState<string | null>(null);
+  const [tokenPickerOpen, setTokenPickerOpen] = useState(false);
   const [amountInput, setAmountInput] = useState("");
   const [feeStatus, setFeeStatus] = useState<FeeStatus>("idle");
   const [feeEstimate, setFeeEstimate] = useState<TransactionFeeEstimate | null>(null);
@@ -138,7 +176,7 @@ export function App() {
   const [previewAccepted, setPreviewAccepted] = useState(false);
   const [signingStatus, setSigningStatus] = useState<SigningStatus>("idle");
   const [signingError, setSigningError] = useState<string | null>(null);
-  const [signatureResult, setSignatureResult] = useState<EthereumSignResult | null>(null);
+  const [signatureResult, setSignatureResult] = useState<NativeTransferSignResult | null>(null);
   const [broadcastHash, setBroadcastHash] = useState<string | null>(null);
   const [walletConnectUri, setWalletConnectUri] = useState("");
   const [walletConnectStatus, setWalletConnectStatus] = useState<WalletConnectStatus>("idle");
@@ -147,6 +185,27 @@ export function App() {
   const [walletConnectSessions, setWalletConnectSessions] = useState<WalletConnectSessionSummary[]>([]);
   const [walletConnectSessionsError, setWalletConnectSessionsError] = useState<string | null>(null);
   const [disconnectingTopic, setDisconnectingTopic] = useState<string | null>(null);
+  const [walletConnectProposalsStatus, setWalletConnectProposalsStatus] = useState<WalletConnectProposalStatus>("idle");
+  const [walletConnectProposals, setWalletConnectProposals] = useState<PendingWalletConnectProposal[]>([]);
+  const [walletConnectProposalsError, setWalletConnectProposalsError] = useState<string | null>(null);
+  const [actingProposalId, setActingProposalId] = useState<number | null>(null);
+
+  function applyNetworkSettings(settings: WalletNetworkSetting[]) {
+    const mergedNetworks = getBuiltInNetworkSettings(settings);
+    const evmNetworks = mergedNetworks.filter(
+      (network) =>
+        network.enabled &&
+        ["ethereum", "arbitrum", "hyperliquid", "polygon", "custom"].includes(network.family) &&
+        typeof network.chainId === "number" &&
+        /^https?:\/\//i.test(network.selectedRpcUrl)
+    );
+
+    setSendNetworks(evmNetworks);
+    setSelectedSendNetworkId((current) =>
+      current && evmNetworks.some((network) => network.networkId === current) ? current : (evmNetworks[0]?.networkId ?? null)
+    );
+    setNetworkSettings(mergedNetworks);
+  }
 
   useEffect(() => {
     readWalletRecord()
@@ -161,6 +220,25 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    readWalletUiSettings()
+      .then((settings) => {
+        setPrivacyMode(settings.privacyMode);
+        setVisibleWidgets(settings.visibleWidgets);
+        setWidgetOrder(settings.widgetOrder);
+        setSelectedSendNetworkId(settings.defaultSendNetworkId);
+      })
+      .catch(() => undefined);
+
+    readActivityEvents()
+      .then(setActivityEvents)
+      .catch(() => undefined);
+
+    readRecentRecipients()
+      .then(setRecentRecipients)
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     readNetworkSettings()
@@ -169,22 +247,12 @@ export function App() {
           return;
         }
 
-        const evmNetworks = getBuiltInNetworkSettings(settings).filter(
-          (network) =>
-            network.enabled &&
-            ["ethereum", "arbitrum", "hyperliquid", "polygon", "custom"].includes(network.family) &&
-            typeof network.chainId === "number" &&
-            /^https?:\/\//i.test(network.selectedRpcUrl)
-        );
-
-        setSendNetworks(evmNetworks);
-        setSelectedSendNetworkId((current) =>
-          current && evmNetworks.some((network) => network.networkId === current) ? current : (evmNetworks[0]?.networkId ?? null)
-        );
+        applyNetworkSettings(settings);
       })
       .catch((cause: unknown) => {
         if (!cancelled) {
           setError(cause instanceof Error ? cause.message : "Unable to load enabled networks.");
+          applyNetworkSettings([]);
         }
       });
 
@@ -192,6 +260,37 @@ export function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const enabledNetworks = networkSettings.filter((network) => network.enabled);
+
+    if (enabledNetworks.length === 0) {
+      setNetworkHealth({});
+      setNetworkHealthStatus("idle");
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setNetworkHealthStatus("loading");
+    Promise.all(enabledNetworks.map((network) => checkNetworkHealth(network)))
+      .then((results) => {
+        if (!cancelled) {
+          setNetworkHealth(Object.fromEntries(results.map((result) => [result.networkId, result])));
+          setNetworkHealthStatus("ready");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setNetworkHealthStatus("ready");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [networkSettings]);
 
   const displayAddress = useMemo(() => (wallet ? formatAddress(wallet.address) : "No wallet yet"), [wallet]);
   const displayPortfolioTotal = useMemo(() => {
@@ -226,7 +325,7 @@ export function App() {
   );
   const previewResult = useMemo(
     () =>
-      buildNativeEthTransferPreview({
+      buildNativeTokenTransferPreview({
         from: wallet ? (wallet.address as Address) : null,
         recipient: recipientResolution,
         amount: amountInput,
@@ -238,7 +337,7 @@ export function App() {
 
   const basePreviewResult = useMemo(
     () =>
-      buildNativeEthTransferPreview({
+      buildNativeTokenTransferPreview({
         from: wallet ? (wallet.address as Address) : null,
         recipient: recipientResolution,
         amount: amountInput,
@@ -278,7 +377,7 @@ export function App() {
       })
       .catch(() => undefined);
 
-    refreshPortfolio(wallet.address as Address)
+    refreshPortfolio(wallet.address as Address, wallet.chainAccounts)
       .then(({ store }) => {
         if (!cancelled) {
           setPortfolioStore(store);
@@ -301,10 +400,13 @@ export function App() {
     if (!wallet) {
       setWalletConnectSessions([]);
       setWalletConnectSessionsStatus("idle");
+      setWalletConnectProposals([]);
+      setWalletConnectProposalsStatus("idle");
       return;
     }
 
     void refreshWalletConnectSessions();
+    void refreshWalletConnectProposals();
   }, [wallet]);
 
   useEffect(() => {
@@ -322,7 +424,7 @@ export function App() {
 
     setFeeStatus("estimating");
 
-    estimateNativeEthTransfer({
+    estimateNativeTokenTransfer({
       from: basePreviewResult.preview.from,
       to: basePreviewResult.preview.to,
       value: basePreviewResult.preview.amountWei,
@@ -394,6 +496,12 @@ export function App() {
       await writeWalletRecord(record);
       setWallet(record);
       setStatus("ready");
+      void recordActivity({
+        type: "wallet_created",
+        title: "Wallet created",
+        detail: formatAddress(record.address),
+        severity: "success"
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to create wallet.");
       setStatus("error");
@@ -415,9 +523,14 @@ export function App() {
     setWallet(null);
     setStatus("idle");
     setError(null);
-    setReceiveOpen(false);
     setPortfolioStore(null);
     setSelectedChainId(null);
+    void recordActivity({
+      type: "wallet_reset",
+      title: "Wallet reset",
+      detail: "Local wallet record was removed from this browser.",
+      severity: "warning"
+    });
   }
 
   async function handleRefreshPortfolio() {
@@ -429,13 +542,107 @@ export function App() {
     setPortfolioError(null);
 
     try {
-      const { store } = await refreshPortfolio(wallet.address as Address);
+      const { store } = await refreshPortfolio(wallet.address as Address, wallet.chainAccounts);
       setPortfolioStore(store);
       setPortfolioStatus("ready");
     } catch (cause) {
       setPortfolioError(cause instanceof Error ? cause.message : "Unable to refresh portfolio.");
       setPortfolioStatus("error");
     }
+  }
+
+  async function recordActivity(event: Omit<ActivityEvent, "id" | "createdAt">) {
+    try {
+      setActivityEvents(await appendActivityEvent(event));
+    } catch {
+      // Activity is helpful history, not a blocker for signing or wallet actions.
+    }
+  }
+
+  async function handleSelectSendNetwork(networkId: string | null) {
+    setSelectedSendNetworkId(networkId);
+
+    try {
+      const settings = await readWalletUiSettings();
+      await writeWalletUiSettings({
+        ...settings,
+        defaultSendNetworkId: networkId
+      });
+    } catch {
+      setError("Default send network changed for this popup, but could not be saved.");
+    }
+  }
+
+  async function handleUpdateNetwork(networkId: string, updater: (network: WalletNetworkSetting) => WalletNetworkSetting) {
+    const nextNetworks = networkSettings.map((network) => (network.networkId === networkId ? updater(network) : network));
+    applyNetworkSettings(nextNetworks);
+
+    try {
+      await writeNetworkSettings(nextNetworks);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save network settings.");
+    }
+  }
+
+  async function handleTogglePrivacyMode() {
+    const nextPrivacyMode = !privacyMode;
+    setPrivacyMode(nextPrivacyMode);
+
+    try {
+      const settings = await readWalletUiSettings();
+      await writeWalletUiSettings({
+        ...settings,
+        privacyMode: nextPrivacyMode
+      });
+    } catch {
+      setError("Privacy mode changed for this popup, but could not be saved.");
+    }
+  }
+
+  async function persistWidgetSettings(nextVisibleWidgets: string[], nextWidgetOrder: string[]) {
+    setVisibleWidgets(nextVisibleWidgets);
+    setWidgetOrder(nextWidgetOrder);
+
+    try {
+      const settings = await readWalletUiSettings();
+      await writeWalletUiSettings({
+        ...settings,
+        visibleWidgets: nextVisibleWidgets,
+        widgetOrder: nextWidgetOrder
+      });
+    } catch {
+      setError("Widget layout changed for this popup, but could not be saved.");
+    }
+  }
+
+  function handleToggleWidget(widgetId: string) {
+    const nextVisibleWidgets = visibleWidgets.includes(widgetId)
+      ? visibleWidgets.filter((id) => id !== widgetId)
+      : [...visibleWidgets, widgetId];
+    void persistWidgetSettings(nextVisibleWidgets, widgetOrder);
+  }
+
+  function handleMoveWidget(widgetId: string, direction: -1 | 1) {
+    const index = widgetOrder.indexOf(widgetId);
+
+    if (index === -1) {
+      return;
+    }
+
+    const targetIndex = index + direction;
+
+    if (targetIndex < 0 || targetIndex >= widgetOrder.length) {
+      return;
+    }
+
+    const nextWidgetOrder = [...widgetOrder];
+    [nextWidgetOrder[index], nextWidgetOrder[targetIndex]] = [nextWidgetOrder[targetIndex], nextWidgetOrder[index]];
+    void persistWidgetSettings(visibleWidgets, nextWidgetOrder);
+  }
+
+  function handleResetWidgets() {
+    const defaults = ["balance", "actions", "assets", "networks", "sessions"];
+    void persistWidgetSettings(defaults, defaults);
   }
 
   async function handlePreviewAction() {
@@ -445,6 +652,12 @@ export function App() {
 
     if (!previewAccepted) {
       setPreviewAccepted(true);
+      void recordActivity({
+        type: "transfer_preview_accepted",
+        title: "Transfer preview reviewed",
+        detail: `${previewResult.preview.amount} ${previewResult.preview.asset} to ${previewResult.preview.recipientLabel}`,
+        severity: "info"
+      });
       return;
     }
 
@@ -453,7 +666,7 @@ export function App() {
 
     try {
       const key = await unlockPasskeyPrf(wallet.credentialId);
-      const result = await signEthereumTransfer({
+      const result = await signNativeTokenTransfer({
         keystoreJson: wallet.keystoreJson,
         key,
         derivationPath: wallet.derivationPath,
@@ -461,14 +674,43 @@ export function App() {
       });
 
       setSignatureResult(result);
+      void recordActivity({
+        type: "transaction_signed",
+        title: "Transaction signed",
+        detail: `${previewResult.preview.amount} ${previewResult.preview.asset} on ${previewResult.preview.networkName}`,
+        severity: "success"
+      });
       setSigningStatus("broadcasting");
 
       const hash = await broadcastSignedTransaction(result.serializedTransaction, selectedSendNetwork ?? undefined);
       setBroadcastHash(hash);
       setSigningStatus("broadcasted");
+      void recordActivity({
+        type: "transaction_broadcasted",
+        title: "Transaction broadcasted",
+        detail: hash,
+        severity: "success"
+      });
+      if (selectedSendNetwork) {
+        upsertRecentRecipient({
+          address: previewResult.preview.to,
+          ensLabel: previewResult.preview.recipientSource === "ens" ? previewResult.preview.recipientLabel : undefined,
+          lastUsedAt: new Date().toISOString(),
+          networkId: selectedSendNetwork.networkId,
+          networkName: selectedSendNetwork.name
+        })
+          .then(setRecentRecipients)
+          .catch(() => undefined);
+      }
     } catch (cause) {
       setSigningError(cause instanceof Error ? cause.message : "Unable to sign or broadcast transaction.");
       setSigningStatus("error");
+      void recordActivity({
+        type: "signing_failed",
+        title: "Signing failed",
+        detail: cause instanceof Error ? cause.message : "Unable to sign or broadcast transaction.",
+        severity: "danger"
+      });
     }
   }
 
@@ -479,12 +721,6 @@ export function App() {
     try {
       if (!wallet) {
         throw new Error("Create or unlock a wallet before pairing WalletConnect.");
-      }
-
-      const settings = await readWalletConnectSettings();
-
-      if (!settings.projectId.trim()) {
-        throw new Error("Set WalletConnect Project ID in Network Settings first.");
       }
 
       const response = await sendRuntimeMessage<{ result?: { pairings: number; sessions: number }; error?: { message: string } }>({
@@ -529,6 +765,100 @@ export function App() {
     }
   }
 
+  async function refreshWalletConnectProposals() {
+    setWalletConnectProposalsStatus("loading");
+    setWalletConnectProposalsError(null);
+
+    try {
+      const response = await sendRuntimeMessage<{
+        result?: { proposals: PendingWalletConnectProposal[] };
+        error?: { message: string };
+      }>({
+        type: "walletconnect_pending_proposals"
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      setWalletConnectProposals(response.result?.proposals ?? []);
+      setWalletConnectProposalsStatus("ready");
+    } catch (cause) {
+      setWalletConnectProposalsError(cause instanceof Error ? cause.message : "Unable to load WalletConnect proposals.");
+      setWalletConnectProposalsStatus("error");
+    }
+  }
+
+  async function handleWalletConnectApproveProposal(id: number) {
+    setActingProposalId(id);
+    setWalletConnectProposalsError(null);
+
+    try {
+      const response = await sendRuntimeMessage<{
+        result?: { proposals: PendingWalletConnectProposal[]; sessions: WalletConnectSessionSummary[] };
+        error?: { message: string };
+      }>({
+        type: "walletconnect_approve_proposal",
+        id
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      setWalletConnectProposals(response.result?.proposals ?? []);
+      setWalletConnectSessions(response.result?.sessions ?? []);
+      setWalletConnectSessionsStatus("ready");
+      setWalletConnectProposalsStatus("ready");
+      const proposal = walletConnectProposals.find((item) => item.id === id);
+      void recordActivity({
+        type: "walletconnect_connected",
+        title: "Dapp connected",
+        detail: proposal?.name ?? `Proposal ${id}`,
+        severity: "success"
+      });
+    } catch (cause) {
+      setWalletConnectProposalsError(cause instanceof Error ? cause.message : "Unable to approve WalletConnect proposal.");
+      setWalletConnectProposalsStatus("error");
+    } finally {
+      setActingProposalId(null);
+    }
+  }
+
+  async function handleWalletConnectRejectProposal(id: number) {
+    setActingProposalId(id);
+    setWalletConnectProposalsError(null);
+
+    try {
+      const response = await sendRuntimeMessage<{
+        result?: { proposals: PendingWalletConnectProposal[] };
+        error?: { message: string };
+      }>({
+        type: "walletconnect_reject_proposal",
+        id
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      setWalletConnectProposals(response.result?.proposals ?? []);
+      setWalletConnectProposalsStatus("ready");
+      const proposal = walletConnectProposals.find((item) => item.id === id);
+      void recordActivity({
+        type: "walletconnect_rejected",
+        title: "Dapp request rejected",
+        detail: proposal?.name ?? `Proposal ${id}`,
+        severity: "warning"
+      });
+    } catch (cause) {
+      setWalletConnectProposalsError(cause instanceof Error ? cause.message : "Unable to reject WalletConnect proposal.");
+      setWalletConnectProposalsStatus("error");
+    } finally {
+      setActingProposalId(null);
+    }
+  }
+
   async function handleWalletConnectDisconnect(topic: string) {
     setDisconnectingTopic(topic);
     setWalletConnectSessionsError(null);
@@ -548,6 +878,12 @@ export function App() {
 
       setWalletConnectSessions(response.result?.sessions ?? []);
       setWalletConnectSessionsStatus("ready");
+      void recordActivity({
+        type: "walletconnect_disconnected",
+        title: "Dapp disconnected",
+        detail: walletConnectSessions.find((session) => session.topic === topic)?.name ?? "WalletConnect session",
+        severity: "info"
+      });
     } catch (cause) {
       setWalletConnectSessionsError(cause instanceof Error ? cause.message : "Unable to disconnect WalletConnect session.");
       setWalletConnectSessionsStatus("error");
@@ -556,302 +892,611 @@ export function App() {
     }
   }
 
+  async function handleWalletConnectDisconnectAll() {
+    setDisconnectingTopic("__all__");
+    setWalletConnectSessionsError(null);
+
+    try {
+      const response = await sendRuntimeMessage<{
+        result?: { sessions: WalletConnectSessionSummary[] };
+        error?: { message: string };
+      }>({
+        type: "walletconnect_disconnect_all"
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      setWalletConnectSessions(response.result?.sessions ?? []);
+      setWalletConnectSessionsStatus("ready");
+      void recordActivity({
+        type: "walletconnect_disconnected",
+        title: "All dapps disconnected",
+        detail: `${walletConnectSessions.length} WalletConnect session${walletConnectSessions.length === 1 ? "" : "s"}`,
+        severity: "info"
+      });
+    } catch (cause) {
+      setWalletConnectSessionsError(cause instanceof Error ? cause.message : "Unable to disconnect WalletConnect sessions.");
+      setWalletConnectSessionsStatus("error");
+    } finally {
+      setDisconnectingTopic(null);
+    }
+  }
+
   return (
-    <main className="wallet-shell">
-      <section className="topbar" aria-label="Wallet status">
-        <div className="brand-mark" aria-hidden="true">
-          <KeyRound size={18} />
-        </div>
-        <div>
-          <p className="eyebrow">Passkey Wallet</p>
-          <h1>Chrome Extension MVP</h1>
-        </div>
-        <button type="button" className="settings-icon-button" onClick={openSettingsPage} title="Network settings">
-          <Settings2 size={17} />
-        </button>
-      </section>
+    <main className={`wallet-shell view-${view}`}>
+      <AppHeader
+        view={view}
+        wallet={wallet}
+        displayAddress={displayAddress}
+        privacyMode={privacyMode}
+        onBack={() => setView("home")}
+        onTogglePrivacy={handleTogglePrivacyMode}
+        onOpenSettings={() => setView("settings")}
+      />
 
-      <section className="balance-panel">
-        <div className="panel-header">
-          <div>
-            <span className="muted">Multi-chain portfolio</span>
-            <h2>{displayAddress}</h2>
-          </div>
-          <div className={`status-pill ${wallet ? "ready" : ""}`}>
-            {wallet ? <Check size={14} /> : <ShieldCheck size={14} />}
-            {wallet ? "Ready" : "Locked"}
-          </div>
-        </div>
+      <ViewNav view={view} onSelect={setView} disabled={!wallet} sessionCount={walletConnectSessions.length} />
 
-        <div className="balance-value">
-          <span>{displayPortfolioTotal}</span>
-          <small>USD</small>
-        </div>
-
-        <div className="action-row">
-          <button type="button" className="icon-action" disabled={!wallet} onClick={() => setReceiveOpen((open) => !open)} title="Receive">
-            <QrCode size={18} />
-            <span>Receive</span>
-          </button>
-          <button type="button" className="icon-action" disabled={!wallet} title="Send transaction">
-            <Send size={18} />
-            <span>Send</span>
-          </button>
-        </div>
-
-        {portfolioError ? <p className="inline-error">{portfolioError}</p> : null}
-      </section>
-
-      {wallet ? (
-        <PortfolioPanel
-          snapshots={chainSnapshots}
-          selectedChain={selectedChain}
-          loading={portfolioStatus === "loading"}
-          onRefresh={handleRefreshPortfolio}
-          onSelect={(networkId) => setSelectedChainId(networkId)}
-        />
-      ) : null}
-
-      {wallet && receiveOpen ? (
-        <section className="receive-panel" aria-label="Receive ETH">
-          <div className="resolver-heading">
-            <div>
-              <span className="muted">Receive</span>
-              <h3>Ethereum address</h3>
-            </div>
-            <QrCode size={16} />
-          </div>
-
-          <div className="qr-wrap">
-            <QRCodeSVG value={wallet.address} size={176} marginSize={2} level="M" />
-          </div>
-
-          <div className="receive-address">
-            <span>{wallet.address}</span>
-            <button type="button" className="mini-copy" onClick={handleCopy}>
-              {copied ? <Check size={15} /> : <Copy size={15} />}
-              {copied ? "Copied" : "Copy"}
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="setup-panel">
-        <div className="setup-copy">
-          <Wallet size={22} />
-          <div>
-            <h3>{wallet ? "Wallet created" : "Create your wallet"}</h3>
-            <p>
-              {wallet
-                ? "The encrypted tcx-wasm keystore is stored locally and unlocked by the passkey PRF."
-                : "Create a local HD wallet encrypted with a WebAuthn PRF key from your passkey."}
-            </p>
-          </div>
-        </div>
-
-        {!wallet ? (
-          <button type="button" className="primary-button" disabled={status === "creating"} onClick={handleCreateWallet}>
-            {status === "creating" ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}
-            {status === "creating" ? "Creating..." : "Create with Passkey"}
-          </button>
-        ) : (
-          <button type="button" className="secondary-button" onClick={handleReset}>
-            <RefreshCcw size={18} />
-            Reset local wallet
-          </button>
-        )}
-      </section>
-
-      <section className="resolver-panel" aria-label="Recipient resolver">
-        <div className="resolver-heading">
-          <div>
-            <span className="muted">ENS v2-ready resolver</span>
-            <h3>Recipient</h3>
-          </div>
-          {resolverStatus === "resolving" ? <Loader2 className="spin" size={16} /> : <Search size={16} />}
-        </div>
-
-        <label className="recipient-field">
-          <span>Address or ENS</span>
-          <input
-            type="text"
-            value={recipientInput}
-            onChange={(event) => setRecipientInput(event.target.value)}
-            placeholder="vitalik.eth or 0x..."
-            spellCheck={false}
+      <div className="view-stack">
+        {view === "home" ? (
+          <HomeDashboard
+            wallet={wallet}
+            status={status}
+            privacyMode={privacyMode}
+            displayAddress={displayAddress}
+            displayPortfolioTotal={displayPortfolioTotal}
+            portfolioStatus={portfolioStatus}
+            portfolioStore={portfolioStore}
+            portfolioError={portfolioError}
+            snapshots={chainSnapshots}
+            sessions={walletConnectSessions}
+            visibleWidgets={visibleWidgets}
+            widgetOrder={widgetOrder}
+            enabledNetworkCount={networkSettings.filter((network) => network.enabled).length}
+            failedNetworkCount={portfolioStore?.portfolioSnapshot?.failedNetworkIds?.length ?? 0}
+            onCreateWallet={handleCreateWallet}
+            onReset={handleReset}
+            onRefreshPortfolio={handleRefreshPortfolio}
+            onNavigate={setView}
+            onOpenPortfolioSettings={() => openSettingsPage("portfolio")}
           />
-        </label>
+        ) : null}
 
-        <ResolverResult resolution={recipientResolution} />
-      </section>
+        {view === "assets" ? (
+          <PortfolioPanel
+            snapshots={chainSnapshots}
+            selectedChain={selectedChain}
+            store={portfolioStore}
+            accountId={wallet?.address ?? null}
+            loading={portfolioStatus === "loading"}
+            privacyMode={privacyMode}
+            onRefresh={handleRefreshPortfolio}
+            onSelect={(networkId) => setSelectedChainId(networkId)}
+          />
+        ) : null}
 
-      <section className="resolver-panel" aria-label="WalletConnect">
-        <div className="resolver-heading">
-          <div>
-            <span className="muted">WalletConnect v2</span>
-            <h3>Dapp Pairing</h3>
-          </div>
-          <Settings2 size={16} />
-        </div>
+        {view === "receive" && wallet ? (
+          <ReceiveView wallet={wallet} copied={copied} onCopy={handleCopy} />
+        ) : null}
 
-        <label className="recipient-field">
-          <span>Pairing URI</span>
-          <input
-            type="text"
-            value={walletConnectUri}
-            onChange={(event) => {
-              setWalletConnectUri(event.target.value);
+        {view === "send" ? (
+          <SendView
+            wallet={wallet}
+            resolverStatus={resolverStatus}
+            recipientInput={recipientInput}
+            recipientResolution={recipientResolution}
+            recentRecipients={recentRecipients}
+            sendNetworks={sendNetworks}
+            selectedSendNetwork={selectedSendNetwork}
+            chainSnapshots={chainSnapshots}
+            amountInput={amountInput}
+            feeStatus={feeStatus}
+            feeError={feeError}
+            previewResult={previewResult}
+            previewAccepted={previewAccepted}
+            tokenPickerOpen={tokenPickerOpen}
+            signingStatus={signingStatus}
+            signingError={signingError}
+            signatureResult={signatureResult}
+            broadcastHash={broadcastHash}
+            broadcastExplorerUrl={broadcastExplorerUrl}
+            onRecipientInput={setRecipientInput}
+            onNetworkSelect={handleSelectSendNetwork}
+            onTokenPickerOpen={setTokenPickerOpen}
+            onAmountInput={setAmountInput}
+            onPreviewAction={handlePreviewAction}
+          />
+        ) : null}
+
+        {view === "connected-sessions" ? (
+          <ConnectedSessionsView
+            walletConnectUri={walletConnectUri}
+            walletConnectStatus={walletConnectStatus}
+            walletConnectMessage={walletConnectMessage}
+            proposals={walletConnectProposals}
+            proposalsStatus={walletConnectProposalsStatus}
+            proposalsError={walletConnectProposalsError}
+            actingProposalId={actingProposalId}
+            sessions={walletConnectSessions}
+            status={walletConnectSessionsStatus}
+            error={walletConnectSessionsError}
+            disconnectingTopic={disconnectingTopic}
+            onPair={handleWalletConnectPair}
+            onUriInput={(uri) => {
+              setWalletConnectUri(uri);
               setWalletConnectStatus("idle");
               setWalletConnectMessage(null);
             }}
-            placeholder="wc:..."
-            spellCheck={false}
+            onRefreshProposals={refreshWalletConnectProposals}
+            onApproveProposal={handleWalletConnectApproveProposal}
+            onRejectProposal={handleWalletConnectRejectProposal}
+            onRefresh={refreshWalletConnectSessions}
+            onDisconnect={handleWalletConnectDisconnect}
+            onDisconnectAll={handleWalletConnectDisconnectAll}
           />
-        </label>
-
-        <button
-          type="button"
-          className="secondary-button"
-          disabled={!walletConnectUri.trim() || walletConnectStatus === "pairing"}
-          onClick={handleWalletConnectPair}
-        >
-          {walletConnectStatus === "pairing" ? <Loader2 className="spin" size={17} /> : <Settings2 size={17} />}
-          {walletConnectStatus === "pairing" ? "Pairing..." : "Pair WalletConnect"}
-        </button>
-
-        {walletConnectMessage ? (
-          <p className={walletConnectStatus === "error" ? "resolver-result invalid" : "resolver-result valid"}>
-            {walletConnectMessage}
-          </p>
         ) : null}
 
-        <WalletConnectSessionsPanel
-          sessions={walletConnectSessions}
-          status={walletConnectSessionsStatus}
-          error={walletConnectSessionsError}
-          disconnectingTopic={disconnectingTopic}
-          onRefresh={refreshWalletConnectSessions}
-          onDisconnect={handleWalletConnectDisconnect}
-        />
-      </section>
+        {view === "networks" ? (
+          <NetworksView
+            networks={networkSettings}
+            sendNetworks={sendNetworks}
+            selectedSendNetworkId={selectedSendNetwork?.networkId ?? null}
+            portfolioStore={portfolioStore}
+            networkHealth={networkHealth}
+            networkHealthStatus={networkHealthStatus}
+            onSelectDefaultSendNetwork={handleSelectSendNetwork}
+            onUpdateNetwork={handleUpdateNetwork}
+            onOpenSettings={openSettingsPage}
+          />
+        ) : null}
 
-      <section className="send-panel" aria-label="Send native token">
-        <div className="resolver-heading">
+        {view === "activity" ? <ActivityView events={activityEvents} /> : null}
+
+        {view === "security" ? (
+          <SecurityView
+            wallet={wallet}
+            previewReady={previewResult.ok}
+            sessions={walletConnectSessions}
+            proposals={walletConnectProposals}
+            portfolioError={portfolioError}
+            networkHealth={networkHealth}
+          />
+        ) : null}
+
+        {view === "settings" ? (
+          <SettingsView
+            wallet={wallet}
+            status={status}
+            privacyMode={privacyMode}
+            visibleWidgets={visibleWidgets}
+            widgetOrder={widgetOrder}
+            onCreateWallet={handleCreateWallet}
+            onReset={handleReset}
+            onTogglePrivacy={handleTogglePrivacyMode}
+            onToggleWidget={handleToggleWidget}
+            onMoveWidget={handleMoveWidget}
+            onResetWidgets={handleResetWidgets}
+            onOpenSettings={openSettingsPage}
+          />
+        ) : null}
+
+        {error ? <p className="error-box">{error}</p> : null}
+      </div>
+    </main>
+  );
+}
+
+function AppHeader({
+  view,
+  wallet,
+  displayAddress,
+  privacyMode,
+  onBack,
+  onTogglePrivacy,
+  onOpenSettings
+}: {
+  view: PopupView;
+  wallet: WalletRecord | null;
+  displayAddress: string;
+  privacyMode: boolean;
+  onBack: () => void;
+  onTogglePrivacy: () => void;
+  onOpenSettings: () => void;
+}) {
+  const title = view === "home" ? "Passkey Wallet" : viewTitle(view);
+
+  return (
+    <section className="topbar orchard-header" aria-label="Wallet status">
+      {view === "home" ? (
+        <div className="brand-mark" aria-hidden="true">
+          <KeyRound size={18} />
+        </div>
+      ) : (
+        <button type="button" className="settings-icon-button" onClick={onBack} aria-label="Back to home">
+          <ArrowLeft size={17} />
+        </button>
+      )}
+      <div>
+        <p className="eyebrow">{wallet ? displayAddress : "No wallet yet"}</p>
+        <h1>{title}</h1>
+      </div>
+      <button
+        type="button"
+        className={`settings-icon-button ${privacyMode ? "active" : ""}`}
+        onClick={onTogglePrivacy}
+        aria-label={privacyMode ? "Show balances" : "Hide balances"}
+      >
+        {privacyMode ? <EyeOff size={17} /> : <Eye size={17} />}
+      </button>
+      <button type="button" className="settings-icon-button" onClick={onOpenSettings} aria-label="Settings">
+        <Settings2 size={17} />
+      </button>
+    </section>
+  );
+}
+
+function ViewNav({
+  view,
+  onSelect,
+  disabled,
+  sessionCount
+}: {
+  view: PopupView;
+  onSelect: (view: PopupView) => void;
+  disabled: boolean;
+  sessionCount: number;
+}) {
+  const items: Array<{ view: PopupView; label: string; icon: ReactNode; disabled?: boolean; badge?: string }> = [
+    { view: "home", label: "Home", icon: <Wallet size={17} /> },
+    { view: "assets", label: "Assets", icon: <Activity size={17} />, disabled },
+    { view: "send", label: "Send", icon: <Send size={17} />, disabled },
+    { view: "receive", label: "Receive", icon: <QrCode size={17} />, disabled },
+    { view: "connected-sessions", label: "Sessions", icon: <Unplug size={17} />, disabled, badge: sessionCount ? String(sessionCount) : undefined },
+    { view: "networks", label: "Networks", icon: <Network size={17} /> }
+  ];
+
+  return (
+    <nav className="orchard-nav" aria-label="Wallet views">
+      {items.map((item) => (
+        <button
+          type="button"
+          className={item.view === view ? "active" : ""}
+          disabled={item.disabled}
+          onClick={() => onSelect(item.view)}
+          aria-label={item.label}
+          title={item.label}
+          key={item.view}
+        >
+          {item.icon}
+          {item.badge ? <span>{item.badge}</span> : null}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function HomeDashboard({
+  wallet,
+  status,
+  privacyMode,
+  displayAddress,
+  displayPortfolioTotal,
+  portfolioStatus,
+  portfolioStore,
+  portfolioError,
+  snapshots,
+  sessions,
+  visibleWidgets,
+  widgetOrder,
+  enabledNetworkCount,
+  failedNetworkCount,
+  onCreateWallet,
+  onReset,
+  onRefreshPortfolio,
+  onNavigate,
+  onOpenPortfolioSettings
+}: {
+  wallet: WalletRecord | null;
+  status: Status;
+  privacyMode: boolean;
+  displayAddress: string;
+  displayPortfolioTotal: string;
+  portfolioStatus: PortfolioLoadStatus;
+  portfolioStore: AssetStore | null;
+  portfolioError: string | null;
+  snapshots: ChainAssetSnapshot[];
+  sessions: WalletConnectSessionSummary[];
+  visibleWidgets: string[];
+  widgetOrder: string[];
+  enabledNetworkCount: number;
+  failedNetworkCount: number;
+  onCreateWallet: () => void;
+  onReset: () => void;
+  onRefreshPortfolio: () => void;
+  onNavigate: (view: PopupView) => void;
+  onOpenPortfolioSettings: () => void;
+}) {
+  const topAssets = snapshots
+    .filter((snapshot) => snapshot.status === "ready")
+    .sort((a, b) => Number(b.totalValueUsd ?? 0) - Number(a.totalValueUsd ?? 0))
+    .slice(0, 4);
+  const assetTiles = topAssets.length > 0 ? topAssets : fallbackAssetTiles();
+
+  const actionWidgets = [
+    <ActionWidget icon={<Send size={18} />} title="Send" detail="0.32 ETH" disabled={!wallet} onClick={() => onNavigate("send")} key="send" />,
+    <ActionWidget icon={<QrCode size={18} />} title="Receive" detail="2 New" disabled={!wallet} onClick={() => onNavigate("receive")} key="receive" />,
+    <ActionWidget icon={<RefreshCcw size={18} />} title="Swap" detail="Best rate" disabled onClick={() => undefined} key="swap" />,
+    <ActionWidget icon={<Activity size={18} />} title="Activity" detail="12 New" disabled={!wallet} onClick={() => onNavigate("activity")} key="activity" />
+  ];
+  const assetWidgets = assetTiles.map((snapshot, index) => (
+    <AssetWidgetRow snapshot={snapshot} privacyMode={privacyMode} toneIndex={index} key={snapshot.networkId} />
+  ));
+
+  return (
+    <section className="portal-shell" aria-label="Wallet portal">
+      <section className="hero-widget" aria-label="Portfolio balance">
+        <div className="orchard-hero-copy">
           <div>
-            <span className="muted">Clear Signing</span>
-            <h3>Send {selectedSendNetwork?.nativeCurrencySymbol ?? "Token"}</h3>
+            <span>Total Balance</span>
+            <strong>{privacyMode ? "Hidden" : displayPortfolioTotal}</strong>
+            <small>+2.10% today</small>
           </div>
-          <FileCheck2 size={16} />
+          <span className="time-badge">1D</span>
+          <Sparkline className="hero-line" />
         </div>
 
-        <label className="recipient-field">
-          <span>Network</span>
-          <select
-            className="network-select"
-            value={selectedSendNetwork?.networkId ?? ""}
-            onChange={(event) => setSelectedSendNetworkId(event.target.value || null)}
-          >
-            {sendNetworks.length > 0 ? (
-              sendNetworks.map((network) => (
-                <option value={network.networkId} key={network.networkId}>
-                  {network.name} - {network.nativeCurrencySymbol}
-                </option>
-              ))
-            ) : (
-              <option value="">No enabled EVM networks</option>
-            )}
-          </select>
-        </label>
-
-        <label className="recipient-field">
-          <span>Amount</span>
-          <div className="amount-input">
-            <input
-              type="text"
-              inputMode="decimal"
-              value={amountInput}
-              onChange={(event) => setAmountInput(event.target.value)}
-              placeholder="0.05"
-              spellCheck={false}
-            />
-            <strong>{selectedSendNetwork?.nativeCurrencySymbol ?? "TOKEN"}</strong>
-          </div>
-        </label>
-
-        <ClearSigningPreviewCard result={previewResult} feeStatus={feeStatus} feeError={feeError} />
-
-        <button
-          type="button"
-          className="primary-button"
-          disabled={
-            !previewResult.ok ||
-            !canSignPreview(previewResult.preview) ||
-            signingStatus === "signing" ||
-            signingStatus === "broadcasting" ||
-            signingStatus === "broadcasted"
-          }
-          onClick={handlePreviewAction}
-        >
-          {signingStatus === "signing" || signingStatus === "broadcasting" ? (
-            <Loader2 className="spin" size={18} />
-          ) : signingStatus === "broadcasted" ? (
-            <Check size={18} />
-          ) : previewAccepted ? (
-            <KeyRound size={18} />
-          ) : (
-            <ShieldCheck size={18} />
-          )}
-          {signingStatus === "signing"
-            ? "Signing..."
-            : signingStatus === "broadcasting"
-              ? "Broadcasting..."
-              : signingStatus === "broadcasted"
-                ? "Transaction broadcast"
-              : previewAccepted
-                ? "Unlock passkey, sign & broadcast"
-                : "Confirm preview"}
-        </button>
-
-        {signatureResult ? (
-          <div className="signature-box">
-            <span>Signed transaction hash</span>
-            <strong>{signatureResult.txHash}</strong>
-          </div>
-        ) : null}
-
-        {broadcastHash ? (
-          <div className="signature-box broadcasted">
-            <span>Broadcast hash</span>
-            <strong>{broadcastHash}</strong>
-            {broadcastExplorerUrl ? (
-              <a href={broadcastExplorerUrl} target="_blank" rel="noreferrer">
-                View on explorer
-              </a>
-            ) : null}
-          </div>
-        ) : null}
-
-        {signingError ? <p className="resolver-result invalid">{signingError}</p> : null}
+        <div className="widget-meta-row">
+          <span>{portfolioStatus === "loading" ? "Refreshing balances" : portfolioStore?.portfolioSnapshot?.lastUpdatedAt ? `Updated ${new Date(portfolioStore.portfolioSnapshot.lastUpdatedAt).toLocaleTimeString()}` : "No refresh yet"}</span>
+          <button type="button" className="mini-icon-button" disabled={!wallet || portfolioStatus === "loading"} onClick={onRefreshPortfolio} aria-label="Refresh portfolio">
+            <RefreshCcw className={portfolioStatus === "loading" ? "spin" : undefined} size={15} />
+          </button>
+        </div>
+        {portfolioError ? <p className="inline-error">{portfolioError}</p> : null}
       </section>
 
-      {error ? <p className="error-box">{error}</p> : null}
-    </main>
+      <section className="portal-content">
+        <div className="portal-left">
+          <div className="portal-action-grid">{actionWidgets}</div>
+          <SummaryWidget
+            icon={<Network size={17} />}
+            label="Portfolio"
+            value={privacyMode ? "Hidden" : displayPortfolioTotal}
+            detail={failedNetworkCount > 0 ? `${failedNetworkCount} failed refresh` : "+2.10%"}
+            tone={failedNetworkCount > 0 ? "warning" : "ready"}
+            onClick={() => onNavigate("assets")}
+          />
+        </div>
+        <div className="portal-right">
+          <div className="portal-asset-grid">{assetWidgets}</div>
+          <SmartInsightWidget sessions={sessions} enabledNetworkCount={enabledNetworkCount} onClick={() => onNavigate("connected-sessions")} />
+        </div>
+      </section>
+
+      <button type="button" className="view-all-assets portal-view-all" disabled={!wallet} onClick={onOpenPortfolioSettings}>
+        <span>View all assets</span>
+        <ChevronDown size={16} />
+      </button>
+      <SettingsView
+        wallet={wallet}
+        status={status}
+        privacyMode={privacyMode}
+        visibleWidgets={visibleWidgets}
+        widgetOrder={widgetOrder}
+        onCreateWallet={onCreateWallet}
+        onReset={onReset}
+        onTogglePrivacy={() => undefined}
+        onToggleWidget={() => undefined}
+        onMoveWidget={() => undefined}
+        onResetWidgets={() => undefined}
+        onOpenSettings={() => onNavigate("settings")}
+        compact
+      />
+    </section>
+  );
+}
+
+function ActionWidget({
+  icon,
+  title,
+  detail,
+  disabled,
+  onClick
+}: {
+  icon: ReactNode;
+  title: string;
+  detail: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className="action-widget" disabled={disabled} onClick={onClick}>
+      <span>{icon}</span>
+      <strong>{title}</strong>
+      <small>{detail}</small>
+    </button>
+  );
+}
+
+function SummaryWidget({
+  icon,
+  label,
+  value,
+  detail,
+  tone,
+  onClick
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  detail: string;
+  tone: "ready" | "warning" | "neutral";
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className={`summary-widget ${tone}`} onClick={onClick}>
+      <span>{icon}</span>
+      <small>{label}</small>
+      <strong>{value}</strong>
+      <em>{detail}</em>
+    </button>
+  );
+}
+
+function SmartInsightWidget({
+  sessions,
+  enabledNetworkCount,
+  onClick
+}: {
+  sessions: WalletConnectSessionSummary[];
+  enabledNetworkCount: number;
+  onClick: () => void;
+}) {
+  const copy =
+    sessions.length > 0
+      ? `${sessions.length} dapp${sessions.length === 1 ? "" : "s"} connected across ${enabledNetworkCount} enabled networks.`
+      : "You can earn up to 4.2% APY on idle USDC through curated strategies.";
+
+  return (
+    <button type="button" className="smart-insight-card" onClick={onClick}>
+      <span aria-hidden="true">◌</span>
+      <div>
+        <strong>Smart Insight</strong>
+        <small>{copy}</small>
+      </div>
+      <ChevronDown size={16} />
+    </button>
+  );
+}
+
+function Sparkline({ className = "" }: { className?: string }) {
+  return (
+    <svg className={`mini-sparkline ${className}`.trim()} viewBox="0 0 180 64" role="img" aria-label="Portfolio trend">
+      <polyline
+        points="2,45 18,45 32,37 45,42 60,25 76,18 91,22 107,34 123,35 140,24 158,13 178,18"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="178" cy="18" r="4" fill="currentColor" />
+    </svg>
+  );
+}
+
+function fallbackAssetTiles(): ChainAssetSnapshot[] {
+  return [
+    fallbackAssetTile("bitcoin-mainnet", "Bitcoin", "bitcoin", "BTC", "5,231.34", "+1.35%"),
+    fallbackAssetTile("ethereum-mainnet", "Ethereum", "ethereum", "ETH", "3,246.38", "+0.82%"),
+    fallbackAssetTile("solana-mainnet", "Solana", "custom", "SOL", "1,732.26", "+3.25%"),
+    fallbackAssetTile("usdc-demo", "USD Coin", "custom", "USDC", "1,248.73", "+0.01%")
+  ];
+}
+
+function fallbackAssetTile(
+  networkId: string,
+  networkName: string,
+  family: WalletNetworkSetting["family"],
+  symbol: string,
+  value: string,
+  change: string
+): ChainAssetSnapshot {
+  return {
+    networkId,
+    networkName,
+    family,
+    nativeCurrencySymbol: symbol,
+    accountId: "",
+    status: "ready",
+    assetIds: [],
+    totalValueUsd: value.replace(/,/g, ""),
+    nativeBalance: change
+  };
+}
+
+function WidgetHeader({ label, title, actionLabel, onAction }: { label: string; title: string; actionLabel?: string; onAction?: () => void }) {
+  return (
+    <div className="resolver-heading">
+      <div>
+        <span className="muted">{label}</span>
+        <h3>{title}</h3>
+      </div>
+      {actionLabel && onAction ? (
+        <button type="button" className="text-button" onClick={onAction}>
+          {actionLabel}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function StatusBadge({ ready, label }: { ready: boolean; label: string }) {
+  return (
+    <div className={`status-pill ${ready ? "ready" : ""}`}>
+      {ready ? <Check size={14} /> : <ShieldCheck size={14} />}
+      {label}
+    </div>
+  );
+}
+
+function AssetWidgetRow({
+  snapshot,
+  privacyMode,
+  toneIndex = 0
+}: {
+  snapshot: ChainAssetSnapshot;
+  privacyMode: boolean;
+  toneIndex?: number;
+}) {
+  const isFallbackChange = snapshot.nativeBalance?.startsWith("+") || snapshot.nativeBalance?.startsWith("-");
+
+  return (
+    <div className={`asset-widget-row asset-tone-${(toneIndex % 4) + 1}`}>
+      <TokenIcon symbol={snapshot.nativeCurrencySymbol} />
+      <div>
+        <strong>{snapshot.networkName}</strong>
+        <span>{snapshot.nativeCurrencySymbol}</span>
+      </div>
+      <div>
+        <strong>{privacyMode ? "Hidden" : formatUsd(snapshot.totalValueUsd)}</strong>
+        <span>{privacyMode ? "Hidden" : isFallbackChange ? snapshot.nativeBalance : snapshot.nativeBalance ? `${formatTokenAmount(snapshot.nativeBalance)} ${snapshot.nativeCurrencySymbol}` : "+0.01%"}</span>
+      </div>
+      <Sparkline />
+      <ChevronDown size={15} />
+    </div>
+  );
+}
+
+function TokenIcon({ symbol }: { symbol: string }) {
+  return (
+    <div className="token-icon" aria-hidden="true">
+      {symbol.slice(0, 2).toUpperCase()}
+    </div>
   );
 }
 
 function PortfolioPanel({
   snapshots,
   selectedChain,
+  store,
+  accountId,
   loading,
+  privacyMode,
   onRefresh,
   onSelect
 }: {
   snapshots: ChainAssetSnapshot[];
   selectedChain: ChainAssetSnapshot | null;
+  store: AssetStore | null;
+  accountId: string | null;
   loading: boolean;
+  privacyMode: boolean;
   onRefresh: () => void;
   onSelect: (networkId: string) => void;
 }) {
+  const groupedAssets = groupAssets(store, accountId, snapshots);
+
   return (
     <section className="portfolio-panel" aria-label="Multi-chain assets">
       <div className="resolver-heading">
@@ -878,9 +1523,9 @@ function PortfolioPanel({
                 <span>{chainStatusLabel(snapshot)}</span>
               </div>
               <div>
-                <strong>{formatUsd(snapshot.totalValueUsd)}</strong>
+                <strong>{privacyMode ? "Hidden" : formatUsd(snapshot.totalValueUsd)}</strong>
                 <span>
-                  {snapshot.nativeBalance ? formatTokenAmount(snapshot.nativeBalance) : "--"} {snapshot.nativeCurrencySymbol}
+                  {privacyMode ? "Hidden" : snapshot.nativeBalance ? formatTokenAmount(snapshot.nativeBalance) : "--"} {snapshot.nativeCurrencySymbol}
                 </span>
               </div>
             </button>
@@ -890,12 +1535,145 @@ function PortfolioPanel({
         <p className="resolver-hint">Enable networks in Settings, then refresh assets.</p>
       )}
 
-      {selectedChain ? <ChainAssetDetail snapshot={selectedChain} /> : null}
+      {selectedChain ? <ChainAssetDetail snapshot={selectedChain} store={store} accountId={accountId} privacyMode={privacyMode} onRefresh={onRefresh} /> : null}
+      {groupedAssets.length > 0 ? <TokenDistribution groups={groupedAssets} privacyMode={privacyMode} /> : null}
     </section>
   );
 }
 
-function ChainAssetDetail({ snapshot }: { snapshot: ChainAssetSnapshot }) {
+interface AssetGroup {
+  symbol: string;
+  name: string;
+  totalValueUsd: number;
+  totalBalance: number;
+  rows: Array<{
+    networkId: string;
+    networkName: string;
+    symbol: string;
+    balance: string | null;
+    valueUsd: number;
+  }>;
+}
+
+function groupAssets(store: AssetStore | null, accountId: string | null, snapshots: ChainAssetSnapshot[]): AssetGroup[] {
+  const groups = new Map<string, AssetGroup>();
+
+  for (const snapshot of snapshots) {
+    for (const assetId of snapshot.assetIds) {
+      const definition = store?.assetDefinitions[assetId];
+      const balance = accountId ? store?.assetBalances[`${accountId.toLowerCase()}:${assetId}`] : undefined;
+      const price = store?.assetPrices[assetId];
+      const symbol = definition?.symbol ?? (assetId === snapshot.nativeAssetId ? snapshot.nativeCurrencySymbol : "TOKEN");
+      const groupKey = definition?.groupKey ?? `${definition?.kind ?? "asset"}:${symbol}`;
+      const valueUsd = balance && price ? Number(balance.decimalAmount) * Number(price.value) : assetId === snapshot.nativeAssetId ? Number(snapshot.totalValueUsd ?? 0) : 0;
+      const group = groups.get(groupKey) ?? {
+        symbol,
+        name: definition?.name ?? symbol,
+        totalValueUsd: 0,
+        totalBalance: 0,
+        rows: []
+      };
+      group.totalValueUsd += Number.isFinite(valueUsd) ? valueUsd : 0;
+      group.totalBalance += Number(balance?.decimalAmount ?? (assetId === snapshot.nativeAssetId ? snapshot.nativeBalance : 0) ?? 0);
+      group.rows.push({
+        networkId: snapshot.networkId,
+        networkName: snapshot.networkName,
+        symbol,
+        balance: balance?.decimalAmount ?? (assetId === snapshot.nativeAssetId ? snapshot.nativeBalance ?? null : null),
+        valueUsd: Number.isFinite(valueUsd) ? valueUsd : 0
+      });
+      groups.set(groupKey, group);
+    }
+  }
+
+  return Array.from(groups.values()).sort((a, b) => b.totalValueUsd - a.totalValueUsd);
+}
+
+function TokenDistribution({ groups, privacyMode }: { groups: AssetGroup[]; privacyMode: boolean }) {
+  const selected = groups[0];
+  const total = groups.reduce((sum, group) => sum + group.totalValueUsd, 0);
+  const highestNetwork = selected.rows
+    .slice()
+    .sort((a, b) => b.valueUsd - a.valueUsd)[0];
+  const lowestNetwork = selected.rows
+    .slice()
+    .sort((a, b) => a.valueUsd - b.valueUsd)[0];
+
+  return (
+    <div className="token-distribution">
+      <WidgetHeader label="Distribution" title={`${selected.symbol} across networks`} />
+      <div className="distribution-hero">
+        <TokenIcon symbol={selected.symbol} />
+        <div>
+          <strong>{selected.symbol}</strong>
+          <span>{privacyMode ? "Hidden" : formatUsd(selected.totalValueUsd.toFixed(2))}</span>
+        </div>
+        <div className="distribution-ring" aria-hidden="true" />
+      </div>
+      <div className="token-tabs" aria-label="Token distribution selector">
+        {groups.map((group) => (
+          <button type="button" className={group.symbol === selected.symbol ? "selected" : ""} key={group.symbol}>
+            {group.symbol}
+          </button>
+        ))}
+      </div>
+      <div className="distribution-summary">
+        <SummaryTile label="Top network" value={highestNetwork?.networkName ?? "None"} detail={privacyMode ? "Hidden" : formatUsd(highestNetwork?.valueUsd.toFixed(2))} />
+        <SummaryTile label="Lowest network" value={lowestNetwork?.networkName ?? "None"} detail={privacyMode ? "Hidden" : formatUsd(lowestNetwork?.valueUsd.toFixed(2))} />
+      </div>
+      <div className="distribution-bars">
+        {selected.rows.map((row) => {
+          const value = row.valueUsd;
+          const percent = total > 0 ? Math.max(4, Math.round((value / total) * 100)) : 12;
+          return (
+            <div className="distribution-row" key={`${row.networkId}-${row.symbol}`}>
+              <div>
+                <strong>{row.networkName}</strong>
+                <span>{privacyMode ? "Hidden" : `${row.balance ? formatTokenAmount(row.balance) : "--"} ${row.symbol}`}</span>
+              </div>
+              <div className="progress-track" aria-hidden="true">
+                <span style={{ width: `${percent}%` }} />
+              </div>
+              <em>{privacyMode ? "Hidden" : formatUsd(row.valueUsd.toFixed(2))}</em>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SummaryTile({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="summary-tile">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </div>
+  );
+}
+
+function ChainAssetDetail({
+  snapshot,
+  store,
+  accountId,
+  privacyMode,
+  onRefresh
+}: {
+  snapshot: ChainAssetSnapshot;
+  store: AssetStore | null;
+  accountId: string | null;
+  privacyMode: boolean;
+  onRefresh: () => void;
+}) {
+  const tokenRows = (snapshot.tokenAssetIds ?? [])
+    .map((assetId) => ({
+      definition: store?.assetDefinitions[assetId],
+      balance: accountId ? store?.assetBalances[`${accountId.toLowerCase()}:${assetId}`] : undefined,
+      price: store?.assetPrices[assetId]
+    }))
+    .filter((row) => row.definition);
+
   return (
     <div className="chain-detail">
       <div className="preview-row">
@@ -909,20 +1687,60 @@ function ChainAssetDetail({ snapshot }: { snapshot: ChainAssetSnapshot }) {
         <span>Native asset</span>
         <div>
           <strong>
-            {snapshot.nativeBalance ? formatTokenAmount(snapshot.nativeBalance) : "--"} {snapshot.nativeCurrencySymbol}
+            {privacyMode ? "Hidden" : snapshot.nativeBalance ? formatTokenAmount(snapshot.nativeBalance) : "--"} {snapshot.nativeCurrencySymbol}
           </strong>
-          <small>{formatUsd(snapshot.totalValueUsd)}</small>
+          <small>{privacyMode ? "Hidden" : `${formatUsd(snapshot.totalValueUsd)} - ${assetFreshnessLabel(snapshot.refreshedAt, snapshot.staleAt)}`}</small>
         </div>
       </div>
+      <button type="button" className="secondary-button" onClick={onRefresh}>
+        <RefreshCcw size={16} />
+        Refresh {snapshot.nativeCurrencySymbol}
+      </button>
       <div className="preview-row">
         <span>Status</span>
         <div>
           <strong>{chainStatusLabel(snapshot)}</strong>
-          {snapshot.error ? <small>{snapshot.error}</small> : null}
+          {snapshot.error ? <small>{snapshot.error}</small> : snapshot.staleAt ? <small>Fresh until {new Date(snapshot.staleAt).toLocaleTimeString()}</small> : null}
         </div>
       </div>
+      {tokenRows.length > 0 ? (
+        <div className="token-balance-list">
+          <span>Tokens</span>
+          {tokenRows.map((row) => {
+            const value = row.balance && row.price ? Number(row.balance.decimalAmount) * Number(row.price.value) : null;
+            return (
+              <div className="asset-widget-row" key={row.definition?.assetId}>
+                <TokenIcon symbol={row.definition?.symbol ?? "?"} />
+              <div>
+                <strong>{row.definition?.symbol}</strong>
+                  <span>{row.definition?.name} - {assetFreshnessLabel(row.balance?.refreshedAt, undefined)}</span>
+              </div>
+                <div>
+                  <strong>{privacyMode ? "Hidden" : value === null || !Number.isFinite(value) ? "--" : formatUsd(value.toFixed(2))}</strong>
+                  <span>{privacyMode ? "Hidden" : `${row.balance ? formatTokenAmount(row.balance.decimalAmount) : "--"} ${row.definition?.symbol}`}</span>
+              </div>
+              <button type="button" className="mini-icon-button" onClick={onRefresh} aria-label={`Refresh ${row.definition?.symbol}`}>
+                <RefreshCcw size={14} />
+              </button>
+            </div>
+          );
+        })}
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function assetFreshnessLabel(refreshedAt?: string, staleAt?: string): string {
+  if (!refreshedAt) {
+    return "Not refreshed";
+  }
+
+  if (staleAt && Date.parse(staleAt) < Date.now()) {
+    return `Stale since ${new Date(staleAt).toLocaleTimeString()}`;
+  }
+
+  return `Updated ${new Date(refreshedAt).toLocaleTimeString()}`;
 }
 
 function chainStatusLabel(snapshot: ChainAssetSnapshot): string {
@@ -941,13 +1759,887 @@ function chainStatusLabel(snapshot: ChainAssetSnapshot): string {
   return snapshot.status === "error" ? "Refresh failed" : "Refreshing";
 }
 
+function ReceiveView({ wallet, copied, onCopy }: { wallet: WalletRecord; copied: boolean; onCopy: () => void }) {
+  return (
+    <section className="receive-panel" aria-label="Receive assets">
+      <div className="resolver-heading">
+        <div>
+          <span className="muted">Receive</span>
+          <h3>Account address</h3>
+        </div>
+        <QrCode size={16} />
+      </div>
+
+      <div className="qr-wrap">
+        <QRCodeSVG value={wallet.address} size={176} marginSize={2} level="M" />
+      </div>
+
+      <div className="receive-address">
+        <span>{wallet.address}</span>
+        <button type="button" className="mini-copy" onClick={onCopy}>
+          {copied ? <Check size={15} /> : <Copy size={15} />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function SendView({
+  wallet,
+  resolverStatus,
+  recipientInput,
+  recipientResolution,
+  recentRecipients,
+  sendNetworks,
+  selectedSendNetwork,
+  chainSnapshots,
+  amountInput,
+  feeStatus,
+  feeError,
+  previewResult,
+  previewAccepted,
+  tokenPickerOpen,
+  signingStatus,
+  signingError,
+  signatureResult,
+  broadcastHash,
+  broadcastExplorerUrl,
+  onRecipientInput,
+  onNetworkSelect,
+  onTokenPickerOpen,
+  onAmountInput,
+  onPreviewAction
+}: {
+  wallet: WalletRecord | null;
+  resolverStatus: ResolverStatus;
+  recipientInput: string;
+  recipientResolution: RecipientResolution;
+  recentRecipients: RecentRecipient[];
+  sendNetworks: WalletNetworkSetting[];
+  selectedSendNetwork: WalletNetworkSetting | null;
+  chainSnapshots: ChainAssetSnapshot[];
+  amountInput: string;
+  feeStatus: FeeStatus;
+  feeError: string | null;
+  previewResult: ReturnType<typeof buildNativeTokenTransferPreview>;
+  previewAccepted: boolean;
+  tokenPickerOpen: boolean;
+  signingStatus: SigningStatus;
+  signingError: string | null;
+  signatureResult: NativeTransferSignResult | null;
+  broadcastHash: string | null;
+  broadcastExplorerUrl: string | null;
+  onRecipientInput: (value: string) => void;
+  onNetworkSelect: (networkId: string | null) => void;
+  onTokenPickerOpen: (open: boolean) => void;
+  onAmountInput: (value: string) => void;
+  onPreviewAction: () => void;
+}) {
+  const selectedSnapshot = selectedSendNetwork
+    ? chainSnapshots.find((snapshot) => snapshot.networkId === selectedSendNetwork.networkId)
+    : undefined;
+  const maxAmount = selectedSnapshot?.nativeBalance ?? "";
+  const recentForNetwork = selectedSendNetwork
+    ? recentRecipients.filter((recipient) => recipient.networkId === selectedSendNetwork.networkId).slice(0, 3)
+    : [];
+
+  return (
+    <section className="send-panel" aria-label="Send native token">
+      <WidgetHeader label="Native token transfer" title={`Send ${selectedSendNetwork?.nativeCurrencySymbol ?? "Token"}`} />
+
+      <div className="form-widget">
+        <div className="account-chip">
+          <Wallet size={16} />
+          <span>{wallet ? formatAddress(wallet.address) : "Create a wallet first"}</span>
+        </div>
+
+        <div className="token-picker-wrap">
+          <span>Token</span>
+          <button type="button" className="token-picker-button" onClick={() => onTokenPickerOpen(!tokenPickerOpen)} disabled={sendNetworks.length === 0}>
+            <TokenIcon symbol={selectedSendNetwork?.nativeCurrencySymbol ?? "?"} />
+            <strong>{selectedSendNetwork?.nativeCurrencySymbol ?? "No token"}</strong>
+            <small>{selectedSendNetwork?.name ?? "No enabled EVM networks"}</small>
+            <ChevronDown size={16} />
+          </button>
+          {tokenPickerOpen ? (
+            <TokenPickerSheet
+              networks={sendNetworks}
+              selectedNetworkId={selectedSendNetwork?.networkId ?? null}
+              chainSnapshots={chainSnapshots}
+              onSelect={(networkId) => {
+                onNetworkSelect(networkId);
+                onTokenPickerOpen(false);
+              }}
+            />
+          ) : null}
+        </div>
+
+        <label className="recipient-field">
+          <span>Recipient</span>
+          <input
+            type="text"
+            value={recipientInput}
+            onChange={(event) => onRecipientInput(event.target.value)}
+            placeholder="vitalik.eth or 0x..."
+            spellCheck={false}
+          />
+        </label>
+        <ResolverResult resolution={recipientResolution} />
+        {resolverStatus === "resolving" ? <p className="resolver-hint">Resolving recipient...</p> : null}
+        <div className="recipient-tools">
+          <button type="button" className="secondary-button" disabled>
+            <BookOpen size={15} />
+            Address book
+          </button>
+          <button type="button" className="secondary-button" disabled>
+            <QrCode size={15} />
+            QR scan
+          </button>
+        </div>
+        {recentForNetwork.length > 0 ? (
+          <div className="recent-recipient-list">
+            <span>Recent recipients</span>
+            {recentForNetwork.map((recipient) => (
+              <button type="button" key={`${recipient.networkId}-${recipient.address}`} onClick={() => onRecipientInput(recipient.ensLabel ?? recipient.address)}>
+                <strong>{recipient.ensLabel ?? formatAddress(recipient.address)}</strong>
+                <small>{recipient.networkName}</small>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <label className="recipient-field">
+          <span>Amount</span>
+          <div className="amount-input">
+            <input type="text" inputMode="decimal" value={amountInput} onChange={(event) => onAmountInput(event.target.value)} placeholder="0.05" spellCheck={false} />
+            <button type="button" disabled={!maxAmount} onClick={() => onAmountInput(maxAmount)}>
+              MAX
+            </button>
+            <strong>{selectedSendNetwork?.nativeCurrencySymbol ?? "TOKEN"}</strong>
+          </div>
+        </label>
+        <div className="fee-widget">
+          <span>Estimated fee</span>
+          <strong>{previewResult.ok ? previewResult.preview.estimatedNetworkFee : "Pending"}</strong>
+          <small>{feeStatus === "estimating" ? "Estimating from selected network" : selectedSendNetwork?.name ?? "Choose an EVM network"}</small>
+        </div>
+      </div>
+
+      {previewAccepted ? (
+        <ClearSigningPreviewSheet result={previewResult} feeStatus={feeStatus} feeError={feeError} signingStatus={signingStatus} onSign={onPreviewAction} />
+      ) : (
+        <ClearSigningPreviewCard result={previewResult} feeStatus={feeStatus} feeError={feeError} />
+      )}
+
+      <button
+        type="button"
+        className="primary-button"
+        disabled={
+          !previewResult.ok ||
+          !canSignPreview(previewResult.preview) ||
+          previewAccepted ||
+          signingStatus === "signing" ||
+          signingStatus === "broadcasting" ||
+          signingStatus === "broadcasted"
+        }
+        onClick={onPreviewAction}
+      >
+        {signingStatus === "signing" || signingStatus === "broadcasting" ? (
+          <Loader2 className="spin" size={18} />
+        ) : signingStatus === "broadcasted" ? (
+          <Check size={18} />
+        ) : previewAccepted ? (
+          <KeyRound size={18} />
+        ) : (
+          <ShieldCheck size={18} />
+        )}
+        {signingStatus === "signing"
+          ? "Signing..."
+          : signingStatus === "broadcasting"
+            ? "Broadcasting..."
+            : signingStatus === "broadcasted"
+              ? "Transaction broadcast"
+              : previewAccepted
+                ? "Unlock passkey, sign & broadcast"
+                : "Review transfer"}
+      </button>
+
+      {signatureResult ? (
+        <div className="signature-box">
+          <span>Signed transaction hash</span>
+          <strong>{signatureResult.txHash}</strong>
+        </div>
+      ) : null}
+
+      {broadcastHash ? (
+        <div className="signature-box broadcasted">
+          <span>Broadcast hash</span>
+          <strong>{broadcastHash}</strong>
+          {broadcastExplorerUrl ? (
+            <a href={broadcastExplorerUrl} target="_blank" rel="noreferrer">
+              View on explorer
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+
+      {signingError ? <p className="resolver-result invalid">{signingError}</p> : null}
+    </section>
+  );
+}
+
+function TokenPickerSheet({
+  networks,
+  selectedNetworkId,
+  chainSnapshots,
+  onSelect
+}: {
+  networks: WalletNetworkSetting[];
+  selectedNetworkId: string | null;
+  chainSnapshots: ChainAssetSnapshot[];
+  onSelect: (networkId: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const visibleNetworks = networks.filter((network) =>
+    [network.name, network.nativeCurrencySymbol, network.chainId?.toString() ?? ""].join(" ").toLowerCase().includes(query.trim().toLowerCase())
+  );
+
+  return (
+    <div className="sheet-panel" aria-label="Choose token">
+      <label className="settings-search compact-search">
+        <Search size={16} />
+        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search token or network" />
+      </label>
+      <div className="token-option-list">
+        {visibleNetworks.map((network) => {
+          const snapshot = chainSnapshots.find((item) => item.networkId === network.networkId);
+          return (
+            <button type="button" className={network.networkId === selectedNetworkId ? "selected" : ""} onClick={() => onSelect(network.networkId)} key={network.networkId}>
+              <TokenIcon symbol={network.nativeCurrencySymbol} />
+              <div>
+                <strong>{network.nativeCurrencySymbol}</strong>
+                <small>{network.name}</small>
+              </div>
+              <span>{snapshot?.nativeBalance ? formatTokenAmount(snapshot.nativeBalance) : "--"}</span>
+            </button>
+          );
+        })}
+      </div>
+      <button type="button" className="secondary-button" disabled>
+        Manage tokens
+      </button>
+    </div>
+  );
+}
+
+function ConnectedSessionsView({
+  walletConnectUri,
+  walletConnectStatus,
+  walletConnectMessage,
+  proposals,
+  proposalsStatus,
+  proposalsError,
+  actingProposalId,
+  sessions,
+  status,
+  error,
+  disconnectingTopic,
+  onUriInput,
+  onPair,
+  onRefreshProposals,
+  onApproveProposal,
+  onRejectProposal,
+  onRefresh,
+  onDisconnect,
+  onDisconnectAll
+}: {
+  walletConnectUri: string;
+  walletConnectStatus: WalletConnectStatus;
+  walletConnectMessage: string | null;
+  proposals: PendingWalletConnectProposal[];
+  proposalsStatus: WalletConnectProposalStatus;
+  proposalsError: string | null;
+  actingProposalId: number | null;
+  sessions: WalletConnectSessionSummary[];
+  status: WalletConnectSessionsStatus;
+  error: string | null;
+  disconnectingTopic: string | null;
+  onUriInput: (uri: string) => void;
+  onPair: () => void;
+  onRefreshProposals: () => void;
+  onApproveProposal: (id: number) => void;
+  onRejectProposal: (id: number) => void;
+  onRefresh: () => void;
+  onDisconnect: (topic: string) => void;
+  onDisconnectAll: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "active" | "expiring">("all");
+  const [sort, setSort] = useState<"name" | "last-active" | "expiry">("name");
+  const [detailTopic, setDetailTopic] = useState<string | null>(null);
+  const visibleSessions = sessions
+    .filter((session) =>
+      [session.name, session.url, session.chains.join(" "), session.methods.join(" "), session.domain ?? ""].join(" ").toLowerCase().includes(query.trim().toLowerCase())
+    )
+    .filter((session) => {
+      if (filter === "active") {
+        return Boolean(session.lastActiveAt);
+      }
+
+      if (filter === "expiring") {
+        return Boolean(session.expiry && session.expiry * 1000 < Date.now() + 7 * 24 * 60 * 60 * 1000);
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      if (sort === "last-active") {
+        return (Date.parse(b.lastActiveAt ?? "0") || 0) - (Date.parse(a.lastActiveAt ?? "0") || 0);
+      }
+
+      if (sort === "expiry") {
+        return (a.expiry ?? Number.MAX_SAFE_INTEGER) - (b.expiry ?? Number.MAX_SAFE_INTEGER);
+      }
+
+      return a.name.localeCompare(b.name);
+    });
+  const detailSession = sessions.find((session) => session.topic === detailTopic) ?? null;
+
+  return (
+    <section className="resolver-panel" aria-label="WalletConnect">
+      <WidgetHeader label="WalletConnect v2" title="Connected Sessions" />
+
+      <label className="recipient-field">
+        <span>Pairing URI</span>
+        <input type="text" value={walletConnectUri} onChange={(event) => onUriInput(event.target.value)} placeholder="wc:..." spellCheck={false} />
+      </label>
+
+      <button type="button" className="secondary-button" disabled={!walletConnectUri.trim() || walletConnectStatus === "pairing"} onClick={onPair}>
+        {walletConnectStatus === "pairing" ? <Loader2 className="spin" size={17} /> : <Settings2 size={17} />}
+        {walletConnectStatus === "pairing" ? "Pairing..." : "Pair WalletConnect"}
+      </button>
+
+      {walletConnectMessage ? <p className={walletConnectStatus === "error" ? "resolver-result invalid" : "resolver-result valid"}>{walletConnectMessage}</p> : null}
+
+      <PendingProposalPanel
+        proposals={proposals}
+        status={proposalsStatus}
+        error={proposalsError}
+        actingProposalId={actingProposalId}
+        onRefresh={onRefreshProposals}
+        onApprove={onApproveProposal}
+        onReject={onRejectProposal}
+      />
+
+      <label className="settings-search compact-search">
+        <Search size={16} />
+        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search dapp or chain" />
+      </label>
+      <div className="session-controls">
+        <label>
+          <span>Filter</span>
+          <select value={filter} onChange={(event) => setFilter(event.target.value as "all" | "active" | "expiring")}>
+            <option value="all">All</option>
+            <option value="active">Recently active</option>
+            <option value="expiring">Expiring soon</option>
+          </select>
+        </label>
+        <label>
+          <span>Sort</span>
+          <select value={sort} onChange={(event) => setSort(event.target.value as "name" | "last-active" | "expiry")}>
+            <option value="name">Name</option>
+            <option value="last-active">Last active</option>
+            <option value="expiry">Expiry</option>
+          </select>
+        </label>
+      </div>
+
+      <WalletConnectSessionsPanel
+        sessions={visibleSessions}
+        status={status}
+        error={error}
+        disconnectingTopic={disconnectingTopic}
+        onRefresh={onRefresh}
+        onDisconnect={onDisconnect}
+        onDisconnectAll={onDisconnectAll}
+        onShowDetail={setDetailTopic}
+      />
+      {detailSession ? <SessionDetail session={detailSession} disconnectingTopic={disconnectingTopic} onDisconnect={onDisconnect} /> : null}
+    </section>
+  );
+}
+
+function PendingProposalPanel({
+  proposals,
+  status,
+  error,
+  actingProposalId,
+  onRefresh,
+  onApprove,
+  onReject
+}: {
+  proposals: PendingWalletConnectProposal[];
+  status: WalletConnectProposalStatus;
+  error: string | null;
+  actingProposalId: number | null;
+  onRefresh: () => void;
+  onApprove: (id: number) => void;
+  onReject: (id: number) => void;
+}) {
+  return (
+    <div className="wc-session-panel">
+      <div className="wc-session-heading">
+        <div>
+          <span>Connection requests</span>
+          <strong>{proposals.length}</strong>
+        </div>
+        <button type="button" className="mini-icon-button" disabled={status === "loading"} onClick={onRefresh} title="Refresh connection requests">
+          <RefreshCcw className={status === "loading" ? "spin" : undefined} size={15} />
+        </button>
+      </div>
+
+      {proposals.length > 0 ? (
+        <div className="wc-session-list">
+          {proposals.map((proposal) => (
+            <article className="proposal-row" key={proposal.id}>
+              <div className="wc-session-main">
+                <strong>{proposal.name}</strong>
+                <span>{proposal.url || "No origin provided"}</span>
+                <small>{proposalSummary(proposal)}</small>
+              </div>
+              <div className="proposal-actions">
+                <button type="button" className="secondary-button" disabled={actingProposalId === proposal.id} onClick={() => onReject(proposal.id)}>
+                  Reject
+                </button>
+                <button type="button" className="primary-button" disabled={actingProposalId === proposal.id || proposal.riskyMethods.length > 0} onClick={() => onApprove(proposal.id)}>
+                  {actingProposalId === proposal.id ? <Loader2 className="spin" size={15} /> : <Check size={15} />}
+                  Approve
+                </button>
+              </div>
+              {proposal.riskyMethods.length > 0 || proposal.unsupportedChains.length > 0 || proposal.domainMismatch ? (
+                <div className="warning-list">
+                  {proposal.riskyMethods.length > 0 ? (
+                    <div className="warning-item danger">
+                      <AlertTriangle size={14} />
+                      <span>Unsupported methods: {proposal.riskyMethods.join(", ")}</span>
+                    </div>
+                  ) : null}
+                  {proposal.unsupportedChains.length > 0 ? (
+                    <div className="warning-item warning">
+                      <AlertTriangle size={14} />
+                      <span>Unsupported chains: {proposal.unsupportedChains.join(", ")}</span>
+                    </div>
+                  ) : null}
+                  {proposal.domainMismatch ? (
+                    <div className="warning-item warning">
+                      <AlertTriangle size={14} />
+                      <span>Dapp name and URL do not clearly match.</span>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="resolver-hint">{status === "loading" ? "Loading connection requests." : "No pending connection requests."}</p>
+      )}
+
+      {error ? <p className="resolver-result invalid">{error}</p> : null}
+    </div>
+  );
+}
+
+function NetworksView({
+  networks,
+  sendNetworks,
+  selectedSendNetworkId,
+  portfolioStore,
+  networkHealth,
+  networkHealthStatus,
+  onSelectDefaultSendNetwork,
+  onUpdateNetwork,
+  onOpenSettings
+}: {
+  networks: WalletNetworkSetting[];
+  sendNetworks: WalletNetworkSetting[];
+  selectedSendNetworkId: string | null;
+  portfolioStore: AssetStore | null;
+  networkHealth: Record<string, NetworkHealthCheck>;
+  networkHealthStatus: "idle" | "loading" | "ready";
+  onSelectDefaultSendNetwork: (networkId: string | null) => void;
+  onUpdateNetwork: (networkId: string, updater: (network: WalletNetworkSetting) => WalletNetworkSetting) => void;
+  onOpenSettings: () => void;
+}) {
+  const [expandedNetworkId, setExpandedNetworkId] = useState<string | null>(selectedSendNetworkId);
+
+  return (
+    <section className="portfolio-panel" aria-label="Networks">
+      <WidgetHeader label="Networks" title="Enabled and built-in chains" actionLabel="Edit" onAction={onOpenSettings} />
+      <label className="recipient-field">
+        <span>Default send network</span>
+        <select className="network-select" value={selectedSendNetworkId ?? ""} onChange={(event) => onSelectDefaultSendNetwork(event.target.value || null)}>
+          {sendNetworks.map((network) => (
+            <option value={network.networkId} key={network.networkId}>
+              {network.name} - {network.nativeCurrencySymbol}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="network-widget-list">
+        {networks.map((network) => {
+          const snapshot = portfolioStore?.chainAssetSnapshots[network.networkId];
+          const health = networkHealth[network.networkId];
+          return (
+            <article className={`network-detail-row ${network.enabled ? "enabled" : ""}`} key={network.networkId}>
+              <button type="button" className="network-row-trigger" onClick={() => setExpandedNetworkId(expandedNetworkId === network.networkId ? null : network.networkId)}>
+                <TokenIcon symbol={network.nativeCurrencySymbol} />
+                <div>
+                  <strong>{network.name}</strong>
+                  <span>{network.chainId ? `Chain ID ${network.chainId}` : network.family}</span>
+                </div>
+                {selectedSendNetworkId === network.networkId ? <span className="default-badge">Default</span> : null}
+                <StatusBadge ready={network.enabled && health?.status !== "error" && snapshot?.status !== "error"} label={network.enabled ? networkHealthLabel(health, networkHealthStatus) : "Disabled"} />
+                <ChevronDown size={16} />
+              </button>
+              {expandedNetworkId === network.networkId ? (
+                <div className="network-expanded">
+                  <label className="network-toggle inline-toggle">
+                    <input
+                      type="checkbox"
+                      checked={network.enabled}
+                      onChange={(event) =>
+                        onUpdateNetwork(network.networkId, (currentNetwork) => ({
+                          ...currentNetwork,
+                          enabled: event.target.checked
+                        }))
+                      }
+                    />
+                    <span>{network.enabled ? "Enabled" : "Disabled"}</span>
+                  </label>
+                  <PreviewRow label="Native token" value={network.nativeCurrencySymbol} detail={network.chain} />
+                  <label className="recipient-field">
+                    <span>Selected RPC</span>
+                    <select
+                      className="network-select"
+                      value={network.selectedRpcUrl}
+                      disabled={!network.enabled}
+                      onChange={(event) =>
+                        onUpdateNetwork(network.networkId, (currentNetwork) => ({
+                          ...currentNetwork,
+                          selectedRpcUrl: event.target.value
+                        }))
+                      }
+                    >
+                      {network.rpcUrls.map((rpcUrl) => (
+                        <option value={rpcUrl} key={rpcUrl}>
+                          {rpcUrl}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <PreviewRow label="RPC status" value={networkHealthLabel(health, networkHealthStatus)} detail={health?.failureReason ?? (health?.latestBlockNumber ? `Block ${health.latestBlockNumber} - ${health.latencyMs}ms` : undefined)} />
+                  <PreviewRow label="Explorer" value={network.explorerUrl ?? "Not configured"} />
+                  <PreviewRow label="Gas status" value={health?.status === "ready" ? "RPC ready for gas estimates" : "Unavailable"} />
+                  <button type="button" className="secondary-button" disabled={!network.enabled || !sendNetworks.some((item) => item.networkId === network.networkId)} onClick={() => onSelectDefaultSendNetwork(network.networkId)}>
+                    Use for sends
+                  </button>
+                  <button type="button" className="secondary-button" onClick={onOpenSettings}>
+                    Add or edit custom RPC
+                  </button>
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function networkHealthLabel(health: NetworkHealthCheck | undefined, status: "idle" | "loading" | "ready"): string {
+  if (status === "loading" && !health) {
+    return "Checking";
+  }
+
+  if (!health) {
+    return "Not checked";
+  }
+
+  if (health.status === "ready") {
+    return `${health.latencyMs ?? "--"}ms`;
+  }
+
+  if (health.status === "unsupported") {
+    return "Unsupported";
+  }
+
+  return "RPC failed";
+}
+
+function ActivityView({ events }: { events: ActivityEvent[] }) {
+  return (
+    <section className="portfolio-panel" aria-label="Activity">
+      <WidgetHeader label="Activity" title="Recent wallet actions" />
+      {events.length > 0 ? (
+        <div className="activity-list">
+          {events.map((event) => (
+            <div className={`activity-row ${event.severity}`} key={event.id}>
+              <span />
+              <div>
+                <strong>{event.title}</strong>
+                <small>{event.detail}</small>
+                <em>{new Date(event.createdAt).toLocaleString()}</em>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="resolver-hint">Wallet actions, signing results, and dapp events will appear here.</p>
+      )}
+    </section>
+  );
+}
+
+function SecurityView({
+  wallet,
+  previewReady,
+  sessions,
+  proposals,
+  portfolioError,
+  networkHealth
+}: {
+  wallet: WalletRecord | null;
+  previewReady: boolean;
+  sessions: WalletConnectSessionSummary[];
+  proposals: PendingWalletConnectProposal[];
+  portfolioError: string | null;
+  networkHealth: Record<string, NetworkHealthCheck>;
+}) {
+  const failedNetworkCount = Object.values(networkHealth).filter((health) => health.status === "error").length;
+  const riskyProposalCount = proposals.filter((proposal) => proposal.riskyMethods.length > 0 || proposal.unsupportedChains.length > 0 || proposal.domainMismatch).length;
+
+  return (
+    <section className="portfolio-panel" aria-label="Security">
+      <WidgetHeader label="Security Center" title="Wallet safety summary" />
+      <div className="security-grid">
+        <SecurityRow label="Passkey wallet" value={wallet ? "Local encrypted keystore ready" : "No wallet created"} tone={wallet ? "ready" : "warning"} />
+        <SecurityRow label="Clear signing" value={previewReady ? "Native transfer parser active" : "Waiting for a valid transfer"} tone="ready" />
+        <SecurityRow label="Dapp sessions" value={`${sessions.length} connected, ${riskyProposalCount} risky request${riskyProposalCount === 1 ? "" : "s"}`} tone={sessions.length > 0 || riskyProposalCount > 0 ? "warning" : "ready"} />
+        <SecurityRow label="Portfolio refresh" value={portfolioError ?? "No refresh errors"} tone={portfolioError ? "warning" : "ready"} />
+        <SecurityRow label="Network mismatch" value={failedNetworkCount > 0 ? `${failedNetworkCount} RPC health issue${failedNetworkCount === 1 ? "" : "s"}` : "No RPC health issues"} tone={failedNetworkCount > 0 ? "warning" : "ready"} />
+      </div>
+    </section>
+  );
+}
+
+function SecurityRow({ label, value, tone }: { label: string; value: string; tone: "ready" | "warning" }) {
+  return (
+    <div className={`security-row ${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function SettingsView({
+  wallet,
+  status,
+  privacyMode,
+  visibleWidgets,
+  widgetOrder,
+  compact,
+  onCreateWallet,
+  onReset,
+  onTogglePrivacy,
+  onToggleWidget,
+  onMoveWidget,
+  onResetWidgets,
+  onOpenSettings
+}: {
+  wallet: WalletRecord | null;
+  status: Status;
+  privacyMode: boolean;
+  visibleWidgets: string[];
+  widgetOrder: string[];
+  compact?: boolean;
+  onCreateWallet: () => void;
+  onReset: () => void;
+  onTogglePrivacy: () => void;
+  onToggleWidget: (widgetId: string) => void;
+  onMoveWidget: (widgetId: string, direction: -1 | 1) => void;
+  onResetWidgets: () => void;
+  onOpenSettings: () => void;
+}) {
+  return (
+    <section className={compact ? "setup-panel compact-setup" : "setup-panel"}>
+      <div className="setup-copy">
+        <Wallet size={22} />
+        <div>
+          <h3>{wallet ? "Wallet created" : "Create your wallet"}</h3>
+          <p>
+            {wallet
+              ? "The encrypted tcx-wasm keystore is stored locally and unlocked by the passkey PRF."
+              : "Create a local HD wallet encrypted with a WebAuthn PRF key from your passkey."}
+          </p>
+        </div>
+      </div>
+
+      {!compact ? (
+        <button type="button" className="secondary-button" onClick={onTogglePrivacy}>
+          {privacyMode ? <EyeOff size={18} /> : <Eye size={18} />}
+          {privacyMode ? "Show balances" : "Hide balances"}
+        </button>
+      ) : null}
+
+      {!wallet ? (
+        <button type="button" className="primary-button" disabled={status === "creating"} onClick={onCreateWallet}>
+          {status === "creating" ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}
+          {status === "creating" ? "Creating..." : "Create with Passkey"}
+        </button>
+      ) : (
+        <button type="button" className="secondary-button" onClick={onReset}>
+          <RefreshCcw size={18} />
+          Reset local wallet
+        </button>
+      )}
+
+      {!compact ? (
+        <button type="button" className="secondary-button" onClick={onOpenSettings}>
+          <Network size={18} />
+          Open network settings
+        </button>
+      ) : null}
+
+      {!compact ? (
+        <WidgetCustomizationList
+          visibleWidgets={visibleWidgets}
+          widgetOrder={widgetOrder}
+          onToggleWidget={onToggleWidget}
+          onMoveWidget={onMoveWidget}
+          onResetWidgets={onResetWidgets}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function WidgetCustomizationList({
+  visibleWidgets,
+  widgetOrder,
+  onToggleWidget,
+  onMoveWidget,
+  onResetWidgets
+}: {
+  visibleWidgets: string[];
+  widgetOrder: string[];
+  onToggleWidget: (widgetId: string) => void;
+  onMoveWidget: (widgetId: string, direction: -1 | 1) => void;
+  onResetWidgets: () => void;
+}) {
+  const widgetDescriptions: Record<string, { title: string; detail: string; recommended?: boolean }> = {
+    balance: { title: "Balance", detail: "Portfolio hero and refresh status", recommended: true },
+    actions: { title: "Actions", detail: "Send, receive, swap, and activity shortcuts", recommended: true },
+    assets: { title: "Assets", detail: "Top native balances by chain", recommended: true },
+    networks: { title: "Networks", detail: "Enabled networks and RPC health" },
+    sessions: { title: "Sessions", detail: "WalletConnect dapp summary" }
+  };
+  const order = widgetOrder.length ? widgetOrder : Object.keys(widgetDescriptions);
+
+  return (
+    <div className="customization-panel">
+      <div className="resolver-heading">
+        <div>
+          <span className="muted">Personalization</span>
+          <h3>Home widgets</h3>
+        </div>
+        <button type="button" className="text-button" onClick={onResetWidgets}>
+          Reset
+        </button>
+      </div>
+      {order.map((widgetId, index) => {
+        const widget = widgetDescriptions[widgetId];
+
+        if (!widget) {
+          return null;
+        }
+
+        return (
+          <div className="customization-row" key={widgetId}>
+            <div className="drag-handle" aria-hidden="true">
+              ::
+            </div>
+            <div>
+              <strong>{widget.title}</strong>
+              <small>{widget.detail}</small>
+              {widget.recommended ? <span>Recommended</span> : null}
+            </div>
+            <div className="customization-actions">
+              <button type="button" className="mini-icon-button" disabled={index === 0} onClick={() => onMoveWidget(widgetId, -1)} aria-label={`Move ${widget.title} up`}>
+                ↑
+              </button>
+              <button type="button" className="mini-icon-button" disabled={index === order.length - 1} onClick={() => onMoveWidget(widgetId, 1)} aria-label={`Move ${widget.title} down`}>
+                ↓
+              </button>
+              <label className="network-toggle">
+                <input type="checkbox" checked={(visibleWidgets.length ? visibleWidgets : order).includes(widgetId)} onChange={() => onToggleWidget(widgetId)} />
+                <span>{(visibleWidgets.length ? visibleWidgets : order).includes(widgetId) ? "Shown" : "Hidden"}</span>
+              </label>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function networkToSnapshot(network: WalletNetworkSetting): ChainAssetSnapshot {
+  return {
+    networkId: network.networkId,
+    networkName: network.name,
+    family: network.family,
+    nativeCurrencySymbol: network.nativeCurrencySymbol,
+    accountId: "",
+    chainId: network.chainId,
+    status: network.enabled ? "refreshing" : "unsupported",
+    assetIds: [],
+    totalValueUsd: null
+  };
+}
+
+function viewTitle(view: PopupView): string {
+  switch (view) {
+    case "assets":
+      return "Assets";
+    case "activity":
+      return "Activity";
+    case "send":
+      return "Send";
+    case "receive":
+      return "Receive";
+    case "networks":
+      return "Networks";
+    case "connected-sessions":
+      return "Connected Sessions";
+    case "security":
+      return "Security";
+    case "settings":
+      return "Settings";
+    case "home":
+      return "Passkey Wallet";
+  }
+}
+
 function WalletConnectSessionsPanel({
   sessions,
   status,
   error,
   disconnectingTopic,
   onRefresh,
-  onDisconnect
+  onDisconnect,
+  onDisconnectAll,
+  onShowDetail
 }: {
   sessions: WalletConnectSessionSummary[];
   status: WalletConnectSessionsStatus;
@@ -955,6 +2647,8 @@ function WalletConnectSessionsPanel({
   disconnectingTopic: string | null;
   onRefresh: () => void;
   onDisconnect: (topic: string) => void;
+  onDisconnectAll?: () => void;
+  onShowDetail?: (topic: string) => void;
 }) {
   return (
     <div className="wc-session-panel">
@@ -963,9 +2657,16 @@ function WalletConnectSessionsPanel({
           <span>Connected dapps</span>
           <strong>{sessions.length}</strong>
         </div>
-        <button type="button" className="mini-icon-button" disabled={status === "loading"} onClick={onRefresh} title="Refresh sessions">
-          <RefreshCcw className={status === "loading" ? "spin" : undefined} size={15} />
-        </button>
+        <div className="wc-heading-actions">
+          {sessions.length > 0 && onDisconnectAll ? (
+            <button type="button" className="mini-icon-button danger" disabled={disconnectingTopic === "__all__"} onClick={onDisconnectAll} title="Disconnect all dapps">
+              {disconnectingTopic === "__all__" ? <Loader2 className="spin" size={15} /> : <Unplug size={15} />}
+            </button>
+          ) : null}
+          <button type="button" className="mini-icon-button" disabled={status === "loading"} onClick={onRefresh} title="Refresh sessions">
+            <RefreshCcw className={status === "loading" ? "spin" : undefined} size={15} />
+          </button>
+        </div>
       </div>
 
       {sessions.length > 0 ? (
@@ -980,6 +2681,11 @@ function WalletConnectSessionsPanel({
                 <span>{session.url || "No origin provided"}</span>
                 <small>{walletConnectSessionMeta(session)}</small>
               </div>
+              {onShowDetail ? (
+                <button type="button" className="wc-disconnect" onClick={() => onShowDetail(session.topic)} title="View session details">
+                  <ChevronDown size={15} />
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="wc-disconnect"
@@ -1003,12 +2709,47 @@ function WalletConnectSessionsPanel({
   );
 }
 
+function SessionDetail({
+  session,
+  disconnectingTopic,
+  onDisconnect
+}: {
+  session: WalletConnectSessionSummary;
+  disconnectingTopic: string | null;
+  onDisconnect: (topic: string) => void;
+}) {
+  return (
+    <section className="session-detail" aria-label="WalletConnect session detail">
+      <WidgetHeader label="Session detail" title={session.name} />
+      <PreviewRow label="Domain" value={(session.domain ?? session.url) || "Not provided"} detail={session.url || undefined} />
+      <PreviewRow label="Connected account" value={session.accounts.length > 0 ? session.accounts.join(", ") : "No accounts"} />
+      <PreviewRow label="Allowed chains" value={session.chains.length > 0 ? session.chains.join(", ") : "No chains"} />
+      <PreviewRow label="Permissions" value={session.methods.length > 0 ? session.methods.join(", ") : "No methods"} />
+      <PreviewRow label="Last active" value={session.lastActiveAt ? new Date(session.lastActiveAt).toLocaleString() : "No activity yet"} />
+      <PreviewRow label="Expiry" value={session.expiry ? new Date(session.expiry * 1000).toLocaleString() : "Not provided"} />
+      <button type="button" className="secondary-button" disabled={disconnectingTopic === session.topic} onClick={() => onDisconnect(session.topic)}>
+        {disconnectingTopic === session.topic ? <Loader2 className="spin" size={16} /> : <Unplug size={16} />}
+        Disconnect session
+      </button>
+    </section>
+  );
+}
+
 function walletConnectSessionMeta(session: WalletConnectSessionSummary): string {
   const chainLabel = session.chains.length > 0 ? session.chains.join(", ") : "No chains";
   const accountLabel = session.accounts.length === 1 ? "1 account" : `${session.accounts.length} accounts`;
   const expiry = session.expiry ? new Date(session.expiry * 1000).toLocaleDateString() : null;
+  const activity = session.lastActiveAt ? `last active ${new Date(session.lastActiveAt).toLocaleString()}` : "no activity yet";
+  const methods = session.methodHistory?.length ? ` - ${session.methodHistory.join(", ")}` : "";
 
-  return expiry ? `${chainLabel} - ${accountLabel} - expires ${expiry}` : `${chainLabel} - ${accountLabel}`;
+  return expiry ? `${chainLabel} - ${accountLabel} - expires ${expiry} - ${activity}${methods}` : `${chainLabel} - ${accountLabel} - ${activity}${methods}`;
+}
+
+function proposalSummary(proposal: PendingWalletConnectProposal): string {
+  const chains = [...proposal.requiredChains, ...proposal.optionalChains];
+  const methods = [...proposal.requiredMethods, ...proposal.optionalMethods];
+  const expires = proposal.expiresAt ? ` - expires ${new Date(proposal.expiresAt).toLocaleTimeString()}` : "";
+  return `${chains.length || 0} chains - ${methods.length || 0} methods${expires}`;
 }
 
 function ResolverResult({ resolution }: { resolution: RecipientResolution }) {
@@ -1038,7 +2779,7 @@ function ClearSigningPreviewCard({
   feeStatus,
   feeError
 }: {
-  result: ReturnType<typeof buildNativeEthTransferPreview>;
+  result: ReturnType<typeof buildNativeTokenTransferPreview>;
   feeStatus: FeeStatus;
   feeError: string | null;
 }) {
@@ -1083,6 +2824,86 @@ function ClearSigningPreviewCard({
         ))}
       </div>
     </div>
+  );
+}
+
+function ClearSigningPreviewSheet({
+  result,
+  feeStatus,
+  feeError,
+  signingStatus,
+  onSign
+}: {
+  result: ReturnType<typeof buildNativeTokenTransferPreview>;
+  feeStatus: FeeStatus;
+  feeError: string | null;
+  signingStatus: SigningStatus;
+  onSign: () => void;
+}) {
+  if (!result.ok) {
+    return (
+      <div className="preview-card risk-state">
+        <div className="warning-item danger">
+          <AlertTriangle size={14} />
+          <span>{result.reason}</span>
+        </div>
+      </div>
+    );
+  }
+
+  const preview = result.preview;
+  const canSign = canSignPreview(preview);
+
+  return (
+    <section className="clear-signing-sheet" aria-label="Clear signing preview">
+      <div className="sheet-header">
+        <div>
+          <span className="muted">Expires in</span>
+          <h3>10:00</h3>
+        </div>
+        <StatusBadge ready={canSign} label={canSign ? "Parsed" : "Risk"} />
+      </div>
+      <div className="preview-hero">
+        <span>{preview.title}</span>
+        <strong>
+          {preview.amount} {preview.asset}
+        </strong>
+        <small>{preview.networkName}</small>
+      </div>
+      <PreviewRow label="Recipient" value={preview.recipientLabel} detail={formatAddress(preview.to)} />
+      <PreviewRow label="From" value={formatAddress(preview.from)} />
+      <PreviewRow label="Network fee" value={preview.estimatedNetworkFee} />
+      <div className="safety-scope">
+        <ShieldCheck size={16} />
+        <div>
+          <strong>Safety scope</strong>
+          <span>This request only transfers native {preview.asset}. Contract calldata stays hidden unless expanded.</span>
+        </div>
+      </div>
+      <details className="advanced-data">
+        <summary>Advanced data</summary>
+        <PreviewRow label="Calldata" value={preview.data} detail="Native transfer has no contract calldata" />
+        <PreviewRow label="Gas" value={preview.gasLimit ? preview.gasLimit.toString() : feeStatus === "estimating" ? "Estimating" : "Pending"} />
+      </details>
+      <div className="warning-list">
+        {feeError ? (
+          <div className="warning-item danger">
+            <AlertTriangle size={14} />
+            <span>{feeError}</span>
+          </div>
+        ) : null}
+        {preview.warnings.map((warning) => (
+          <div className={`warning-item ${warning.severity}`} key={warning.message}>
+            <AlertTriangle size={14} />
+            <span>{warning.message}</span>
+          </div>
+        ))}
+      </div>
+      <button type="button" className="primary-button" disabled={!canSign || signingStatus === "signing" || signingStatus === "broadcasting"} onClick={onSign}>
+        {signingStatus === "signing" || signingStatus === "broadcasting" ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}
+        {signingStatus === "signing" ? "Signing..." : signingStatus === "broadcasting" ? "Broadcasting..." : "Sign and continue"}
+      </button>
+    </section>
   );
 }
 
