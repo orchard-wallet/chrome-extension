@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   Activity,
   BookOpen,
   ChevronDown,
@@ -21,7 +22,8 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Unplug,
-  Wallet
+  Wallet,
+  X
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -36,9 +38,11 @@ import { createEthereumPasskeyWallet, signNativeTokenTransfer, type NativeTransf
 import { createPasskeyPrf, unlockPasskeyPrf } from "../core/webauthn";
 import {
   appendActivityEvent,
+  clearPendingNativeSendReview,
   clearWalletRecord,
   readActivityEvents,
   readNetworkSettings,
+  readPendingNativeSendReview,
   readRecentRecipients,
   readWalletUiSettings,
   readWalletRecord,
@@ -46,6 +50,7 @@ import {
   writeNetworkSettings,
   writeWalletUiSettings,
   type ActivityEvent,
+  type PendingNativeSendReview,
   type PendingWalletConnectProposal,
   type RecentRecipient,
   WalletRecord,
@@ -53,7 +58,8 @@ import {
 } from "../lib/storage";
 
 type PopupView = "home" | "assets" | "activity" | "send" | "receive" | "networks" | "connected-sessions" | "security" | "settings";
-type Status = "idle" | "creating" | "ready" | "error";
+type Status = "checking" | "idle" | "creating" | "ready" | "error";
+type OnboardingStep = "intro" | "name" | "ready";
 type ResolverStatus = "idle" | "resolving";
 type FeeStatus = "idle" | "estimating" | "ready" | "error";
 type SigningStatus = "idle" | "signing" | "broadcasting" | "broadcasted" | "error";
@@ -148,7 +154,9 @@ function txExplorerUrl(hash: string, network: WalletNetworkSetting | null): stri
 export function App() {
   const [view, setView] = useState<PopupView>("home");
   const [wallet, setWallet] = useState<WalletRecord | null>(null);
-  const [status, setStatus] = useState<Status>("idle");
+  const [status, setStatus] = useState<Status>("checking");
+  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("intro");
+  const [walletName, setWalletName] = useState("My Wallet");
   const [portfolioStatus, setPortfolioStatus] = useState<PortfolioLoadStatus>("idle");
   const [portfolioStore, setPortfolioStore] = useState<AssetStore | null>(null);
   const [portfolioError, setPortfolioError] = useState<string | null>(null);
@@ -174,6 +182,8 @@ export function App() {
   const [feeEstimate, setFeeEstimate] = useState<TransactionFeeEstimate | null>(null);
   const [feeError, setFeeError] = useState<string | null>(null);
   const [previewAccepted, setPreviewAccepted] = useState(false);
+  const [pendingSendReview, setPendingSendReview] = useState<PendingNativeSendReview | null>(null);
+  const [acceptPendingSendReview, setAcceptPendingSendReview] = useState(false);
   const [signingStatus, setSigningStatus] = useState<SigningStatus>("idle");
   const [signingError, setSigningError] = useState<string | null>(null);
   const [signatureResult, setSignatureResult] = useState<NativeTransferSignResult | null>(null);
@@ -235,6 +245,10 @@ export function App() {
 
     readRecentRecipients()
       .then(setRecentRecipients)
+      .catch(() => undefined);
+
+    readPendingNativeSendReview()
+      .then(setPendingSendReview)
       .catch(() => undefined);
   }, []);
 
@@ -353,6 +367,30 @@ export function App() {
     setSignatureResult(null);
     setBroadcastHash(null);
   }, [amountInput, feeEstimate, recipientResolution, selectedSendNetworkId]);
+
+  useEffect(() => {
+    if (!pendingSendReview || !wallet || !sendNetworks.some((network) => network.networkId === pendingSendReview.networkId)) {
+      return;
+    }
+
+    setView("send");
+    setSelectedSendNetworkId(pendingSendReview.networkId);
+    setRecipientInput(pendingSendReview.recipientInput);
+    setRecipientResolution(pendingSendReview.recipientResolution);
+    setAmountInput(pendingSendReview.amountInput);
+    setAcceptPendingSendReview(true);
+    setPendingSendReview(null);
+    void clearPendingNativeSendReview();
+  }, [pendingSendReview, sendNetworks, wallet]);
+
+  useEffect(() => {
+    if (!acceptPendingSendReview || !previewResult.ok || !canSignPreview(previewResult.preview)) {
+      return;
+    }
+
+    setPreviewAccepted(true);
+    setAcceptPendingSendReview(false);
+  }, [acceptPendingSendReview, previewResult]);
 
   useEffect(() => {
     let cancelled = false;
@@ -481,21 +519,30 @@ export function App() {
     };
   }, [recipientInput]);
 
-  async function handleCreateWallet() {
+  async function handleCreateWallet(nextWalletName = walletName.trim()) {
+    if (!nextWalletName) {
+      setError("Enter a wallet name before creating the passkey.");
+      setOnboardingStep("name");
+      return;
+    }
+
     setStatus("creating");
     setError(null);
 
     try {
-      const passkey = await createPasskeyPrf("Primary wallet");
+      const passkey = await createPasskeyPrf(nextWalletName);
       const created = await createEthereumPasskeyWallet(passkey);
       const record: WalletRecord = {
+        name: nextWalletName,
         ...passkey,
         ...created
       };
 
       await writeWalletRecord(record);
       setWallet(record);
+      setWalletName(record.name ?? "");
       setStatus("ready");
+      setOnboardingStep("ready");
       void recordActivity({
         type: "wallet_created",
         title: "Wallet created",
@@ -522,6 +569,8 @@ export function App() {
     await clearWalletRecord();
     setWallet(null);
     setStatus("idle");
+    setOnboardingStep("intro");
+    setWalletName("My Wallet");
     setError(null);
     setPortfolioStore(null);
     setSelectedChainId(null);
@@ -924,6 +973,29 @@ export function App() {
     }
   }
 
+  if (!wallet || onboardingStep === "ready") {
+    return (
+      <main className="wallet-shell onboarding-shell">
+        <WalletOnboarding
+          step={onboardingStep}
+          walletName={walletName}
+          status={status}
+          error={error}
+          onWalletName={(name) => {
+            setWalletName(name);
+            setError(null);
+          }}
+          onContinue={() => {
+            setError(null);
+            setOnboardingStep("name");
+          }}
+          onCreate={() => handleCreateWallet(walletName.trim())}
+          onPortal={() => setOnboardingStep("intro")}
+        />
+      </main>
+    );
+  }
+
   return (
     <main className={`wallet-shell view-${view}`}>
       <AppHeader
@@ -1006,6 +1078,7 @@ export function App() {
             onTokenPickerOpen={setTokenPickerOpen}
             onAmountInput={setAmountInput}
             onPreviewAction={handlePreviewAction}
+            onCancelPreview={() => setPreviewAccepted(false)}
           />
         ) : null}
 
@@ -1084,6 +1157,219 @@ export function App() {
         {error ? <p className="error-box">{error}</p> : null}
       </div>
     </main>
+  );
+}
+
+function WalletOnboarding({
+  step,
+  walletName,
+  status,
+  error,
+  onWalletName,
+  onContinue,
+  onCreate,
+  onPortal
+}: {
+  step: OnboardingStep;
+  walletName: string;
+  status: Status;
+  error: string | null;
+  onWalletName: (name: string) => void;
+  onContinue: () => void;
+  onCreate: () => void;
+  onPortal: () => void;
+}) {
+  const checking = status === "checking";
+  const creating = status === "creating";
+  const displayName = walletName.trim() || "My Wallet";
+
+  return (
+    <section className={`wallet-onboarding onboarding-step-${step}`} aria-label="Create passkey wallet">
+      <header className="onboarding-brandbar">
+        <div>
+          <OrchardMark />
+          <strong>Orchard Wallet</strong>
+        </div>
+        <button type="button" aria-label="Close onboarding" onClick={() => window.close()}>
+          <X size={22} />
+        </button>
+      </header>
+
+      {checking ? (
+        <div className="onboarding-loading">
+          <Loader2 className="spin" size={22} />
+          <span>Checking local wallet state.</span>
+        </div>
+      ) : step === "intro" ? (
+        <div className="onboarding-stage onboarding-intro">
+          <div className="onboarding-copy">
+            <h1>Fast with Passkey. Flexible with EOA.</h1>
+            <p>Unlock with Face ID or Touch ID while keeping a self-custody wallet that works across web3.</p>
+          </div>
+
+          <PasskeyOrbitIllustration />
+
+          <div className="onboarding-feature-grid">
+            <OnboardingFeature icon={<ShieldCheck size={18} />} title="Unlock with Face ID or Touch ID" detail="Use biometrics to unlock instantly." tone="green" />
+            <OnboardingFeature icon={<KeyRound size={18} />} title="Fast sign-in on this device" detail="Skip passwords and get straight to web3." tone="lilac" />
+            <OnboardingFeature icon={<Network size={18} />} title="Works with EOA across web3" detail="Use your wallet across apps and chains." tone="blue" />
+            <OnboardingFeature icon={<Check size={18} />} title="Self-custody by default" detail="You own your keys and assets." tone="green" />
+          </div>
+
+          <button type="button" className="onboarding-cta" onClick={onContinue}>
+            Continue
+            <ArrowRight size={20} />
+          </button>
+        </div>
+      ) : step === "name" ? (
+        <form
+          className="onboarding-stage onboarding-name"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onCreate();
+          }}
+        >
+          <div className="onboarding-copy">
+            <h1>Name your wallet.</h1>
+            <p>Choose a name for this wallet. You can change it later in Settings.</p>
+          </div>
+
+          <section className="wallet-name-card">
+            <label htmlFor="wallet-name">Wallet name</label>
+            <input
+              id="wallet-name"
+              autoFocus
+              autoComplete="off"
+              maxLength={48}
+              onChange={(event) => onWalletName(event.target.value)}
+              placeholder="My Wallet"
+              value={walletName}
+            />
+            <small>Used to identify this wallet on this device.</small>
+            <div className="wallet-name-preview">
+              <span>
+                <Wallet size={24} />
+              </span>
+              <div>
+                <strong>{displayName}</strong>
+                <em>This device</em>
+              </div>
+            </div>
+          </section>
+
+          <p className="onboarding-note">
+            <KeyRound size={18} />
+            <span>Passkey secures access. Your EOA wallet will be created next.</span>
+          </p>
+
+          <button type="submit" className="onboarding-cta" disabled={!walletName.trim() || creating}>
+            {creating ? <Loader2 className="spin" size={20} /> : null}
+            {creating ? "Creating Wallet..." : "Create Wallet"}
+          </button>
+        </form>
+      ) : (
+        <div className="onboarding-stage onboarding-ready">
+          <div className="onboarding-copy">
+            <h1>Your wallet is ready.</h1>
+            <p>Passkey and EOA wallet are set up. You can start using Orchard Wallet now.</p>
+          </div>
+
+          <WalletReadyIllustration />
+
+          <section className="onboarding-checklist" aria-label="Wallet setup completed">
+            <OnboardingCheck label="Passkey ready" />
+            <OnboardingCheck label="EOA wallet created" />
+            <OnboardingCheck label="Common networks enabled automatically" />
+          </section>
+
+          <p className="onboarding-backup">
+            <ShieldCheck size={18} />
+            Backup can be added later in Security.
+          </p>
+
+          <button type="button" className="onboarding-cta" onClick={onPortal}>
+            Go to Portal
+            <ArrowRight size={20} />
+          </button>
+        </div>
+      )}
+
+      {error ? <p className="error-box onboarding-error">{error}</p> : null}
+    </section>
+  );
+}
+
+function OrchardMark() {
+  return (
+    <span className="orchard-onboarding-mark" aria-hidden="true">
+      <svg viewBox="0 0 48 58">
+        <path d="M24 56c12-10 19-22 19-34C43 10 35 3 24 3S5 10 5 22c0 12 7 24 19 34Z" />
+        <path d="M24 3c-5 12-5 26 0 53m0-53c5 12 5 26 0 53" />
+        <path d="M24 2v-1" />
+      </svg>
+    </span>
+  );
+}
+
+function OnboardingFeature({
+  icon,
+  title,
+  detail,
+  tone
+}: {
+  icon: ReactNode;
+  title: string;
+  detail: string;
+  tone: "green" | "lilac" | "blue";
+}) {
+  return (
+    <article className="onboarding-feature">
+      <span className={tone}>{icon}</span>
+      <div>
+        <strong>{title}</strong>
+        <p>{detail}</p>
+      </div>
+    </article>
+  );
+}
+
+function OnboardingCheck({ label }: { label: string }) {
+  return (
+    <div>
+      <span>
+        <Check size={18} />
+      </span>
+      <strong>{label}</strong>
+    </div>
+  );
+}
+
+function PasskeyOrbitIllustration() {
+  return (
+    <section className="onboarding-orbit passkey-orbit" aria-hidden="true">
+      <span className="orbit-ring" />
+      <span className="orbit-card card-left" />
+      <span className="orbit-card card-center">
+        <ShieldCheck size={34} />
+      </span>
+      <span className="orbit-card card-right">
+        <KeyRound size={31} />
+      </span>
+    </section>
+  );
+}
+
+function WalletReadyIllustration() {
+  return (
+    <section className="onboarding-orbit ready-orbit" aria-hidden="true">
+      <span className="orbit-ring" />
+      <span className="ready-wallet">
+        <OrchardMark />
+      </span>
+      <span className="ready-check">
+        <Check size={28} />
+      </span>
+    </section>
   );
 }
 
@@ -1809,7 +2095,8 @@ function SendView({
   onNetworkSelect,
   onTokenPickerOpen,
   onAmountInput,
-  onPreviewAction
+  onPreviewAction,
+  onCancelPreview
 }: {
   wallet: WalletRecord | null;
   resolverStatus: ResolverStatus;
@@ -1835,6 +2122,7 @@ function SendView({
   onTokenPickerOpen: (open: boolean) => void;
   onAmountInput: (value: string) => void;
   onPreviewAction: () => void;
+  onCancelPreview: () => void;
 }) {
   const selectedSnapshot = selectedSendNetwork
     ? chainSnapshots.find((snapshot) => snapshot.networkId === selectedSendNetwork.networkId)
@@ -1927,7 +2215,14 @@ function SendView({
       </div>
 
       {previewAccepted ? (
-        <ClearSigningPreviewSheet result={previewResult} feeStatus={feeStatus} feeError={feeError} signingStatus={signingStatus} onSign={onPreviewAction} />
+        <ClearSigningPreviewSheet
+          result={previewResult}
+          feeStatus={feeStatus}
+          feeError={feeError}
+          signingStatus={signingStatus}
+          onSign={onPreviewAction}
+          onCancel={onCancelPreview}
+        />
       ) : (
         <ClearSigningPreviewCard result={previewResult} feeStatus={feeStatus} feeError={feeError} />
       )}
@@ -2832,13 +3127,15 @@ function ClearSigningPreviewSheet({
   feeStatus,
   feeError,
   signingStatus,
-  onSign
+  onSign,
+  onCancel
 }: {
   result: ReturnType<typeof buildNativeTokenTransferPreview>;
   feeStatus: FeeStatus;
   feeError: string | null;
   signingStatus: SigningStatus;
   onSign: () => void;
+  onCancel: () => void;
 }) {
   if (!result.ok) {
     return (
@@ -2864,11 +3161,14 @@ function ClearSigningPreviewSheet({
         <StatusBadge ready={canSign} label={canSign ? "Parsed" : "Risk"} />
       </div>
       <div className="preview-hero">
+        <span className="preview-direction" aria-hidden="true">
+          <ArrowRight size={18} />
+        </span>
         <span>{preview.title}</span>
         <strong>
           {preview.amount} {preview.asset}
         </strong>
-        <small>{preview.networkName}</small>
+        <small>{preview.networkName.replace(/\s+(Mainnet|network)$/i, "")}</small>
       </div>
       <PreviewRow label="Recipient" value={preview.recipientLabel} detail={formatAddress(preview.to)} />
       <PreviewRow label="From" value={formatAddress(preview.from)} />
@@ -2877,7 +3177,10 @@ function ClearSigningPreviewSheet({
         <ShieldCheck size={16} />
         <div>
           <strong>Safety scope</strong>
-          <span>This request only transfers native {preview.asset}. Contract calldata stays hidden unless expanded.</span>
+          <span>
+            This request only transfers native {preview.asset}. No token approval, swap, or contract interaction is detected.
+            Contract calldata stays hidden unless expanded.
+          </span>
         </div>
       </div>
       <details className="advanced-data">
@@ -2886,6 +3189,10 @@ function ClearSigningPreviewSheet({
         <PreviewRow label="Gas" value={preview.gasLimit ? preview.gasLimit.toString() : feeStatus === "estimating" ? "Estimating" : "Pending"} />
       </details>
       <div className="warning-list">
+        <div className="warning-item info clear-signing-review-note">
+          <AlertTriangle size={14} />
+          <span>Review the recipient, amount, network, and fee before signing with your passkey.</span>
+        </div>
         {feeError ? (
           <div className="warning-item danger">
             <AlertTriangle size={14} />
@@ -2902,6 +3209,9 @@ function ClearSigningPreviewSheet({
       <button type="button" className="primary-button" disabled={!canSign || signingStatus === "signing" || signingStatus === "broadcasting"} onClick={onSign}>
         {signingStatus === "signing" || signingStatus === "broadcasting" ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}
         {signingStatus === "signing" ? "Signing..." : signingStatus === "broadcasting" ? "Broadcasting..." : "Sign and continue"}
+      </button>
+      <button type="button" className="clear-signing-cancel" onClick={onCancel} disabled={signingStatus === "signing" || signingStatus === "broadcasting"}>
+        Cancel
       </button>
     </section>
   );

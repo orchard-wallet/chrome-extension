@@ -1,7 +1,9 @@
 import type { WalletNetworkSetting } from "../core/networks";
 import { emptyAssetStore, type AssetStore } from "../core/assets";
+import type { RecipientResolution } from "../core/ens";
 
 export interface WalletRecord {
+  name?: string;
   address: string;
   chainAccounts?: {
     ethereum: string;
@@ -49,6 +51,14 @@ export interface RecentRecipient {
   lastUsedAt: string;
   networkId: string;
   networkName: string;
+}
+
+export interface PendingNativeSendReview {
+  networkId: string;
+  recipientInput: string;
+  recipientResolution: RecipientResolution;
+  amountInput: string;
+  createdAt: string;
 }
 
 export interface WalletConnectSessionActivity {
@@ -103,6 +113,7 @@ const ACTIVITY_EVENTS_KEY = "activityEvents";
 const RECENT_RECIPIENTS_KEY = "recentRecipients";
 const WALLETCONNECT_SESSION_ACTIVITY_KEY = "walletConnectSessionActivity";
 const IMPORTED_ERC20_TOKENS_KEY = "importedErc20Tokens";
+const PENDING_NATIVE_SEND_REVIEW_KEY = "pendingNativeSendReview";
 
 function hasChromeStorage(): boolean {
   return typeof chrome !== "undefined" && Boolean(chrome.storage?.local);
@@ -347,6 +358,34 @@ export async function upsertRecentRecipient(recipient: RecentRecipient): Promise
   ].slice(0, 12);
   await writeRecentRecipients(nextRecipients);
   return nextRecipients;
+}
+
+export async function readPendingNativeSendReview(): Promise<PendingNativeSendReview | null> {
+  if (hasChromeStorage()) {
+    const result = await chromeLocalStorage().get(PENDING_NATIVE_SEND_REVIEW_KEY);
+    return (result[PENDING_NATIVE_SEND_REVIEW_KEY] as PendingNativeSendReview | null) ?? null;
+  }
+
+  const raw = localStorage.getItem(PENDING_NATIVE_SEND_REVIEW_KEY);
+  return raw ? (JSON.parse(raw) as PendingNativeSendReview) : null;
+}
+
+export async function writePendingNativeSendReview(review: PendingNativeSendReview): Promise<void> {
+  if (hasChromeStorage()) {
+    await chromeLocalStorage().set({ [PENDING_NATIVE_SEND_REVIEW_KEY]: review });
+    return;
+  }
+
+  localStorage.setItem(PENDING_NATIVE_SEND_REVIEW_KEY, JSON.stringify(review));
+}
+
+export async function clearPendingNativeSendReview(): Promise<void> {
+  if (hasChromeStorage()) {
+    await chromeLocalStorage().remove(PENDING_NATIVE_SEND_REVIEW_KEY);
+    return;
+  }
+
+  localStorage.removeItem(PENDING_NATIVE_SEND_REVIEW_KEY);
 }
 
 export async function readWalletConnectSessionActivity(): Promise<Record<string, WalletConnectSessionActivity>> {

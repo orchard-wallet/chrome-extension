@@ -9,6 +9,9 @@ interface ImportMeta {
 }
 
 declare const chrome: {
+  action?: {
+    openPopup?(): Promise<void> | void;
+  };
   runtime?: {
     getURL?(path: string): string;
     lastError?: {
@@ -43,6 +46,10 @@ declare const chrome: {
       get(keys: string | string[]): Promise<Record<string, unknown>>;
       set(items: Record<string, unknown>): Promise<void>;
       remove(keys: string | string[]): Promise<void>;
+    };
+    onChanged?: {
+      addListener(listener: (changes: Record<string, { newValue?: unknown; oldValue?: unknown }>, areaName: string) => void): void;
+      removeListener(listener: (changes: Record<string, { newValue?: unknown; oldValue?: unknown }>, areaName: string) => void): void;
     };
   };
 };
