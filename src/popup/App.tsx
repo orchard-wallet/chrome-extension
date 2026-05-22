@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Activity,
-  BookOpen,
   ChevronDown,
   Check,
   Copy,
@@ -19,6 +18,7 @@ import {
   Search,
   Send,
   Settings2,
+  Share2,
   ShieldCheck,
   SlidersHorizontal,
   Unplug,
@@ -29,6 +29,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Address } from "viem";
 import { formatTokenAmount, formatUsd, type AssetStore, type ChainAssetSnapshot } from "../core/assets";
+import type { ActivityEventInput } from "../core/activity";
 import { buildNativeTokenTransferPreview, canSignPreview } from "../core/clearSigning";
 import { resolveRecipient, type RecipientResolution } from "../core/ens";
 import { getBuiltInNetworkSettings, type WalletNetworkSetting } from "../core/networks";
@@ -36,11 +37,11 @@ import { readPortfolioStore, refreshPortfolio } from "../core/portfolio";
 import { broadcastSignedTransaction, checkNetworkHealth, estimateNativeTokenTransfer, type NetworkHealthCheck, type TransactionFeeEstimate } from "../core/rpc";
 import { createEthereumPasskeyWallet, signNativeTokenTransfer, type NativeTransferSignResult } from "../core/tcx";
 import { createPasskeyPrf, unlockPasskeyPrf } from "../core/webauthn";
+import ethTokenIcon from "./assets/eth-token.png";
 import {
   appendActivityEvent,
   clearPendingNativeSendReview,
   clearWalletRecord,
-  readActivityEvents,
   readNetworkSettings,
   readPendingNativeSendReview,
   readRecentRecipients,
@@ -49,7 +50,7 @@ import {
   upsertRecentRecipient,
   writeNetworkSettings,
   writeWalletUiSettings,
-  type ActivityEvent,
+  DEFAULT_WALLET_UI_SETTINGS,
   type PendingNativeSendReview,
   type PendingWalletConnectProposal,
   type RecentRecipient,
@@ -57,7 +58,7 @@ import {
   writeWalletRecord
 } from "../lib/storage";
 
-type PopupView = "home" | "assets" | "activity" | "send" | "receive" | "networks" | "connected-sessions" | "security" | "settings";
+type PopupView = "home" | "send" | "receive" | "security" | "settings";
 type Status = "checking" | "idle" | "creating" | "ready" | "error";
 type OnboardingStep = "intro" | "name" | "ready";
 type ResolverStatus = "idle" | "resolving";
@@ -165,12 +166,12 @@ export function App() {
   const [networkHealth, setNetworkHealth] = useState<Record<string, NetworkHealthCheck>>({});
   const [networkHealthStatus, setNetworkHealthStatus] = useState<"idle" | "loading" | "ready">("idle");
   const [privacyMode, setPrivacyMode] = useState(false);
+  const [compactMode, setCompactMode] = useState(false);
   const [visibleWidgets, setVisibleWidgets] = useState<string[]>([]);
   const [widgetOrder, setWidgetOrder] = useState<string[]>([]);
   const [resolverStatus, setResolverStatus] = useState<ResolverStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
   const [recentRecipients, setRecentRecipients] = useState<RecentRecipient[]>([]);
   const [recipientInput, setRecipientInput] = useState("");
   const [recipientResolution, setRecipientResolution] = useState<RecipientResolution>({ kind: "empty", input: "" });
@@ -233,14 +234,12 @@ export function App() {
     readWalletUiSettings()
       .then((settings) => {
         setPrivacyMode(settings.privacyMode);
+        setCompactMode(settings.compactMode);
         setVisibleWidgets(settings.visibleWidgets);
         setWidgetOrder(settings.widgetOrder);
         setSelectedSendNetworkId(settings.defaultSendNetworkId);
+        setView(settings.startPage === "portal" ? "home" : settings.startPage);
       })
-      .catch(() => undefined);
-
-    readActivityEvents()
-      .then(setActivityEvents)
       .catch(() => undefined);
 
     readRecentRecipients()
@@ -600,9 +599,9 @@ export function App() {
     }
   }
 
-  async function recordActivity(event: Omit<ActivityEvent, "id" | "createdAt">) {
+  async function recordActivity(event: ActivityEventInput) {
     try {
-      setActivityEvents(await appendActivityEvent(event));
+      await appendActivityEvent(event);
     } catch {
       // Activity is helpful history, not a blocker for signing or wallet actions.
     }
@@ -690,8 +689,7 @@ export function App() {
   }
 
   function handleResetWidgets() {
-    const defaults = ["balance", "actions", "assets", "networks", "sessions"];
-    void persistWidgetSettings(defaults, defaults);
+    void persistWidgetSettings(DEFAULT_WALLET_UI_SETTINGS.visibleWidgets, DEFAULT_WALLET_UI_SETTINGS.widgetOrder);
   }
 
   async function handlePreviewAction() {
@@ -727,7 +725,13 @@ export function App() {
         type: "transaction_signed",
         title: "Transaction signed",
         detail: `${previewResult.preview.amount} ${previewResult.preview.asset} on ${previewResult.preview.networkName}`,
-        severity: "success"
+        severity: "success",
+        amount: {
+          value: previewResult.preview.amount,
+          symbol: previewResult.preview.asset,
+          direction: "out"
+        },
+        networkName: previewResult.preview.networkName
       });
       setSigningStatus("broadcasting");
 
@@ -738,7 +742,14 @@ export function App() {
         type: "transaction_broadcasted",
         title: "Transaction broadcasted",
         detail: hash,
-        severity: "success"
+        severity: "success",
+        amount: {
+          value: previewResult.preview.amount,
+          symbol: previewResult.preview.asset,
+          direction: "out"
+        },
+        networkName: previewResult.preview.networkName,
+        txHash: hash
       });
       if (selectedSendNetwork) {
         upsertRecentRecipient({
@@ -997,18 +1008,15 @@ export function App() {
   }
 
   return (
-    <main className={`wallet-shell view-${view}`}>
+    <main className={`wallet-shell view-${view}${compactMode ? " compact-portal" : ""}`}>
       <AppHeader
         view={view}
         wallet={wallet}
         displayAddress={displayAddress}
-        privacyMode={privacyMode}
         onBack={() => setView("home")}
-        onTogglePrivacy={handleTogglePrivacyMode}
+        onSelect={setView}
         onOpenSettings={() => setView("settings")}
       />
-
-      <ViewNav view={view} onSelect={setView} disabled={!wallet} sessionCount={walletConnectSessions.length} />
 
       <div className="view-stack">
         {view === "home" ? (
@@ -1022,43 +1030,33 @@ export function App() {
             portfolioStore={portfolioStore}
             portfolioError={portfolioError}
             snapshots={chainSnapshots}
-            sessions={walletConnectSessions}
             visibleWidgets={visibleWidgets}
             widgetOrder={widgetOrder}
-            enabledNetworkCount={networkSettings.filter((network) => network.enabled).length}
             failedNetworkCount={portfolioStore?.portfolioSnapshot?.failedNetworkIds?.length ?? 0}
             onCreateWallet={handleCreateWallet}
             onReset={handleReset}
             onRefreshPortfolio={handleRefreshPortfolio}
             onNavigate={setView}
             onOpenPortfolioSettings={() => openSettingsPage("portfolio")}
-          />
-        ) : null}
-
-        {view === "assets" ? (
-          <PortfolioPanel
-            snapshots={chainSnapshots}
-            selectedChain={selectedChain}
-            store={portfolioStore}
-            accountId={wallet?.address ?? null}
-            loading={portfolioStatus === "loading"}
-            privacyMode={privacyMode}
-            onRefresh={handleRefreshPortfolio}
-            onSelect={(networkId) => setSelectedChainId(networkId)}
+            onOpenActivitySettings={() => openSettingsPage("activity")}
           />
         ) : null}
 
         {view === "receive" && wallet ? (
-          <ReceiveView wallet={wallet} copied={copied} onCopy={handleCopy} />
+          <ReceiveView
+            wallet={wallet}
+            network={selectedSendNetwork}
+            copied={copied}
+            onCopy={handleCopy}
+            onDone={() => setView("home")}
+          />
         ) : null}
 
         {view === "send" ? (
           <SendView
-            wallet={wallet}
             resolverStatus={resolverStatus}
             recipientInput={recipientInput}
             recipientResolution={recipientResolution}
-            recentRecipients={recentRecipients}
             sendNetworks={sendNetworks}
             selectedSendNetwork={selectedSendNetwork}
             chainSnapshots={chainSnapshots}
@@ -1081,50 +1079,6 @@ export function App() {
             onCancelPreview={() => setPreviewAccepted(false)}
           />
         ) : null}
-
-        {view === "connected-sessions" ? (
-          <ConnectedSessionsView
-            walletConnectUri={walletConnectUri}
-            walletConnectStatus={walletConnectStatus}
-            walletConnectMessage={walletConnectMessage}
-            proposals={walletConnectProposals}
-            proposalsStatus={walletConnectProposalsStatus}
-            proposalsError={walletConnectProposalsError}
-            actingProposalId={actingProposalId}
-            sessions={walletConnectSessions}
-            status={walletConnectSessionsStatus}
-            error={walletConnectSessionsError}
-            disconnectingTopic={disconnectingTopic}
-            onPair={handleWalletConnectPair}
-            onUriInput={(uri) => {
-              setWalletConnectUri(uri);
-              setWalletConnectStatus("idle");
-              setWalletConnectMessage(null);
-            }}
-            onRefreshProposals={refreshWalletConnectProposals}
-            onApproveProposal={handleWalletConnectApproveProposal}
-            onRejectProposal={handleWalletConnectRejectProposal}
-            onRefresh={refreshWalletConnectSessions}
-            onDisconnect={handleWalletConnectDisconnect}
-            onDisconnectAll={handleWalletConnectDisconnectAll}
-          />
-        ) : null}
-
-        {view === "networks" ? (
-          <NetworksView
-            networks={networkSettings}
-            sendNetworks={sendNetworks}
-            selectedSendNetworkId={selectedSendNetwork?.networkId ?? null}
-            portfolioStore={portfolioStore}
-            networkHealth={networkHealth}
-            networkHealthStatus={networkHealthStatus}
-            onSelectDefaultSendNetwork={handleSelectSendNetwork}
-            onUpdateNetwork={handleUpdateNetwork}
-            onOpenSettings={openSettingsPage}
-          />
-        ) : null}
-
-        {view === "activity" ? <ActivityView events={activityEvents} /> : null}
 
         {view === "security" ? (
           <SecurityView
@@ -1377,21 +1331,17 @@ function AppHeader({
   view,
   wallet,
   displayAddress,
-  privacyMode,
   onBack,
-  onTogglePrivacy,
+  onSelect,
   onOpenSettings
 }: {
   view: PopupView;
   wallet: WalletRecord | null;
   displayAddress: string;
-  privacyMode: boolean;
   onBack: () => void;
-  onTogglePrivacy: () => void;
+  onSelect: (view: PopupView) => void;
   onOpenSettings: () => void;
 }) {
-  const title = view === "home" ? "Passkey Wallet" : viewTitle(view);
-
   return (
     <section className="topbar orchard-header" aria-label="Wallet status">
       {view === "home" ? (
@@ -1405,60 +1355,31 @@ function AppHeader({
       )}
       <div>
         <p className="eyebrow">{wallet ? displayAddress : "No wallet yet"}</p>
-        <h1>{title}</h1>
       </div>
       <button
         type="button"
-        className={`settings-icon-button ${privacyMode ? "active" : ""}`}
-        onClick={onTogglePrivacy}
-        aria-label={privacyMode ? "Show balances" : "Hide balances"}
+        className={`settings-icon-button ${view === "send" ? "active" : ""}`}
+        disabled={!wallet}
+        onClick={() => onSelect("send")}
+        aria-label="Send"
+        title="Send"
       >
-        {privacyMode ? <EyeOff size={17} /> : <Eye size={17} />}
+        <Send size={17} />
+      </button>
+      <button
+        type="button"
+        className={`settings-icon-button ${view === "receive" ? "active" : ""}`}
+        disabled={!wallet}
+        onClick={() => onSelect("receive")}
+        aria-label="Receive"
+        title="Receive"
+      >
+        <QrCode size={17} />
       </button>
       <button type="button" className="settings-icon-button" onClick={onOpenSettings} aria-label="Settings">
         <Settings2 size={17} />
       </button>
     </section>
-  );
-}
-
-function ViewNav({
-  view,
-  onSelect,
-  disabled,
-  sessionCount
-}: {
-  view: PopupView;
-  onSelect: (view: PopupView) => void;
-  disabled: boolean;
-  sessionCount: number;
-}) {
-  const items: Array<{ view: PopupView; label: string; icon: ReactNode; disabled?: boolean; badge?: string }> = [
-    { view: "home", label: "Home", icon: <Wallet size={17} /> },
-    { view: "assets", label: "Assets", icon: <Activity size={17} />, disabled },
-    { view: "send", label: "Send", icon: <Send size={17} />, disabled },
-    { view: "receive", label: "Receive", icon: <QrCode size={17} />, disabled },
-    { view: "connected-sessions", label: "Sessions", icon: <Unplug size={17} />, disabled, badge: sessionCount ? String(sessionCount) : undefined },
-    { view: "networks", label: "Networks", icon: <Network size={17} /> }
-  ];
-
-  return (
-    <nav className="orchard-nav" aria-label="Wallet views">
-      {items.map((item) => (
-        <button
-          type="button"
-          className={item.view === view ? "active" : ""}
-          disabled={item.disabled}
-          onClick={() => onSelect(item.view)}
-          aria-label={item.label}
-          title={item.label}
-          key={item.view}
-        >
-          {item.icon}
-          {item.badge ? <span>{item.badge}</span> : null}
-        </button>
-      ))}
-    </nav>
   );
 }
 
@@ -1472,16 +1393,15 @@ function HomeDashboard({
   portfolioStore,
   portfolioError,
   snapshots,
-  sessions,
   visibleWidgets,
   widgetOrder,
-  enabledNetworkCount,
   failedNetworkCount,
   onCreateWallet,
   onReset,
   onRefreshPortfolio,
   onNavigate,
-  onOpenPortfolioSettings
+  onOpenPortfolioSettings,
+  onOpenActivitySettings
 }: {
   wallet: WalletRecord | null;
   status: Status;
@@ -1492,16 +1412,15 @@ function HomeDashboard({
   portfolioStore: AssetStore | null;
   portfolioError: string | null;
   snapshots: ChainAssetSnapshot[];
-  sessions: WalletConnectSessionSummary[];
   visibleWidgets: string[];
   widgetOrder: string[];
-  enabledNetworkCount: number;
   failedNetworkCount: number;
   onCreateWallet: () => void;
   onReset: () => void;
   onRefreshPortfolio: () => void;
   onNavigate: (view: PopupView) => void;
   onOpenPortfolioSettings: () => void;
+  onOpenActivitySettings: () => void;
 }) {
   const topAssets = snapshots
     .filter((snapshot) => snapshot.status === "ready")
@@ -1509,19 +1428,26 @@ function HomeDashboard({
     .slice(0, 4);
   const assetTiles = topAssets.length > 0 ? topAssets : fallbackAssetTiles();
 
+  const visibleWidgetSet = new Set(visibleWidgets.length ? visibleWidgets : DEFAULT_WALLET_UI_SETTINGS.visibleWidgets);
   const actionWidgets = [
-    <ActionWidget icon={<Send size={18} />} title="Send" detail="0.32 ETH" disabled={!wallet} onClick={() => onNavigate("send")} key="send" />,
-    <ActionWidget icon={<QrCode size={18} />} title="Receive" detail="2 New" disabled={!wallet} onClick={() => onNavigate("receive")} key="receive" />,
-    <ActionWidget icon={<RefreshCcw size={18} />} title="Swap" detail="Best rate" disabled onClick={() => undefined} key="swap" />,
-    <ActionWidget icon={<Activity size={18} />} title="Activity" detail="12 New" disabled={!wallet} onClick={() => onNavigate("activity")} key="activity" />
-  ];
+    { id: "send", node: <ActionWidget icon={<Send size={18} />} title="Send" detail="0.32 ETH" disabled={!wallet} onClick={() => onNavigate("send")} key="send" /> },
+    { id: "receive", node: <ActionWidget icon={<QrCode size={18} />} title="Receive" detail="2 New" disabled={!wallet} onClick={() => onNavigate("receive")} key="receive" /> },
+    { id: "swap", node: <ActionWidget icon={<RefreshCcw size={18} />} title="Swap" detail="Best rate" disabled onClick={() => undefined} key="swap" /> },
+    { id: "activity", node: <ActionWidget icon={<Activity size={18} />} title="Activity" detail="History" disabled={!wallet} onClick={onOpenActivitySettings} key="activity" /> }
+  ]
+    .filter((widget) => visibleWidgetSet.has(widget.id))
+    .sort((a, b) => {
+      const order = widgetOrder.length ? widgetOrder : DEFAULT_WALLET_UI_SETTINGS.widgetOrder;
+      return order.indexOf(a.id) - order.indexOf(b.id);
+    })
+    .map((widget) => widget.node);
   const assetWidgets = assetTiles.map((snapshot, index) => (
     <AssetWidgetRow snapshot={snapshot} privacyMode={privacyMode} toneIndex={index} key={snapshot.networkId} />
   ));
 
   return (
     <section className="portal-shell" aria-label="Wallet portal">
-      <section className="hero-widget" aria-label="Portfolio balance">
+      {visibleWidgetSet.has("balance") ? <section className="hero-widget" aria-label="Portfolio balance">
         <div className="orchard-hero-copy">
           <div>
             <span>Total Balance</span>
@@ -1539,25 +1465,24 @@ function HomeDashboard({
           </button>
         </div>
         {portfolioError ? <p className="inline-error">{portfolioError}</p> : null}
-      </section>
+      </section> : null}
 
-      <section className="portal-content">
+      {actionWidgets.length || visibleWidgetSet.has("portfolio") || visibleWidgetSet.has("assets") ? <section className="portal-content">
         <div className="portal-left">
-          <div className="portal-action-grid">{actionWidgets}</div>
-          <SummaryWidget
+          {actionWidgets.length ? <div className="portal-action-grid">{actionWidgets}</div> : null}
+          {visibleWidgetSet.has("portfolio") ? <SummaryWidget
             icon={<Network size={17} />}
             label="Portfolio"
             value={privacyMode ? "Hidden" : displayPortfolioTotal}
             detail={failedNetworkCount > 0 ? `${failedNetworkCount} failed refresh` : "+2.10%"}
             tone={failedNetworkCount > 0 ? "warning" : "ready"}
-            onClick={() => onNavigate("assets")}
-          />
+            onClick={onOpenPortfolioSettings}
+          /> : null}
         </div>
-        <div className="portal-right">
+        {visibleWidgetSet.has("assets") ? <div className="portal-right">
           <div className="portal-asset-grid">{assetWidgets}</div>
-          <SmartInsightWidget sessions={sessions} enabledNetworkCount={enabledNetworkCount} onClick={() => onNavigate("connected-sessions")} />
-        </div>
-      </section>
+        </div> : null}
+      </section> : null}
 
       <button type="button" className="view-all-assets portal-view-all" disabled={!wallet} onClick={onOpenPortfolioSettings}>
         <span>View all assets</span>
@@ -1755,6 +1680,14 @@ function AssetWidgetRow({
 }
 
 function TokenIcon({ symbol }: { symbol: string }) {
+  if (symbol.toUpperCase() === "ETH") {
+    return (
+      <div className="token-icon token-icon-image" aria-hidden="true">
+        <img src={ethTokenIcon} alt="" />
+      </div>
+    );
+  }
+
   return (
     <div className="token-icon" aria-hidden="true">
       {symbol.slice(0, 2).toUpperCase()}
@@ -2045,38 +1978,102 @@ function chainStatusLabel(snapshot: ChainAssetSnapshot): string {
   return snapshot.status === "error" ? "Refresh failed" : "Refreshing";
 }
 
-function ReceiveView({ wallet, copied, onCopy }: { wallet: WalletRecord; copied: boolean; onCopy: () => void }) {
+function ReceiveView({
+  wallet,
+  network,
+  copied,
+  onCopy,
+  onDone
+}: {
+  wallet: WalletRecord;
+  network: WalletNetworkSetting | null;
+  copied: boolean;
+  onCopy: () => void;
+  onDone: () => void;
+}) {
+  const [showFullAddress, setShowFullAddress] = useState(false);
+  const asset = network?.nativeCurrencySymbol ?? "ETH";
+  const networkName = network?.name.replace(/\s+(Mainnet|network)$/i, "") ?? "Ethereum";
+  const address = showFullAddress ? wallet.address : formatAddress(wallet.address);
+
+  async function handleShare() {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Receive ${asset}`,
+          text: wallet.address
+        });
+        return;
+      } catch {
+        return;
+      }
+    }
+
+    onCopy();
+  }
+
   return (
-    <section className="receive-panel" aria-label="Receive assets">
-      <div className="resolver-heading">
+    <section className="receive-panel receive-sheet" aria-label="Receive assets">
+      <div className="receive-sheet-heading">
         <div>
-          <span className="muted">Receive</span>
-          <h3>Account address</h3>
+          <span>Receive</span>
+          <h3>Receive {asset}</h3>
         </div>
-        <QrCode size={16} />
+        <strong>{networkName}</strong>
       </div>
 
-      <div className="qr-wrap">
-        <QRCodeSVG value={wallet.address} size={176} marginSize={2} level="M" />
+      <div className="receive-qr-stage">
+        <div className="qr-wrap receive-qr-card">
+          <QRCodeSVG value={wallet.address} size={212} marginSize={2} level="M" />
+        </div>
+        <p>Scan to receive {asset} on {networkName}</p>
       </div>
 
-      <div className="receive-address">
-        <span>{wallet.address}</span>
-        <button type="button" className="mini-copy" onClick={onCopy}>
-          {copied ? <Check size={15} /> : <Copy size={15} />}
-          {copied ? "Copied" : "Copy"}
+      <section className="receive-address-card" aria-label="Receiving address">
+        <div className="receive-address-tabs" aria-hidden="true">
+          <span>Address</span>
+          <em>ENS</em>
+        </div>
+        <div className="receive-address-line">
+          <div>
+            <strong>{address}</strong>
+            <small title={wallet.address}>{wallet.address}</small>
+          </div>
+          <button type="button" onClick={onCopy} aria-label={copied ? "Address copied" : "Copy address"}>
+            {copied ? <Check size={20} /> : <Copy size={20} />}
+          </button>
+          <button type="button" onClick={() => void handleShare()} aria-label="Share address">
+            <Share2 size={20} />
+          </button>
+        </div>
+      </section>
+
+      <div className="receive-options" aria-label="Receive options">
+        <button type="button" onClick={() => setShowFullAddress((current) => !current)}>
+          <Eye size={17} />
+          {showFullAddress ? "Show short address" : "Show full address"}
+        </button>
+        <button type="button" disabled>
+          <SlidersHorizontal size={17} />
+          Set amount (optional)
         </button>
       </div>
+
+      <button type="button" className="primary-button receive-done" onClick={onDone}>
+        Done
+      </button>
+      <button type="button" className="receive-copy-footer" onClick={onCopy}>
+        <Copy size={16} />
+        {copied ? "Address copied" : "Copy address"}
+      </button>
     </section>
   );
 }
 
 function SendView({
-  wallet,
   resolverStatus,
   recipientInput,
   recipientResolution,
-  recentRecipients,
   sendNetworks,
   selectedSendNetwork,
   chainSnapshots,
@@ -2098,11 +2095,9 @@ function SendView({
   onPreviewAction,
   onCancelPreview
 }: {
-  wallet: WalletRecord | null;
   resolverStatus: ResolverStatus;
   recipientInput: string;
   recipientResolution: RecipientResolution;
-  recentRecipients: RecentRecipient[];
   sendNetworks: WalletNetworkSetting[];
   selectedSendNetwork: WalletNetworkSetting | null;
   chainSnapshots: ChainAssetSnapshot[];
@@ -2128,27 +2123,83 @@ function SendView({
     ? chainSnapshots.find((snapshot) => snapshot.networkId === selectedSendNetwork.networkId)
     : undefined;
   const maxAmount = selectedSnapshot?.nativeBalance ?? "";
-  const recentForNetwork = selectedSendNetwork
-    ? recentRecipients.filter((recipient) => recipient.networkId === selectedSendNetwork.networkId).slice(0, 3)
-    : [];
+  const recipientHint =
+    resolverStatus === "resolving"
+      ? "Resolving recipient..."
+      : recipientResolution.kind === "ens"
+        ? `${recipientResolution.normalizedName} resolves to ${formatAddress(recipientResolution.address)}`
+        : recipientResolution.kind === "address" && recipientResolution.primaryName
+          ? `Reverse ENS: ${recipientResolution.primaryName}`
+          : recipientResolution.kind === "invalid"
+            ? recipientResolution.reason
+            : null;
+  const recipientTone = recipientResolution.kind === "invalid" ? "invalid" : recipientResolution.kind === "empty" ? "" : "valid";
+  const networkName = selectedSendNetwork?.name.replace(/\s+(Mainnet|network)$/i, "") ?? "Network";
+
+  async function handlePasteRecipient() {
+    try {
+      const clipboardValue = await navigator.clipboard.readText();
+
+      if (clipboardValue.trim()) {
+        onRecipientInput(clipboardValue.trim());
+      }
+    } catch {
+      return;
+    }
+  }
+
+  if (previewAccepted) {
+    return (
+      <section className="send-preview-screen" aria-label="Transaction preview">
+        <ClearSigningPreviewSheet
+          result={previewResult}
+          feeStatus={feeStatus}
+          feeError={feeError}
+          signingStatus={signingStatus}
+          onSign={onPreviewAction}
+          onCancel={onCancelPreview}
+        />
+
+        {signatureResult ? (
+          <div className="signature-box">
+            <span>Signed transaction hash</span>
+            <strong>{signatureResult.txHash}</strong>
+          </div>
+        ) : null}
+
+        {broadcastHash ? (
+          <div className="signature-box broadcasted">
+            <span>Broadcast hash</span>
+            <strong>{broadcastHash}</strong>
+            {broadcastExplorerUrl ? (
+              <a href={broadcastExplorerUrl} target="_blank" rel="noreferrer">
+                View on explorer
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+
+        {signingError ? <p className="resolver-result invalid">{signingError}</p> : null}
+      </section>
+    );
+  }
 
   return (
-    <section className="send-panel" aria-label="Send native token">
-      <WidgetHeader label="Native token transfer" title={`Send ${selectedSendNetwork?.nativeCurrencySymbol ?? "Token"}`} />
-
-      <div className="form-widget">
-        <div className="account-chip">
-          <Wallet size={16} />
-          <span>{wallet ? formatAddress(wallet.address) : "Create a wallet first"}</span>
+    <section className="send-panel portal-send-panel" aria-label="Send native token">
+      <section className="portal-send-sheet" aria-label="Send transfer form">
+        <div className="portal-send-heading">
+          <h2>Send</h2>
+          <strong>{networkName}</strong>
         </div>
 
-        <div className="token-picker-wrap">
-          <span>Token</span>
-          <button type="button" className="token-picker-button" onClick={() => onTokenPickerOpen(!tokenPickerOpen)} disabled={sendNetworks.length === 0}>
+        <div className="token-picker-wrap portal-send-token-picker">
+          <button type="button" className="portal-send-token" onClick={() => onTokenPickerOpen(!tokenPickerOpen)} disabled={sendNetworks.length === 0}>
             <TokenIcon symbol={selectedSendNetwork?.nativeCurrencySymbol ?? "?"} />
-            <strong>{selectedSendNetwork?.nativeCurrencySymbol ?? "No token"}</strong>
-            <small>{selectedSendNetwork?.name ?? "No enabled EVM networks"}</small>
-            <ChevronDown size={16} />
+            <div>
+              <strong>{selectedSendNetwork?.nativeCurrencySymbol ?? "TOKEN"}</strong>
+              <small>{selectedSendNetwork?.name ?? "Enable an EVM network"}</small>
+            </div>
+            <ChevronDown size={22} />
           </button>
           {tokenPickerOpen ? (
             <TokenPickerSheet
@@ -2163,102 +2214,74 @@ function SendView({
           ) : null}
         </div>
 
-        <label className="recipient-field">
-          <span>Recipient</span>
+        <label className="portal-send-label" htmlFor="portal-send-amount">Amount</label>
+        <div className="portal-send-amount">
+          <div className="portal-send-amount-value">
+            <input
+              id="portal-send-amount"
+              type="text"
+              inputMode="decimal"
+              value={amountInput}
+              onChange={(event) => onAmountInput(event.target.value)}
+              placeholder="0.00"
+              spellCheck={false}
+            />
+            <small>$0.00 USD</small>
+          </div>
+          <button type="button" disabled={!maxAmount} onClick={() => onAmountInput(maxAmount)}>
+            Max
+          </button>
+        </div>
+
+        <label className="portal-send-label" htmlFor="portal-send-recipient">Recipient</label>
+        <div className="portal-send-recipient">
           <input
+            id="portal-send-recipient"
             type="text"
             value={recipientInput}
             onChange={(event) => onRecipientInput(event.target.value)}
-            placeholder="vitalik.eth or 0x..."
+            placeholder="ENS name or address"
             spellCheck={false}
           />
-        </label>
-        <ResolverResult resolution={recipientResolution} />
-        {resolverStatus === "resolving" ? <p className="resolver-hint">Resolving recipient...</p> : null}
-        <div className="recipient-tools">
-          <button type="button" className="secondary-button" disabled>
-            <BookOpen size={15} />
-            Address book
-          </button>
-          <button type="button" className="secondary-button" disabled>
-            <QrCode size={15} />
-            QR scan
+          <button type="button" onClick={() => void handlePasteRecipient()} aria-label="Paste recipient">
+            <Copy size={17} />
           </button>
         </div>
-        {recentForNetwork.length > 0 ? (
-          <div className="recent-recipient-list">
-            <span>Recent recipients</span>
-            {recentForNetwork.map((recipient) => (
-              <button type="button" key={`${recipient.networkId}-${recipient.address}`} onClick={() => onRecipientInput(recipient.ensLabel ?? recipient.address)}>
-                <strong>{recipient.ensLabel ?? formatAddress(recipient.address)}</strong>
-                <small>{recipient.networkName}</small>
-              </button>
-            ))}
+        {recipientHint ? <small className={`send-recipient-hint ${recipientTone}`}>{recipientHint}</small> : null}
+
+        <section className="portal-send-fee" aria-live="polite">
+          <Wallet size={20} />
+          <div>
+            <strong>Estimated network fee</strong>
+            <small>{feeStatus === "estimating" ? "Estimating from RPC" : feeError ?? selectedSendNetwork?.name ?? "Complete transfer details"}</small>
           </div>
-        ) : null}
-
-        <label className="recipient-field">
-          <span>Amount</span>
-          <div className="amount-input">
-            <input type="text" inputMode="decimal" value={amountInput} onChange={(event) => onAmountInput(event.target.value)} placeholder="0.05" spellCheck={false} />
-            <button type="button" disabled={!maxAmount} onClick={() => onAmountInput(maxAmount)}>
-              MAX
-            </button>
-            <strong>{selectedSendNetwork?.nativeCurrencySymbol ?? "TOKEN"}</strong>
+          <div>
+            <strong>{previewResult.ok ? previewResult.preview.estimatedNetworkFee : "~$0.00"}</strong>
+            <small>{maxAmount ? `${formatTokenAmount(maxAmount)} ${selectedSendNetwork?.nativeCurrencySymbol ?? ""} available` : "Balance unavailable"}</small>
           </div>
-        </label>
-        <div className="fee-widget">
-          <span>Estimated fee</span>
-          <strong>{previewResult.ok ? previewResult.preview.estimatedNetworkFee : "Pending"}</strong>
-          <small>{feeStatus === "estimating" ? "Estimating from selected network" : selectedSendNetwork?.name ?? "Choose an EVM network"}</small>
-        </div>
-      </div>
+        </section>
 
-      {previewAccepted ? (
-        <ClearSigningPreviewSheet
-          result={previewResult}
-          feeStatus={feeStatus}
-          feeError={feeError}
-          signingStatus={signingStatus}
-          onSign={onPreviewAction}
-          onCancel={onCancelPreview}
-        />
-      ) : (
-        <ClearSigningPreviewCard result={previewResult} feeStatus={feeStatus} feeError={feeError} />
-      )}
-
-      <button
-        type="button"
-        className="primary-button"
-        disabled={
-          !previewResult.ok ||
-          !canSignPreview(previewResult.preview) ||
-          previewAccepted ||
-          signingStatus === "signing" ||
-          signingStatus === "broadcasting" ||
-          signingStatus === "broadcasted"
-        }
-        onClick={onPreviewAction}
-      >
-        {signingStatus === "signing" || signingStatus === "broadcasting" ? (
-          <Loader2 className="spin" size={18} />
-        ) : signingStatus === "broadcasted" ? (
-          <Check size={18} />
-        ) : previewAccepted ? (
-          <KeyRound size={18} />
-        ) : (
-          <ShieldCheck size={18} />
-        )}
-        {signingStatus === "signing"
-          ? "Signing..."
-          : signingStatus === "broadcasting"
-            ? "Broadcasting..."
-            : signingStatus === "broadcasted"
-              ? "Transaction broadcast"
-              : previewAccepted
-                ? "Unlock passkey, sign & broadcast"
-                : "Review transfer"}
-      </button>
+        <button
+          type="button"
+          className="primary-button portal-send-continue"
+          disabled={
+            !previewResult.ok ||
+            !canSignPreview(previewResult.preview) ||
+            signingStatus === "signing" ||
+            signingStatus === "broadcasting" ||
+            signingStatus === "broadcasted"
+          }
+          onClick={onPreviewAction}
+        >
+          {signingStatus === "signing"
+            ? "Signing..."
+            : signingStatus === "broadcasting"
+              ? "Broadcasting..."
+              : signingStatus === "broadcasted"
+                ? "Transaction broadcast"
+                : "Continue"}
+        </button>
+      </section>
 
       {signatureResult ? (
         <div className="signature-box">
@@ -2673,30 +2696,6 @@ function networkHealthLabel(health: NetworkHealthCheck | undefined, status: "idl
   return "RPC failed";
 }
 
-function ActivityView({ events }: { events: ActivityEvent[] }) {
-  return (
-    <section className="portfolio-panel" aria-label="Activity">
-      <WidgetHeader label="Activity" title="Recent wallet actions" />
-      {events.length > 0 ? (
-        <div className="activity-list">
-          {events.map((event) => (
-            <div className={`activity-row ${event.severity}`} key={event.id}>
-              <span />
-              <div>
-                <strong>{event.title}</strong>
-                <small>{event.detail}</small>
-                <em>{new Date(event.createdAt).toLocaleString()}</em>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="resolver-hint">Wallet actions, signing results, and dapp events will appear here.</p>
-      )}
-    </section>
-  );
-}
-
 function SecurityView({
   wallet,
   previewReady,
@@ -2901,29 +2900,6 @@ function networkToSnapshot(network: WalletNetworkSetting): ChainAssetSnapshot {
     assetIds: [],
     totalValueUsd: null
   };
-}
-
-function viewTitle(view: PopupView): string {
-  switch (view) {
-    case "assets":
-      return "Assets";
-    case "activity":
-      return "Activity";
-    case "send":
-      return "Send";
-    case "receive":
-      return "Receive";
-    case "networks":
-      return "Networks";
-    case "connected-sessions":
-      return "Connected Sessions";
-    case "security":
-      return "Security";
-    case "settings":
-      return "Settings";
-    case "home":
-      return "Passkey Wallet";
-  }
 }
 
 function WalletConnectSessionsPanel({
@@ -3185,6 +3161,7 @@ function ClearSigningPreviewSheet({
       </div>
       <details className="advanced-data">
         <summary>Advanced data</summary>
+        <p>Raw calldata, nonce, gas limit, max fee, and more.</p>
         <PreviewRow label="Calldata" value={preview.data} detail="Native transfer has no contract calldata" />
         <PreviewRow label="Gas" value={preview.gasLimit ? preview.gasLimit.toString() : feeStatus === "estimating" ? "Estimating" : "Pending"} />
       </details>
@@ -3199,12 +3176,6 @@ function ClearSigningPreviewSheet({
             <span>{feeError}</span>
           </div>
         ) : null}
-        {preview.warnings.map((warning) => (
-          <div className={`warning-item ${warning.severity}`} key={warning.message}>
-            <AlertTriangle size={14} />
-            <span>{warning.message}</span>
-          </div>
-        ))}
       </div>
       <button type="button" className="primary-button" disabled={!canSign || signingStatus === "signing" || signingStatus === "broadcasting"} onClick={onSign}>
         {signingStatus === "signing" || signingStatus === "broadcasting" ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}

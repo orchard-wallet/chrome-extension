@@ -4,8 +4,15 @@ import {
   BookOpen,
   Check,
   ChevronDown,
+  CircleCheck,
+  Clock3,
+  Copy,
   Download,
+  DollarSign,
+  Eye,
+  EyeOff,
   Globe2,
+  GripVertical,
   HelpCircle,
   Home,
   Link2,
@@ -22,13 +29,23 @@ import {
   SlidersHorizontal,
   Shield,
   ShieldCheck,
+  Star,
   Trash2,
   Unplug,
+  UsersRound,
   Wallet
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Address } from "viem";
 import { buildNativeTokenTransferPreview, canSignPreview } from "../core/clearSigning";
+import {
+  ACTIVITY_FILTERS,
+  activityTotals,
+  searchActivityEvents,
+  type ActivityCategory,
+  type ActivityEvent,
+  type ActivityStatus
+} from "../core/activity";
 import { resolveRecipient, type RecipientResolution } from "../core/ens";
 import {
   createCustomNetwork,
@@ -38,18 +55,29 @@ import {
 } from "../core/networks";
 import { readPortfolioStore, refreshPortfolio } from "../core/portfolio";
 import type { AssetStore, ChainAssetSnapshot } from "../core/assets";
+import { searchAddressBookContacts, type AddressBookContact } from "../core/addressBook";
 import { estimateNativeTokenTransfer, type TransactionFeeEstimate } from "../core/rpc";
 import {
   readNetworkSettings,
+  readActivityEvents,
+  addAddressBookContact,
+  readAddressBookContacts,
   readRecentRecipients,
+  readWalletUiSettings,
   readWalletRecord,
+  clearWalletRecord,
   writePendingNativeSendReview,
+  removeAddressBookContact,
+  updateAddressBookContact,
   writeNetworkSettings,
+  writeWalletUiSettings,
+  DEFAULT_WALLET_UI_SETTINGS,
+  type WalletUiSettings,
   type RecentRecipient
 } from "../lib/storage";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
-type SettingsView = "networks" | "connected-dapps" | "portfolio" | "send" | "security";
+type SettingsView = "networks" | "connected-dapps" | "portfolio" | "activity" | "address-book" | "send" | "security" | "settings";
 type WalletConnectSessionsStatus = "idle" | "loading" | "ready" | "error";
 type SendResolverStatus = "idle" | "resolving";
 type SendFeeStatus = "idle" | "estimating" | "ready" | "error";
@@ -86,6 +114,25 @@ function matchesQuery(network: WalletNetworkSetting, query: string): boolean {
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function formatRelativeAge(value: string): string {
+  const timestamp = new Date(value).getTime();
+  const elapsedMinutes = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
+
+  if (!Number.isFinite(elapsedMinutes) || elapsedMinutes < 1) {
+    return "Now";
+  }
+
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes}m ago`;
+  }
+
+  if (elapsedMinutes < 1440) {
+    return `${Math.round(elapsedMinutes / 60)}h ago`;
+  }
+
+  return `${Math.round(elapsedMinutes / 1440)}d ago`;
 }
 
 function formatUsd(value: string | number | null | undefined): string {
@@ -127,6 +174,12 @@ function settingsViewFromHash(): SettingsView {
 
   return window.location.hash === "#portfolio"
     ? "portfolio"
+    : window.location.hash === "#activity"
+      ? "activity"
+    : window.location.hash === "#address-book"
+      ? "address-book"
+    : window.location.hash === "#settings"
+      ? "settings"
     : window.location.hash === "#connected-dapps"
       ? "connected-dapps"
       : window.location.hash === "#send"
@@ -258,6 +311,20 @@ export function SettingsApp() {
   const [sendFeeError, setSendFeeError] = useState<string | null>(null);
   const [sendReviewError, setSendReviewError] = useState<string | null>(null);
   const [recentRecipients, setRecentRecipients] = useState<RecentRecipient[]>([]);
+  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
+  const [activityQuery, setActivityQuery] = useState("");
+  const [activityFilter, setActivityFilter] = useState<"all" | ActivityCategory>("all");
+  const [addressBookContacts, setAddressBookContacts] = useState<AddressBookContact[]>([]);
+  const [addressBookQuery, setAddressBookQuery] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactRecipient, setContactRecipient] = useState("");
+  const [contactNetworkId, setContactNetworkId] = useState("");
+  const [contactFavorite, setContactFavorite] = useState(false);
+  const [contactTrusted, setContactTrusted] = useState(true);
+  const [addressBookError, setAddressBookError] = useState<string | null>(null);
+  const [uiSettings, setUiSettings] = useState<WalletUiSettings>(DEFAULT_WALLET_UI_SETTINGS);
+  const [uiSettingsError, setUiSettingsError] = useState<string | null>(null);
+  const [resetWalletPending, setResetWalletPending] = useState(false);
 
   function applyPortfolioStore(nextStore: AssetStore) {
     setPortfolioStore(nextStore);
@@ -266,13 +333,16 @@ export function SettingsApp() {
   }
 
   useEffect(() => {
-    Promise.all([readNetworkSettings(), readWalletRecord(), readPortfolioStore(), readRecentRecipients()])
-      .then(([savedSettings, walletRecord, portfolioStore, recipients]) => {
+    Promise.all([readNetworkSettings(), readWalletRecord(), readPortfolioStore(), readRecentRecipients(), readActivityEvents(), readAddressBookContacts(), readWalletUiSettings()])
+      .then(([savedSettings, walletRecord, portfolioStore, recipients, events, contacts, walletUiSettings]) => {
         setNetworks(getBuiltInNetworkSettings(savedSettings));
         setWalletRecord(walletRecord);
         setWalletAddress(walletRecord?.address ?? null);
         applyPortfolioStore(portfolioStore);
         setRecentRecipients(recipients);
+        setActivityEvents(events);
+        setAddressBookContacts(contacts);
+        setUiSettings(walletUiSettings);
       })
       .catch((cause: unknown) => {
         setError(cause instanceof Error ? cause.message : "Unable to load network settings.");
@@ -314,13 +384,33 @@ export function SettingsApp() {
     }
 
     const handleStorageChange = (changes: Record<string, { newValue?: unknown; oldValue?: unknown }>, areaName: string) => {
-      if (areaName !== "local" || !changes.assetStore) {
+      if (areaName !== "local") {
         return;
       }
 
-      readPortfolioStore()
-        .then(applyPortfolioStore)
-        .catch(() => undefined);
+      if (changes.assetStore) {
+        readPortfolioStore()
+          .then(applyPortfolioStore)
+          .catch(() => undefined);
+      }
+
+      if (changes.activityEvents) {
+        readActivityEvents()
+          .then(setActivityEvents)
+          .catch(() => undefined);
+      }
+
+      if (changes.addressBookContacts) {
+        readAddressBookContacts()
+          .then(setAddressBookContacts)
+          .catch(() => undefined);
+      }
+
+      if (changes.walletUiSettings) {
+        readWalletUiSettings()
+          .then(setUiSettings)
+          .catch(() => undefined);
+      }
     };
 
     storageChanges.addListener(handleStorageChange);
@@ -372,6 +462,15 @@ export function SettingsApp() {
         .sort((a, b) => new Date(b.lastActiveAt ?? 0).getTime() - new Date(a.lastActiveAt ?? 0).getTime())
         .slice(0, 4),
     [walletConnectSessions]
+  );
+  const visibleActivityEvents = useMemo(
+    () => searchActivityEvents(activityEvents, activityFilter, activityQuery),
+    [activityEvents, activityFilter, activityQuery]
+  );
+  const activitySummary = useMemo(() => activityTotals(activityEvents), [activityEvents]);
+  const visibleAddressBookContacts = useMemo(
+    () => searchAddressBookContacts(addressBookContacts, addressBookQuery),
+    [addressBookContacts, addressBookQuery]
   );
   const selectedSendNetwork = useMemo(
     () => sendNetworks.find((network) => network.networkId === sendNetworkId) ?? sendNetworks[0] ?? null,
@@ -620,17 +719,131 @@ export function SettingsApp() {
     }
   }
 
+  async function handleAddAddressBookContact() {
+    const nextName = contactName.trim();
+    const nextRecipient = contactRecipient.trim();
+
+    if (!nextName || !nextRecipient) {
+      setAddressBookError("Enter a contact name and ENS name or address.");
+      return;
+    }
+
+    const selectedNetwork = networks.find((network) => network.networkId === contactNetworkId);
+
+    try {
+      setAddressBookContacts(await addAddressBookContact({
+        name: nextName,
+        address: nextRecipient,
+        ensName: nextRecipient.includes(".") ? nextRecipient : undefined,
+        networkId: selectedNetwork?.networkId,
+        networkName: selectedNetwork?.name,
+        favorite: contactFavorite,
+        trusted: contactTrusted
+      }));
+      setContactName("");
+      setContactRecipient("");
+      setContactNetworkId("");
+      setContactFavorite(false);
+      setContactTrusted(true);
+      setAddressBookError(null);
+    } catch (cause) {
+      setAddressBookError(cause instanceof Error ? cause.message : "Unable to save contact.");
+    }
+  }
+
+  async function handleToggleAddressBookFlag(contactId: string, flag: "favorite" | "trusted") {
+    try {
+      setAddressBookContacts(await updateAddressBookContact(contactId, (contact) => ({ ...contact, [flag]: !contact[flag] })));
+      setAddressBookError(null);
+    } catch (cause) {
+      setAddressBookError(cause instanceof Error ? cause.message : "Unable to update contact.");
+    }
+  }
+
+  async function handleRemoveAddressBookContact(contactId: string) {
+    try {
+      setAddressBookContacts(await removeAddressBookContact(contactId));
+      setAddressBookError(null);
+    } catch (cause) {
+      setAddressBookError(cause instanceof Error ? cause.message : "Unable to remove contact.");
+    }
+  }
+
+  async function persistUiSettings(nextSettings: WalletUiSettings) {
+    setUiSettings(nextSettings);
+    setUiSettingsError(null);
+
+    try {
+      await writeWalletUiSettings(nextSettings);
+    } catch (cause) {
+      setUiSettingsError(cause instanceof Error ? cause.message : "Unable to save wallet preferences.");
+    }
+  }
+
+  function handleTogglePortalWidget(widgetId: string) {
+    const nextVisibleWidgets = uiSettings.visibleWidgets.includes(widgetId)
+      ? uiSettings.visibleWidgets.filter((id) => id !== widgetId)
+      : [...uiSettings.visibleWidgets, widgetId];
+    void persistUiSettings({ ...uiSettings, visibleWidgets: nextVisibleWidgets });
+  }
+
+  function handleMovePortalWidget(widgetId: string, direction: -1 | 1) {
+    const index = uiSettings.widgetOrder.indexOf(widgetId);
+    const targetIndex = index + direction;
+
+    if (index < 0 || targetIndex < 0 || targetIndex >= uiSettings.widgetOrder.length) {
+      return;
+    }
+
+    const nextWidgetOrder = [...uiSettings.widgetOrder];
+    [nextWidgetOrder[index], nextWidgetOrder[targetIndex]] = [nextWidgetOrder[targetIndex], nextWidgetOrder[index]];
+    void persistUiSettings({ ...uiSettings, widgetOrder: nextWidgetOrder });
+  }
+
+  function handleResetPortalWidgets() {
+    void persistUiSettings({
+      ...uiSettings,
+      visibleWidgets: DEFAULT_WALLET_UI_SETTINGS.visibleWidgets,
+      widgetOrder: DEFAULT_WALLET_UI_SETTINGS.widgetOrder
+    });
+  }
+
+  async function handleResetLocalWallet() {
+    if (!resetWalletPending) {
+      setResetWalletPending(true);
+      return;
+    }
+
+    try {
+      await clearWalletRecord();
+      setWalletRecord(null);
+      setWalletAddress(null);
+      setResetWalletPending(false);
+    } catch (cause) {
+      setUiSettingsError(cause instanceof Error ? cause.message : "Unable to reset the local wallet.");
+    }
+  }
+
+  function handlePreviewPortal() {
+    const popupUrl =
+      typeof chrome !== "undefined" && chrome.runtime?.getURL
+        ? chrome.runtime.getURL("src/popup/index.html")
+        : "/src/popup/index.html";
+    window.open(popupUrl, "orchard-portal-preview", "popup,width=780,height=600");
+  }
+
   return (
     <main className="settings-layout">
       <aside className="settings-sidebar" aria-label="Wallet settings navigation">
         <nav className="settings-side-nav">
           <SidebarItem icon={<Home size={18} />} label="Home" />
           <SidebarItem icon={<PieChart size={18} />} label="Portfolio" active={view === "portfolio"} onClick={() => selectView("portfolio")} />
-          <SidebarItem icon={<Activity size={18} />} label="Activity" />
+          <SidebarItem icon={<Activity size={18} />} label="Activity" active={view === "activity"} onClick={() => selectView("activity")} />
           <SidebarItem icon={<Send size={18} />} label="Send" active={view === "send"} onClick={() => selectView("send")} />
           <SidebarItem icon={<Download size={18} />} label="Receive" />
           <SidebarItem icon={<Repeat2 size={18} />} label="Swap" />
           <SidebarItem icon={<Globe2 size={18} />} label="Networks" active={view === "networks"} onClick={() => selectView("networks")} />
+          <SidebarItem icon={<UsersRound size={18} />} label="Address Book" active={view === "address-book"} onClick={() => selectView("address-book")} />
           <SidebarItem
             icon={<Link2 size={18} />}
             label="Connected dApp"
@@ -639,7 +852,7 @@ export function SettingsApp() {
             onClick={() => selectView("connected-dapps")}
           />
           <SidebarItem icon={<Shield size={18} />} label="Security" active={view === "security"} onClick={() => selectView("security")} />
-          <SidebarItem icon={<Settings2 size={18} />} label="Settings" />
+          <SidebarItem icon={<Settings2 size={18} />} label="Settings" active={view === "settings"} onClick={() => selectView("settings")} />
         </nav>
 
         <div className="settings-sidebar-spacer" />
@@ -684,6 +897,45 @@ export function SettingsApp() {
         onRecipientInput={setSendRecipientInput}
         onAmountInput={setSendAmountInput}
         onReviewTransfer={handleReviewSendTransfer}
+        onOpenAddressBook={() => selectView("address-book")}
+      />
+      ) : view === "activity" ? (
+      <ActivitySettingsPanel
+        events={visibleActivityEvents}
+        totalEvents={activityEvents.length}
+        summary={activitySummary}
+        query={activityQuery}
+        filter={activityFilter}
+        onQuery={setActivityQuery}
+        onFilter={setActivityFilter}
+      />
+      ) : view === "address-book" ? (
+      <AddressBookSettingsPanel
+        contacts={visibleAddressBookContacts}
+        totalContacts={addressBookContacts.length}
+        favoriteCount={addressBookContacts.filter((contact) => contact.favorite).length}
+        recentRecipients={recentRecipients}
+        networks={networks}
+        query={addressBookQuery}
+        name={contactName}
+        recipient={contactRecipient}
+        networkId={contactNetworkId}
+        favorite={contactFavorite}
+        trusted={contactTrusted}
+        error={addressBookError}
+        onQuery={setAddressBookQuery}
+        onName={setContactName}
+        onRecipient={setContactRecipient}
+        onNetwork={setContactNetworkId}
+        onFavorite={setContactFavorite}
+        onTrusted={setContactTrusted}
+        onAdd={handleAddAddressBookContact}
+        onToggleFlag={handleToggleAddressBookFlag}
+        onRemove={handleRemoveAddressBookContact}
+        onUseRecipient={(recipient) => {
+          setSendRecipientInput(recipient);
+          selectView("send");
+        }}
       />
       ) : view === "networks" ? (
       <section className="settings-main-panel">
@@ -1003,6 +1255,27 @@ export function SettingsApp() {
       ) : view === "security" ? (
       <SecuritySettingsPanel
         walletRecord={walletRecord}
+        addressBookCount={addressBookContacts.length}
+        onOpenAddressBook={() => selectView("address-book")}
+      />
+      ) : view === "settings" ? (
+      <WalletSettingsPanel
+        walletRecord={walletRecord}
+        walletAddress={walletAddress}
+        settings={uiSettings}
+        snapshots={portfolioSnapshots}
+        portfolioTotal={portfolioTotal}
+        error={uiSettingsError}
+        resetWalletPending={resetWalletPending}
+        onTogglePrivacy={() => void persistUiSettings({ ...uiSettings, privacyMode: !uiSettings.privacyMode })}
+        onResetWallet={() => void handleResetLocalWallet()}
+        onOpenNetworks={() => selectView("networks")}
+        onToggleWidget={handleTogglePortalWidget}
+        onMoveWidget={handleMovePortalWidget}
+        onResetWidgets={handleResetPortalWidgets}
+        onPreviewPortal={handlePreviewPortal}
+        onCompactMode={(compactMode) => void persistUiSettings({ ...uiSettings, compactMode })}
+        onStartPage={(startPage) => void persistUiSettings({ ...uiSettings, startPage })}
       />
       ) : (
       <PortfolioSettingsPanel
@@ -1016,10 +1289,761 @@ export function SettingsApp() {
   );
 }
 
-function SecuritySettingsPanel({
-  walletRecord
+function ActivitySettingsPanel({
+  events,
+  totalEvents,
+  summary,
+  query,
+  filter,
+  onQuery,
+  onFilter
+}: {
+  events: ActivityEvent[];
+  totalEvents: number;
+  summary: ReturnType<typeof activityTotals>;
+  query: string;
+  filter: "all" | ActivityCategory;
+  onQuery: (query: string) => void;
+  onFilter: (filter: "all" | ActivityCategory) => void;
+}) {
+  const eventGroups = activityGroups(events);
+
+  return (
+    <section className="settings-main-panel activity-settings-panel">
+      <header className="settings-page-header">
+        <div>
+          <h1>Activity</h1>
+          <p>Review recent wallet actions, transfers, dapp approvals, and signing history.</p>
+        </div>
+        <button type="button" className="settings-help-button" aria-label="Activity help">
+          <HelpCircle size={18} />
+        </button>
+      </header>
+
+      <section className="activity-summary-hero" aria-label="Activity overview">
+        <ActivitySummaryItem icon={<Activity size={28} />} value={summary.total} label="Total Actions" detail="Recent history" />
+        <ActivitySummaryItem icon={<Clock3 size={28} />} value={summary.pending} label="Pending" detail="Requires attention" tone="pending" />
+        <ActivitySummaryItem icon={<CircleCheck size={28} />} value={summary.successful} label="Successful" detail="Recorded actions" tone="success" />
+      </section>
+
+      <section className="activity-toolbar" aria-label="Activity filters">
+        <div className="activity-filter-tabs">
+          {ACTIVITY_FILTERS.map((item) => (
+            <button type="button" className={item.id === filter ? "active" : ""} onClick={() => onFilter(item.id)} key={item.id}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <label className="settings-search activity-search">
+          <Search size={16} />
+          <input type="search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search activity" />
+        </label>
+        <span className="activity-sort-pill">
+          <SlidersHorizontal size={16} />
+          Latest first
+        </span>
+      </section>
+
+      <section className="activity-timeline" aria-label="Activity history">
+        {eventGroups.map((group) => (
+          <section className="activity-day-group" key={group.label}>
+            <h2>{group.label}</h2>
+            <div className="activity-table">
+              {group.events.map((event) => (
+                <article className="activity-table-row" key={event.id}>
+                  <span className={`activity-kind ${event.category} ${event.status}`}>{activityIcon(event)}</span>
+                  <div className="activity-main">
+                    <strong>{event.title}</strong>
+                    <small>{event.detail}</small>
+                  </div>
+                  <ActivityAmountCell event={event} />
+                  <time dateTime={event.createdAt}>{formatActivityTime(event.createdAt)}</time>
+                  <span className={`activity-status ${event.status}`}>{activityStatusLabel(event.status)}</span>
+                </article>
+              ))}
+            </div>
+          </section>
+        ))}
+
+        {events.length === 0 ? (
+          <div className="settings-empty activity-empty">
+            <Activity size={20} />
+            <span>{totalEvents ? "No activity matches the current filters." : "Wallet activity will appear after actions are recorded."}</span>
+          </div>
+        ) : null}
+      </section>
+    </section>
+  );
+}
+
+function AddressBookSettingsPanel({
+  contacts,
+  totalContacts,
+  favoriteCount,
+  recentRecipients,
+  networks,
+  query,
+  name,
+  recipient,
+  networkId,
+  favorite,
+  trusted,
+  error,
+  onQuery,
+  onName,
+  onRecipient,
+  onNetwork,
+  onFavorite,
+  onTrusted,
+  onAdd,
+  onToggleFlag,
+  onRemove,
+  onUseRecipient
+}: {
+  contacts: AddressBookContact[];
+  totalContacts: number;
+  favoriteCount: number;
+  recentRecipients: RecentRecipient[];
+  networks: WalletNetworkSetting[];
+  query: string;
+  name: string;
+  recipient: string;
+  networkId: string;
+  favorite: boolean;
+  trusted: boolean;
+  error: string | null;
+  onQuery: (query: string) => void;
+  onName: (name: string) => void;
+  onRecipient: (recipient: string) => void;
+  onNetwork: (networkId: string) => void;
+  onFavorite: (favorite: boolean) => void;
+  onTrusted: (trusted: boolean) => void;
+  onAdd: () => void;
+  onToggleFlag: (contactId: string, flag: "favorite" | "trusted") => void;
+  onRemove: (contactId: string) => void;
+  onUseRecipient: (recipient: string) => void;
+}) {
+  const trustedContacts = contacts.filter((contact) => contact.trusted).slice(0, 5);
+  const recentRows = recentRecipients.slice(0, 5);
+
+  async function copyRecipient(value: string) {
+    await navigator.clipboard?.writeText(value);
+  }
+
+  return (
+    <section className="settings-main-panel address-book-settings-panel">
+      <header className="settings-page-header">
+        <div>
+          <h1>Address Book</h1>
+          <p>Manage saved recipients, ENS names, and trusted wallet addresses.</p>
+        </div>
+        <button type="button" className="settings-help-button" aria-label="Address book help">
+          <HelpCircle size={18} />
+        </button>
+      </header>
+
+      <section className="address-book-hero" aria-label="Address book overview">
+        <AddressBookSummary icon={<UsersRound size={24} />} value={totalContacts} label="Total Contacts" />
+        <AddressBookSummary icon={<Star size={24} />} value={favoriteCount} label="Favorites" />
+        <AddressBookSummary icon={<Clock3 size={24} />} value={recentRecipients.length} label="Recent Recipients" />
+      </section>
+
+      <section className="address-book-toolbar" aria-label="Address book controls">
+        <label className="settings-search address-book-search">
+          <Search size={16} />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => onQuery(event.target.value)}
+            placeholder="Search contacts or addresses..."
+          />
+        </label>
+        <span className="address-book-tool-pill">
+          <SlidersHorizontal size={16} />
+          Filter
+        </span>
+        <span className="address-book-tool-pill">
+          <ArrowRight size={16} />
+          Recent first
+        </span>
+      </section>
+
+      <section className="address-book-layout">
+        <div className="address-book-primary">
+          <form
+            className="address-book-add-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onAdd();
+            }}
+          >
+            <div>
+              <strong>Add Contact</strong>
+              <small>Save a recipient for future sends.</small>
+            </div>
+            <div className="address-book-add-fields">
+              <input value={name} onChange={(event) => onName(event.target.value)} placeholder="Contact name" />
+              <input value={recipient} onChange={(event) => onRecipient(event.target.value)} placeholder="ENS or address" spellCheck={false} />
+              <select value={networkId} onChange={(event) => onNetwork(event.target.value)}>
+                <option value="">Any network</option>
+                {networks.map((network) => (
+                  <option value={network.networkId} key={network.networkId}>
+                    {network.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="address-book-add-actions">
+              <label>
+                <input type="checkbox" checked={favorite} onChange={(event) => onFavorite(event.target.checked)} />
+                Favorite
+              </label>
+              <label>
+                <input type="checkbox" checked={trusted} onChange={(event) => onTrusted(event.target.checked)} />
+                Trusted
+              </label>
+              <button type="submit">
+                <Plus size={16} />
+                Add Contact
+              </button>
+            </div>
+            {error ? <small className="address-book-error">{error}</small> : null}
+          </form>
+
+          <section className="address-book-table" aria-label="Saved contacts">
+            <header>
+              <span>Contact</span>
+              <span>ENS / Address</span>
+              <span>Network / Tags</span>
+              <span>Last Used</span>
+              <span>Actions</span>
+            </header>
+
+            {contacts.map((contact) => (
+              <article className="address-book-row" key={contact.id}>
+                <button
+                  type="button"
+                  className={`address-book-star${contact.favorite ? " active" : ""}`}
+                  aria-label={`${contact.favorite ? "Remove" : "Add"} ${contact.name} favorite`}
+                  onClick={() => onToggleFlag(contact.id, "favorite")}
+                >
+                  <Star size={15} />
+                </button>
+                <span className="address-book-avatar">{contact.name.slice(0, 1).toUpperCase()}</span>
+                <div className="address-book-contact">
+                  <strong>{contact.name}</strong>
+                  <small>{contact.networkName ?? "All networks"}</small>
+                </div>
+                <div className="address-book-recipient">
+                  <strong>{contact.ensName ?? formatAddress(contact.address)}</strong>
+                  <small title={contact.address}>{contact.ensName ? formatAddress(contact.address) : contact.address}</small>
+                </div>
+                <div className="address-book-tags">
+                  <span>{contact.networkName ?? "Any"}</span>
+                  {contact.trusted ? (
+                    <button type="button" onClick={() => onToggleFlag(contact.id, "trusted")}>
+                      Trusted
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => onToggleFlag(contact.id, "trusted")}>
+                      Mark trusted
+                    </button>
+                  )}
+                </div>
+                <time dateTime={contact.lastUsedAt}>{contact.lastUsedAt ? formatRelativeAge(contact.lastUsedAt) : "Not used"}</time>
+                <div className="address-book-actions">
+                  <button type="button" aria-label={`Send to ${contact.name}`} onClick={() => onUseRecipient(contact.ensName ?? contact.address)}>
+                    <Send size={15} />
+                  </button>
+                  <button type="button" aria-label={`Copy ${contact.name} address`} onClick={() => void copyRecipient(contact.address)}>
+                    <Copy size={15} />
+                  </button>
+                  <button type="button" aria-label={`Remove ${contact.name}`} onClick={() => onRemove(contact.id)}>
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </article>
+            ))}
+
+            {contacts.length === 0 ? (
+              <div className="settings-empty address-book-empty">
+                <UsersRound size={20} />
+                <span>{totalContacts ? "No saved contacts match the current search." : "Add a contact to reuse trusted recipients in Send."}</span>
+              </div>
+            ) : null}
+          </section>
+        </div>
+
+        <aside className="address-book-aside">
+          <AddressBookAside title="Recent Recipients">
+            {recentRows.map((row) => (
+              <button type="button" onClick={() => onUseRecipient(row.ensLabel ?? row.address)} key={`${row.address}:${row.lastUsedAt}`}>
+                <span>{(row.ensLabel ?? row.address).slice(0, 1).toUpperCase()}</span>
+                <strong>{row.ensLabel ?? formatAddress(row.address)}</strong>
+                <small>{row.networkName}</small>
+              </button>
+            ))}
+            {recentRows.length === 0 ? <small>Recipients appear after a transfer is broadcast.</small> : null}
+          </AddressBookAside>
+
+          <AddressBookAside title="Trusted Contacts">
+            {trustedContacts.map((contact) => (
+              <button type="button" onClick={() => onUseRecipient(contact.ensName ?? contact.address)} key={contact.id}>
+                <ShieldCheck size={15} />
+                <strong>{contact.name}</strong>
+                <small>{contact.networkName ?? "All networks"}</small>
+              </button>
+            ))}
+            {trustedContacts.length === 0 ? <small>Trusted contacts are shown here.</small> : null}
+          </AddressBookAside>
+        </aside>
+      </section>
+    </section>
+  );
+}
+
+function AddressBookSummary({ icon, value, label }: { icon: ReactNode; value: number; label: string }) {
+  return (
+    <div>
+      <span>{icon}</span>
+      <strong>{value}</strong>
+      <small>{label}</small>
+    </div>
+  );
+}
+
+function AddressBookAside({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h2>{title}</h2>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+function ActivitySummaryItem({
+  icon,
+  value,
+  label,
+  detail,
+  tone = "default"
+}: {
+  icon: ReactNode;
+  value: number;
+  label: string;
+  detail: string;
+  tone?: "default" | "pending" | "success";
+}) {
+  return (
+    <div className={tone}>
+      <span>{icon}</span>
+      <strong>{value}</strong>
+      <p>
+        <b>{label}</b>
+        <small>{detail}</small>
+      </p>
+    </div>
+  );
+}
+
+function ActivityAmountCell({ event }: { event: ActivityEvent }) {
+  if (!event.amount) {
+    return <span className="activity-amount" />;
+  }
+
+  const prefix = event.amount.direction === "in" ? "+" : event.amount.direction === "out" ? "-" : "";
+
+  return (
+    <strong className={`activity-amount ${event.amount.direction ?? ""}`}>
+      {prefix}{event.amount.value} {event.amount.symbol}
+    </strong>
+  );
+}
+
+function activityIcon(event: ActivityEvent): ReactNode {
+  switch (event.category) {
+    case "wallet":
+      return <Wallet size={18} />;
+    case "send":
+      return <Send size={18} />;
+    case "receive":
+      return <Download size={18} />;
+    case "swap":
+      return <Repeat2 size={18} />;
+    case "dapp":
+      return <Link2 size={18} />;
+    case "security":
+      return <Shield size={18} />;
+    case "settings":
+      return <Globe2 size={18} />;
+    case "sign":
+    default:
+      return <ShieldCheck size={18} />;
+  }
+}
+
+function activityGroups(events: ActivityEvent[]): Array<{ label: string; events: ActivityEvent[] }> {
+  const sorted = [...events].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const groups = new Map<string, ActivityEvent[]>();
+
+  sorted.forEach((event) => {
+    const label = formatActivityDay(event.createdAt);
+    groups.set(label, [...(groups.get(label) ?? []), event]);
+  });
+
+  return Array.from(groups, ([label, groupedEvents]) => ({ label, events: groupedEvents }));
+}
+
+function formatActivityDay(value: string): string {
+  const timestamp = new Date(value);
+  const today = new Date();
+
+  if (timestamp.toDateString() === today.toDateString()) {
+    return "Today";
+  }
+
+  return timestamp.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatActivityTime(value: string): string {
+  const timestamp = new Date(value);
+  return timestamp.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function activityStatusLabel(status: ActivityStatus): string {
+  switch (status) {
+    case "approved":
+      return "Approved";
+    case "pending":
+      return "Pending";
+    case "reminder":
+      return "Reminder";
+    case "failed":
+      return "Failed";
+    case "completed":
+    default:
+      return "Completed";
+  }
+}
+
+const PORTAL_WIDGETS: Record<string, { title: string; detail: string; recommended?: boolean }> = {
+  balance: { title: "Balance", detail: "Portfolio hero and refresh status", recommended: true },
+  assets: { title: "Assets", detail: "Top native balances by chain", recommended: true },
+  send: { title: "Send", detail: "Send tokens and assets" },
+  receive: { title: "Receive", detail: "Receive tokens and assets" },
+  swap: { title: "Swap", detail: "Exchange tokens" },
+  activity: { title: "Activity", detail: "Recent transactions and activity" },
+  portfolio: { title: "Portfolio", detail: "Performance and allocation" }
+};
+
+function WalletSettingsPanel({
+  walletRecord,
+  walletAddress,
+  settings,
+  snapshots,
+  portfolioTotal,
+  error,
+  resetWalletPending,
+  onTogglePrivacy,
+  onResetWallet,
+  onOpenNetworks,
+  onToggleWidget,
+  onMoveWidget,
+  onResetWidgets,
+  onPreviewPortal,
+  onCompactMode,
+  onStartPage
 }: {
   walletRecord: Awaited<ReturnType<typeof readWalletRecord>>;
+  walletAddress: string | null;
+  settings: WalletUiSettings;
+  snapshots: ChainAssetSnapshot[];
+  portfolioTotal: string;
+  error: string | null;
+  resetWalletPending: boolean;
+  onTogglePrivacy: () => void;
+  onResetWallet: () => void;
+  onOpenNetworks: () => void;
+  onToggleWidget: (widgetId: string) => void;
+  onMoveWidget: (widgetId: string, direction: -1 | 1) => void;
+  onResetWidgets: () => void;
+  onPreviewPortal: () => void;
+  onCompactMode: (compactMode: boolean) => void;
+  onStartPage: (startPage: WalletUiSettings["startPage"]) => void;
+}) {
+  const widgetOrder = settings.widgetOrder.filter((widgetId) => PORTAL_WIDGETS[widgetId]);
+  const visibleWidgetIds = widgetOrder.filter((widgetId) => settings.visibleWidgets.includes(widgetId));
+  const topAssets = snapshots.slice(0, 3);
+
+  return (
+    <section className="settings-main-panel wallet-settings-panel">
+      <header className="settings-page-header wallet-settings-header">
+        <div>
+          <h1>Settings</h1>
+          <p>Manage wallet preferences, security, and your Portal dashboard.</p>
+        </div>
+      </header>
+
+      <section className="wallet-settings-hero" aria-label="Wallet settings overview">
+        <SettingsMetric icon={<Wallet size={24} />} value={walletRecord ? 1 : 0} label="Wallet" detail={walletRecord ? "Local wallet connected" : "Create a wallet first"} />
+        <SettingsMetric icon={<QrCode size={24} />} value={visibleWidgetIds.length} label="Widgets Shown" detail="On your Portal dashboard" />
+        <SettingsMetric icon={<EyeOff size={24} />} value={Math.max(0, widgetOrder.length - visibleWidgetIds.length)} label="Hidden Widgets" detail="Not visible on Portal" />
+      </section>
+
+      <h2 className="wallet-settings-section-title">Wallet Controls</h2>
+      <section className="wallet-controls-grid" aria-label="Wallet controls">
+        <SettingsControl
+          icon={settings.privacyMode ? <Eye size={18} /> : <EyeOff size={18} />}
+          title={settings.privacyMode ? "Show balances" : "Hide balances"}
+          detail={settings.privacyMode ? "Reveal Portal balances" : "Temporarily hide all balances"}
+          onClick={onTogglePrivacy}
+        />
+        <SettingsControl
+          icon={<RefreshCcw size={18} />}
+          title={resetWalletPending ? "Confirm local reset" : "Reset local wallet"}
+          detail={resetWalletPending ? "Remove this browser wallet record" : "Clear local wallet record"}
+          onClick={onResetWallet}
+          tone={resetWalletPending ? "danger" : "default"}
+        />
+        <SettingsControl
+          icon={<Globe2 size={18} />}
+          title="Open network settings"
+          detail="Manage RPC and networks"
+          onClick={onOpenNetworks}
+        />
+      </section>
+
+      <section className="portal-layout-editor" aria-label="Portal dashboard layout">
+        <div className="portal-layout-list">
+          <header>
+            <h2>Portal Dashboard Layout</h2>
+            <p>Use controls to show, hide, or move widgets.</p>
+          </header>
+
+          <div className="portal-widget-rows">
+            {widgetOrder.map((widgetId, index) => {
+              const widget = PORTAL_WIDGETS[widgetId];
+              const visible = settings.visibleWidgets.includes(widgetId);
+
+              return (
+                <article className={`portal-widget-row${visible ? "" : " hidden"}`} key={widgetId}>
+                  <GripVertical size={16} />
+                  <span>{portalWidgetIcon(widgetId)}</span>
+                  <div>
+                    <strong>{widget.title}</strong>
+                    <small>{widget.detail}</small>
+                  </div>
+                  {widget.recommended ? <em>Recommended</em> : <em />}
+                  <div className="portal-widget-actions">
+                    <button type="button" disabled={index === 0} onClick={() => onMoveWidget(widgetId, -1)} aria-label={`Move ${widget.title} up`}>
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index === widgetOrder.length - 1}
+                      onClick={() => onMoveWidget(widgetId, 1)}
+                      aria-label={`Move ${widget.title} down`}
+                    >
+                      ↓
+                    </button>
+                    <button type="button" onClick={() => onToggleWidget(widgetId)} aria-label={`${visible ? "Hide" : "Show"} ${widget.title}`}>
+                      {visible ? <Eye size={15} /> : <EyeOff size={15} />}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <small className="portal-layout-footnote">Move widgets to reorder. Click the eye to show or hide.</small>
+        </div>
+
+        <div className="portal-preview-column">
+          <header>
+            <h2>Portal Preview</h2>
+            <div>
+              <button type="button" onClick={onResetWidgets}>
+                <RefreshCcw size={14} />
+                Reset Layout
+              </button>
+              <button type="button" onClick={onPreviewPortal}>
+                <Eye size={14} />
+                Preview Portal
+              </button>
+            </div>
+          </header>
+          <PortalSettingsPreview
+            compactMode={settings.compactMode}
+            privacyMode={settings.privacyMode}
+            portfolioTotal={portfolioTotal}
+            visibleWidgets={visibleWidgetIds}
+            snapshots={topAssets}
+          />
+          <small>Preview updates automatically.</small>
+        </div>
+      </section>
+
+      <h2 className="wallet-settings-section-title">Personalization</h2>
+      <section className="personalization-grid" aria-label="Portal personalization">
+        <label className="personalization-setting">
+          <span>
+            <Settings2 size={18} />
+          </span>
+          <strong>Compact mode</strong>
+          <small>Use a denser layout across Portal</small>
+          <i className="switch-toggle">
+            <input type="checkbox" checked={settings.compactMode} onChange={(event) => onCompactMode(event.target.checked)} />
+            <span />
+          </i>
+        </label>
+
+        <label className="personalization-setting">
+          <span>
+            <DollarSign size={18} />
+          </span>
+          <strong>Default currency</strong>
+          <small>Pricing is currently sourced in USD</small>
+          <select value={settings.defaultCurrency} onChange={() => undefined}>
+            <option value="USD">USD</option>
+          </select>
+        </label>
+
+        <label className="personalization-setting">
+          <span>
+            <Home size={18} />
+          </span>
+          <strong>Start page</strong>
+          <small>Choose your default popup page</small>
+          <select value={settings.startPage} onChange={(event) => onStartPage(event.target.value as WalletUiSettings["startPage"])}>
+            <option value="portal">Portal</option>
+            <option value="send">Send</option>
+            <option value="receive">Receive</option>
+          </select>
+        </label>
+      </section>
+
+      {walletAddress ? <small className="wallet-settings-address">Active address: {walletAddress}</small> : null}
+      {error ? <p className="error-box">{error}</p> : null}
+    </section>
+  );
+}
+
+function SettingsMetric({ icon, value, label, detail }: { icon: ReactNode; value: number; label: string; detail: string }) {
+  return (
+    <div>
+      <span>{icon}</span>
+      <strong>{value}</strong>
+      <p>
+        <b>{label}</b>
+        <small>{detail}</small>
+      </p>
+    </div>
+  );
+}
+
+function SettingsControl({
+  icon,
+  title,
+  detail,
+  onClick,
+  tone = "default"
+}: {
+  icon: ReactNode;
+  title: string;
+  detail: string;
+  onClick: () => void;
+  tone?: "default" | "danger";
+}) {
+  return (
+    <button type="button" className={`wallet-control ${tone}`} onClick={onClick}>
+      <span>{icon}</span>
+      <strong>{title}</strong>
+      <small>{detail}</small>
+    </button>
+  );
+}
+
+function PortalSettingsPreview({
+  compactMode,
+  privacyMode,
+  portfolioTotal,
+  visibleWidgets,
+  snapshots
+}: {
+  compactMode: boolean;
+  privacyMode: boolean;
+  portfolioTotal: string;
+  visibleWidgets: string[];
+  snapshots: ChainAssetSnapshot[];
+}) {
+  return (
+    <section className={`portal-settings-preview${compactMode ? " compact" : ""}`}>
+      {visibleWidgets.includes("balance") ? (
+        <div className="portal-preview-balance">
+          <span>Total Balance</span>
+          <strong>{privacyMode ? "Hidden" : portfolioTotal}</strong>
+          <small>+2.10% today</small>
+          <svg viewBox="0 0 120 36" aria-hidden="true">
+            <polyline points="2,26 20,26 33,19 47,23 61,9 76,13 89,23 104,13 118,16" />
+          </svg>
+        </div>
+      ) : null}
+      <div className="portal-preview-grid">
+        {visibleWidgets.map((widgetId) => {
+          if (widgetId === "balance") {
+            return null;
+          }
+
+          if (widgetId === "assets") {
+            return snapshots.map((snapshot) => (
+              <div className="portal-preview-asset" key={snapshot.networkId}>
+                <TokenBadge symbol={snapshot.nativeCurrencySymbol} family={snapshot.family} />
+                <strong>{privacyMode ? "Hidden" : formatUsd(snapshot.totalValueUsd)}</strong>
+                <small>{snapshot.networkName}</small>
+              </div>
+            ));
+          }
+
+          return (
+            <div className={`portal-preview-tile ${widgetId}`} key={widgetId}>
+              <span>{portalWidgetIcon(widgetId)}</span>
+              <strong>{PORTAL_WIDGETS[widgetId]?.title}</strong>
+              <small>{PORTAL_WIDGETS[widgetId]?.detail}</small>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function portalWidgetIcon(widgetId: string): ReactNode {
+  switch (widgetId) {
+    case "assets":
+      return <PieChart size={17} />;
+    case "send":
+      return <Send size={17} />;
+    case "receive":
+      return <QrCode size={17} />;
+    case "swap":
+      return <Repeat2 size={17} />;
+    case "activity":
+      return <Activity size={17} />;
+    case "portfolio":
+      return <Clock3 size={17} />;
+    case "balance":
+    default:
+      return <Wallet size={17} />;
+  }
+}
+
+function SecuritySettingsPanel({
+  walletRecord,
+  addressBookCount,
+  onOpenAddressBook
+}: {
+  walletRecord: Awaited<ReturnType<typeof readWalletRecord>>;
+  addressBookCount: number;
+  onOpenAddressBook: () => void;
 }) {
   const walletName = walletRecord?.name?.trim() || "Wallet 1";
   const passkeyStatus = walletRecord ? "On" : "Unavailable";
@@ -1081,7 +2105,7 @@ function SecuritySettingsPanel({
           />
           <SecuritySettingRow label="Biometric Unlock" value={passkeyStatus} />
           <SecuritySettingRow label="Transaction Confirmations" value={transactionConfirmationStatus} />
-          <SecuritySettingRow label="Address Book" value="Not configured" />
+          <SecuritySettingRow label="Address Book" value={`${addressBookCount} saved`} onClick={onOpenAddressBook} />
         </div>
 
         <button
@@ -1148,7 +2172,8 @@ function SendSettingsPanel({
   onSelectNetwork,
   onRecipientInput,
   onAmountInput,
-  onReviewTransfer
+  onReviewTransfer,
+  onOpenAddressBook
 }: {
   walletAddress: string | null;
   portfolioTotal: string;
@@ -1170,6 +2195,7 @@ function SendSettingsPanel({
   onRecipientInput: (value: string) => void;
   onAmountInput: (value: string) => void;
   onReviewTransfer: () => void;
+  onOpenAddressBook: () => void;
 }) {
   const selectedSnapshot = selectedNetwork ? portfolioStore?.chainAssetSnapshots[selectedNetwork.networkId] : undefined;
   const filteredNetworks = networks.filter((network) =>
@@ -1249,7 +2275,7 @@ function SendSettingsPanel({
               placeholder="Enter address or ENS name"
               spellCheck={false}
             />
-            <button type="button" disabled>
+            <button type="button" onClick={onOpenAddressBook}>
               <BookOpen size={16} />
               Address Book
             </button>

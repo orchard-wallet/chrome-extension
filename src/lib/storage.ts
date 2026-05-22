@@ -1,6 +1,8 @@
 import type { WalletNetworkSetting } from "../core/networks";
 import { emptyAssetStore, type AssetStore } from "../core/assets";
+import { createAddressBookContact, normalizeAddressBookContact, type AddressBookContact, type AddressBookContactInput } from "../core/addressBook";
 import type { RecipientResolution } from "../core/ens";
+import { createActivityEvent, normalizeActivityEvent, type ActivityEvent, type ActivityEventInput } from "../core/activity";
 
 export interface WalletRecord {
   name?: string;
@@ -19,30 +21,13 @@ export interface WalletRecord {
 
 export interface WalletUiSettings {
   privacyMode: boolean;
+  compactMode: boolean;
+  defaultCurrency: "USD";
+  startPage: "portal" | "send" | "receive";
   visibleWidgets: string[];
   widgetOrder: string[];
   collapsedWidgets: string[];
   defaultSendNetworkId: string | null;
-}
-
-export type ActivitySeverity = "info" | "success" | "warning" | "danger";
-
-export interface ActivityEvent {
-  id: string;
-  type:
-    | "wallet_created"
-    | "wallet_reset"
-    | "transfer_preview_accepted"
-    | "transaction_signed"
-    | "transaction_broadcasted"
-    | "walletconnect_connected"
-    | "walletconnect_disconnected"
-    | "walletconnect_rejected"
-    | "signing_failed";
-  title: string;
-  detail: string;
-  severity: ActivitySeverity;
-  createdAt: string;
 }
 
 export interface RecentRecipient {
@@ -98,8 +83,11 @@ export interface PendingWalletConnectProposal {
 
 export const DEFAULT_WALLET_UI_SETTINGS: WalletUiSettings = {
   privacyMode: false,
-  visibleWidgets: ["balance", "actions", "assets", "networks", "sessions"],
-  widgetOrder: ["balance", "actions", "assets", "networks", "sessions"],
+  compactMode: false,
+  defaultCurrency: "USD",
+  startPage: "portal",
+  visibleWidgets: ["balance", "assets", "send", "receive", "activity", "portfolio"],
+  widgetOrder: ["balance", "assets", "send", "receive", "swap", "activity", "portfolio"],
   collapsedWidgets: [],
   defaultSendNetworkId: null
 };
@@ -114,6 +102,7 @@ const RECENT_RECIPIENTS_KEY = "recentRecipients";
 const WALLETCONNECT_SESSION_ACTIVITY_KEY = "walletConnectSessionActivity";
 const IMPORTED_ERC20_TOKENS_KEY = "importedErc20Tokens";
 const PENDING_NATIVE_SEND_REVIEW_KEY = "pendingNativeSendReview";
+const ADDRESS_BOOK_CONTACTS_KEY = "addressBookContacts";
 
 function hasChromeStorage(): boolean {
   return typeof chrome !== "undefined" && Boolean(chrome.storage?.local);
@@ -162,12 +151,18 @@ function normalizeAssetStore(store: AssetStore | undefined): AssetStore {
 }
 
 function normalizeWalletUiSettings(settings: Partial<WalletUiSettings> | undefined): WalletUiSettings {
+  const widgetOrder = normalizePortalWidgetIds(settings?.widgetOrder, DEFAULT_WALLET_UI_SETTINGS.widgetOrder, true);
+  const visibleWidgets = normalizePortalWidgetIds(settings?.visibleWidgets, DEFAULT_WALLET_UI_SETTINGS.visibleWidgets, false);
+
   return {
     ...DEFAULT_WALLET_UI_SETTINGS,
     ...(settings ?? {}),
     privacyMode: settings?.privacyMode ?? DEFAULT_WALLET_UI_SETTINGS.privacyMode,
-    visibleWidgets: Array.isArray(settings?.visibleWidgets) ? settings.visibleWidgets : DEFAULT_WALLET_UI_SETTINGS.visibleWidgets,
-    widgetOrder: Array.isArray(settings?.widgetOrder) ? settings.widgetOrder : DEFAULT_WALLET_UI_SETTINGS.widgetOrder,
+    compactMode: settings?.compactMode ?? DEFAULT_WALLET_UI_SETTINGS.compactMode,
+    defaultCurrency: "USD",
+    startPage: settings?.startPage === "send" || settings?.startPage === "receive" ? settings.startPage : "portal",
+    visibleWidgets,
+    widgetOrder,
     collapsedWidgets: Array.isArray(settings?.collapsedWidgets)
       ? settings.collapsedWidgets
       : DEFAULT_WALLET_UI_SETTINGS.collapsedWidgets,
@@ -176,6 +171,22 @@ function normalizeWalletUiSettings(settings: Partial<WalletUiSettings> | undefin
         ? settings.defaultSendNetworkId
         : DEFAULT_WALLET_UI_SETTINGS.defaultSendNetworkId
   };
+}
+
+function normalizePortalWidgetIds(ids: string[] | undefined, fallback: string[], appendMissing: boolean): string[] {
+  const supported = new Set(DEFAULT_WALLET_UI_SETTINGS.widgetOrder);
+  const expanded = (Array.isArray(ids) ? ids : fallback).flatMap((id) =>
+    id === "actions" ? ["send", "receive", "swap", "activity"] : [id]
+  );
+  const normalized = Array.from(new Set(expanded.filter((id) => supported.has(id))));
+
+  if (!normalized.length) {
+    return fallback;
+  }
+
+  return appendMissing
+    ? [...normalized, ...DEFAULT_WALLET_UI_SETTINGS.widgetOrder.filter((id) => !normalized.includes(id))]
+    : normalized;
 }
 
 export async function readWalletRecord(): Promise<WalletRecord | null> {
@@ -297,11 +308,17 @@ export async function removePendingWalletConnectProposal(id: number): Promise<vo
 export async function readActivityEvents(): Promise<ActivityEvent[]> {
   if (hasChromeStorage()) {
     const result = await chromeLocalStorage().get(ACTIVITY_EVENTS_KEY);
-    return (result[ACTIVITY_EVENTS_KEY] as ActivityEvent[] | undefined) ?? [];
+    return ((result[ACTIVITY_EVENTS_KEY] as unknown[] | undefined) ?? [])
+      .map(normalizeActivityEvent)
+      .filter((event): event is ActivityEvent => Boolean(event));
   }
 
   const raw = localStorage.getItem(ACTIVITY_EVENTS_KEY);
-  return raw ? (JSON.parse(raw) as ActivityEvent[]) : [];
+  return raw
+    ? (JSON.parse(raw) as unknown[])
+      .map(normalizeActivityEvent)
+      .filter((event): event is ActivityEvent => Boolean(event))
+    : [];
 }
 
 export async function writeActivityEvents(events: ActivityEvent[]): Promise<void> {
@@ -315,13 +332,9 @@ export async function writeActivityEvents(events: ActivityEvent[]): Promise<void
   localStorage.setItem(ACTIVITY_EVENTS_KEY, JSON.stringify(nextEvents));
 }
 
-export async function appendActivityEvent(event: Omit<ActivityEvent, "id" | "createdAt">): Promise<ActivityEvent[]> {
+export async function appendActivityEvent(event: ActivityEventInput): Promise<ActivityEvent[]> {
   const events = await readActivityEvents();
-  const nextEvent: ActivityEvent = {
-    ...event,
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString()
-  };
+  const nextEvent = createActivityEvent(event);
   const nextEvents = [nextEvent, ...events].slice(0, 80);
   await writeActivityEvents(nextEvents);
   return nextEvents;
@@ -358,6 +371,58 @@ export async function upsertRecentRecipient(recipient: RecentRecipient): Promise
   ].slice(0, 12);
   await writeRecentRecipients(nextRecipients);
   return nextRecipients;
+}
+
+export async function readAddressBookContacts(): Promise<AddressBookContact[]> {
+  if (hasChromeStorage()) {
+    const result = await chromeLocalStorage().get(ADDRESS_BOOK_CONTACTS_KEY);
+    return ((result[ADDRESS_BOOK_CONTACTS_KEY] as unknown[] | undefined) ?? [])
+      .map(normalizeAddressBookContact)
+      .filter((contact): contact is AddressBookContact => Boolean(contact));
+  }
+
+  const raw = localStorage.getItem(ADDRESS_BOOK_CONTACTS_KEY);
+  return raw
+    ? (JSON.parse(raw) as unknown[])
+      .map(normalizeAddressBookContact)
+      .filter((contact): contact is AddressBookContact => Boolean(contact))
+    : [];
+}
+
+export async function writeAddressBookContacts(contacts: AddressBookContact[]): Promise<void> {
+  const nextContacts = contacts.slice(0, 200);
+
+  if (hasChromeStorage()) {
+    await chromeLocalStorage().set({ [ADDRESS_BOOK_CONTACTS_KEY]: nextContacts });
+    return;
+  }
+
+  localStorage.setItem(ADDRESS_BOOK_CONTACTS_KEY, JSON.stringify(nextContacts));
+}
+
+export async function addAddressBookContact(input: AddressBookContactInput): Promise<AddressBookContact[]> {
+  const contacts = await readAddressBookContacts();
+  const nextContact = createAddressBookContact(input);
+  const nextContacts = [nextContact, ...contacts.filter((contact) => contact.address.toLowerCase() !== nextContact.address.toLowerCase())];
+  await writeAddressBookContacts(nextContacts);
+  return nextContacts;
+}
+
+export async function updateAddressBookContact(
+  contactId: string,
+  update: (contact: AddressBookContact) => AddressBookContact
+): Promise<AddressBookContact[]> {
+  const contacts = await readAddressBookContacts();
+  const nextContacts = contacts.map((contact) => contact.id === contactId ? { ...update(contact), updatedAt: new Date().toISOString() } : contact);
+  await writeAddressBookContacts(nextContacts);
+  return nextContacts;
+}
+
+export async function removeAddressBookContact(contactId: string): Promise<AddressBookContact[]> {
+  const contacts = await readAddressBookContacts();
+  const nextContacts = contacts.filter((contact) => contact.id !== contactId);
+  await writeAddressBookContacts(nextContacts);
+  return nextContacts;
 }
 
 export async function readPendingNativeSendReview(): Promise<PendingNativeSendReview | null> {
