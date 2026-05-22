@@ -53,15 +53,28 @@ Read-only analytics. No transaction building. Endpoints used:
 Other endpoints (`/pufeth/metrics`, `/tokens/prices`, `/vaults/*`, `/gauges/apr`)
 are not required for v1.
 
-## Why the SDK can sign with this wallet
+## How the deposit is signed
 
-The SDK's documented example builds its `WalletClient` from `window.ethereum`.
+> **Correction (post-implementation):** an earlier draft of this spec assumed
+> the SDK's `vault.depositETH().transact()` could sign through a custom viem
+> account. It cannot. `puffer-vault-handler` hard-codes a string `account` into
+> its internal `writeContract` call, which forces viem down the JSON-RPC
+> `eth_sendTransaction` path — it never calls a local account's
+> `signTransaction`. A custom-account adapter is therefore unreachable.
+
 This wallet has no injected provider — it signs via WebAuthn passkey PRF →
-`tcx-wasm`. But `PufferClient` accepts any viem `WalletClient`, and viem can
-build a `WalletClient` on a **custom local account** that exposes
-`signTransaction`. We provide a thin adapter account whose `signTransaction`
-runs the passkey/tcx signing path. The SDK's `vault.depositETH().transact()`
-then signs through that adapter — using the SDK exactly as intended.
+`tcx-wasm`. So the deposit does **not** go through the SDK's `transact()`.
+Instead:
+
+- The SDK supplies the canonical `PufferVault` address (its `CONTRACT_ADDRESSES`
+  address book).
+- The `depositETH(recipient)` calldata is built with viem `encodeFunctionData`
+  against a minimal local ABI.
+- Nonce, gas, and EIP-1559 fees are read from a viem `PublicClient`.
+- The transaction is signed by `tcx-wasm` (via `signEthereumTransaction`, which
+  carries the `data` field) after a passkey PRF unlock, and broadcast through
+  the wallet's existing `broadcastSignedTransaction` — the same pipeline the
+  native-send flow uses.
 
 ## Architecture
 
