@@ -91,6 +91,28 @@
     "title": "Connected Sessions",
     "unknownOrigin": "Unknown origin"
   },
+  "receive": {
+    "activeNetwork": "Active for receive requests",
+    "activityCount": "Recorded receive activity",
+    "addressCount": "Local wallet address",
+    "amount": "Amount (optional)",
+    "amountInvalid": "Enter a valid native asset amount.",
+    "defaultNetwork": "Default network",
+    "description": "Share a wallet address or a standard EIP-681 native asset payment request.",
+    "eip681Hint": "QR requests use EIP-681: ethereum:<address>@<chainId>?value=<wei>. Labels stay local because EIP-681 does not define a note field.",
+    "label": "Label (optional)",
+    "labelPlaceholder": "For this receive request",
+    "noNetwork": "No network",
+    "noRequest": "Create a wallet to build a request URI.",
+    "overview": "Receive overview",
+    "recentEmpty": "Receive activity will appear here after it is recorded.",
+    "recentReceipts": "Recent receives",
+    "requestSettings": "Receive settings",
+    "savedAddress": "Saved address",
+    "title": "Receive",
+    "widgetPreview": "Portal receive widget",
+    "widgetPreviewDetail": "The configured receive request appears in Portal."
+  },
   "errors": {
     "addContact": "Unable to save contact.",
     "addContactValidation": "Enter a contact name and ENS name or address.",

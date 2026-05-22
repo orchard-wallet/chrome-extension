@@ -5,6 +5,7 @@ import {
   Activity,
   ChevronDown,
   Check,
+  CircleCheck,
   Copy,
   Eye,
   EyeOff,
@@ -21,6 +22,8 @@ import {
   Share2,
   ShieldCheck,
   SlidersHorizontal,
+  Globe,
+  Info,
   Unplug,
   Wallet,
   X
@@ -32,10 +35,19 @@ import { type Address } from "viem";
 import { formatTokenAmount, formatUsd, type AssetStore, type ChainAssetSnapshot } from "../core/assets";
 import type { ActivityEventInput } from "../core/activity";
 import { buildNativeTokenTransferPreview, canSignPreview } from "../core/clearSigning";
+import { buildNativeReceiveRequestUri } from "../core/eip681";
 import { resolveRecipient, type RecipientResolution } from "../core/ens";
 import { getBuiltInNetworkSettings, type WalletNetworkSetting } from "../core/networks";
 import { readPortfolioStore, refreshPortfolio } from "../core/portfolio";
-import { broadcastSignedTransaction, checkNetworkHealth, estimateNativeTokenTransfer, type NetworkHealthCheck, type TransactionFeeEstimate } from "../core/rpc";
+import {
+  broadcastSignedTransaction,
+  checkNetworkHealth,
+  estimateNativeTokenTransfer,
+  waitForTransactionConfirmation,
+  type NetworkHealthCheck,
+  type TransactionConfirmation,
+  type TransactionFeeEstimate
+} from "../core/rpc";
 import { createEthereumPasskeyWallet, signNativeTokenTransfer, type NativeTransferSignResult } from "../core/tcx";
 import { createPasskeyPrf, unlockPasskeyPrf } from "../core/webauthn";
 import ethTokenIcon from "./assets/eth-token.png";
@@ -50,6 +62,7 @@ import {
   readWalletUiSettings,
   readWalletRecord,
   upsertRecentRecipient,
+  updateTransactionActivityStatus,
   writeNetworkSettings,
   writeWalletUiSettings,
   DEFAULT_WALLET_UI_SETTINGS,
@@ -66,6 +79,7 @@ type OnboardingStep = "intro" | "name" | "ready";
 type ResolverStatus = "idle" | "resolving";
 type FeeStatus = "idle" | "estimating" | "ready" | "error";
 type SigningStatus = "idle" | "signing" | "broadcasting" | "broadcasted" | "error";
+type ConfirmationStatus = "idle" | "pending" | "confirmed" | "reverted" | "error";
 type PortfolioLoadStatus = "idle" | "loading" | "ready" | "error";
 type WalletConnectStatus = "idle" | "pairing" | "paired" | "error";
 type WalletConnectSessionsStatus = "idle" | "loading" | "ready" | "error";
@@ -172,6 +186,9 @@ export function App() {
   const [compactMode, setCompactMode] = useState(false);
   const [visibleWidgets, setVisibleWidgets] = useState<string[]>([]);
   const [widgetOrder, setWidgetOrder] = useState<string[]>([]);
+  const [receiveNetworkId, setReceiveNetworkId] = useState<string | null>(null);
+  const [receiveRequestAmount, setReceiveRequestAmount] = useState("");
+  const [receiveRequestLabel, setReceiveRequestLabel] = useState("");
   const [resolverStatus, setResolverStatus] = useState<ResolverStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -192,6 +209,10 @@ export function App() {
   const [signingError, setSigningError] = useState<string | null>(null);
   const [signatureResult, setSignatureResult] = useState<NativeTransferSignResult | null>(null);
   const [broadcastHash, setBroadcastHash] = useState<string | null>(null);
+  const [broadcastSubmittedAt, setBroadcastSubmittedAt] = useState<string | null>(null);
+  const [confirmationStatus, setConfirmationStatus] = useState<ConfirmationStatus>("idle");
+  const [confirmationResult, setConfirmationResult] = useState<TransactionConfirmation | null>(null);
+  const [confirmationError, setConfirmationError] = useState<string | null>(null);
   const [walletConnectUri, setWalletConnectUri] = useState("");
   const [walletConnectStatus, setWalletConnectStatus] = useState<WalletConnectStatus>("idle");
   const [walletConnectMessage, setWalletConnectMessage] = useState<string | null>(null);
@@ -241,6 +262,9 @@ export function App() {
         setVisibleWidgets(settings.visibleWidgets);
         setWidgetOrder(settings.widgetOrder);
         setSelectedSendNetworkId(settings.defaultSendNetworkId);
+        setReceiveNetworkId(settings.defaultReceiveNetworkId);
+        setReceiveRequestAmount(settings.receiveRequestAmount);
+        setReceiveRequestLabel(settings.receiveRequestLabel);
         setView(settings.startPage === "portal" ? "home" : settings.startPage);
       })
       .catch(() => undefined);
@@ -331,9 +355,13 @@ export function App() {
         : (chainSnapshots.find((snapshot) => snapshot.status === "ready") ?? chainSnapshots[0] ?? null),
     [chainSnapshots, portfolioStore, selectedChainId]
   );
-const selectedSendNetwork = useMemo(
+  const selectedSendNetwork = useMemo(
     () => sendNetworks.find((network) => network.networkId === selectedSendNetworkId) ?? sendNetworks[0] ?? null,
     [selectedSendNetworkId, sendNetworks]
+  );
+  const selectedReceiveNetwork = useMemo(
+    () => sendNetworks.find((network) => network.networkId === receiveNetworkId) ?? sendNetworks[0] ?? null,
+    [receiveNetworkId, sendNetworks]
   );
   const mainnetNetwork = useMemo(
     () => networkSettings.find((n) => n.networkId === "ethereum-mainnet") ?? null,
@@ -376,7 +404,42 @@ const selectedSendNetwork = useMemo(
     setSigningError(null);
     setSignatureResult(null);
     setBroadcastHash(null);
+    setBroadcastSubmittedAt(null);
+    setConfirmationStatus("idle");
+    setConfirmationResult(null);
+    setConfirmationError(null);
   }, [amountInput, feeEstimate, recipientResolution, selectedSendNetworkId]);
+
+  useEffect(() => {
+    if (!broadcastHash || signingStatus !== "broadcasted") {
+      return;
+    }
+
+    let cancelled = false;
+
+    setConfirmationStatus("pending");
+    setConfirmationError(null);
+    waitForTransactionConfirmation(broadcastHash as `0x${string}`, selectedSendNetwork ?? undefined)
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+
+        setConfirmationResult(result);
+        setConfirmationStatus(result.status);
+        void updateTransactionActivityStatus(broadcastHash, result.status === "confirmed" ? "completed" : "failed");
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) {
+          setConfirmationStatus("error");
+          setConfirmationError(cause instanceof Error ? cause.message : t("popup:send.confirmationError"));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [broadcastHash, selectedSendNetwork, signingStatus, t]);
 
   useEffect(() => {
     if (!pendingSendReview || !wallet || !sendNetworks.some((network) => network.networkId === pendingSendReview.networkId)) {
@@ -748,12 +811,14 @@ const selectedSendNetwork = useMemo(
 
       const hash = await broadcastSignedTransaction(result.serializedTransaction, selectedSendNetwork ?? undefined);
       setBroadcastHash(hash);
+      setBroadcastSubmittedAt(new Date().toISOString());
       setSigningStatus("broadcasted");
       void recordActivity({
         type: "transaction_broadcasted",
         title: "Transaction broadcasted",
         detail: hash,
         severity: "success",
+        status: "pending",
         amount: {
           value: previewResult.preview.amount,
           symbol: previewResult.preview.asset,
@@ -810,6 +875,14 @@ const selectedSendNetwork = useMemo(
       setWalletConnectStatus("error");
       setWalletConnectMessage(cause instanceof Error ? cause.message : t("popup:errors.wcPair"));
     }
+  }
+
+  function handleFinishSend() {
+    setView("home");
+    setRecipientInput("");
+    setRecipientResolution({ kind: "empty", input: "" });
+    setAmountInput("");
+    setPreviewAccepted(false);
   }
 
   async function refreshWalletConnectSessions() {
@@ -1043,6 +1116,9 @@ const selectedSendNetwork = useMemo(
             snapshots={chainSnapshots}
             visibleWidgets={visibleWidgets}
             widgetOrder={widgetOrder}
+            receiveRequestAmount={receiveRequestAmount}
+            receiveRequestLabel={receiveRequestLabel}
+            receiveNetwork={selectedReceiveNetwork}
             failedNetworkCount={portfolioStore?.portfolioSnapshot?.failedNetworkIds?.length ?? 0}
             mainnetNetwork={mainnetNetwork}
             mainnetEthBalance={mainnetEthBalance}
@@ -1059,7 +1135,9 @@ const selectedSendNetwork = useMemo(
         {view === "receive" && wallet ? (
           <ReceiveView
             wallet={wallet}
-            network={selectedSendNetwork}
+            network={selectedReceiveNetwork}
+            amount={receiveRequestAmount}
+            label={receiveRequestLabel}
             copied={copied}
             onCopy={handleCopy}
             onDone={() => setView("home")}
@@ -1084,6 +1162,10 @@ const selectedSendNetwork = useMemo(
             signingError={signingError}
             signatureResult={signatureResult}
             broadcastHash={broadcastHash}
+            broadcastSubmittedAt={broadcastSubmittedAt}
+            confirmationStatus={confirmationStatus}
+            confirmationResult={confirmationResult}
+            confirmationError={confirmationError}
             broadcastExplorerUrl={broadcastExplorerUrl}
             onRecipientInput={setRecipientInput}
             onNetworkSelect={handleSelectSendNetwork}
@@ -1091,6 +1173,8 @@ const selectedSendNetwork = useMemo(
             onAmountInput={setAmountInput}
             onPreviewAction={handlePreviewAction}
             onCancelPreview={() => setPreviewAccepted(false)}
+            onDone={handleFinishSend}
+            onActivity={() => openSettingsPage("activity")}
           />
         ) : null}
 
@@ -1412,6 +1496,9 @@ function HomeDashboard({
   snapshots,
   visibleWidgets,
   widgetOrder,
+  receiveNetwork,
+  receiveRequestAmount,
+  receiveRequestLabel,
   failedNetworkCount,
   mainnetNetwork,
   mainnetEthBalance,
@@ -1434,6 +1521,9 @@ function HomeDashboard({
   snapshots: ChainAssetSnapshot[];
   visibleWidgets: string[];
   widgetOrder: string[];
+  receiveNetwork: WalletNetworkSetting | null;
+  receiveRequestAmount: string;
+  receiveRequestLabel: string;
   failedNetworkCount: number;
   mainnetNetwork: WalletNetworkSetting | null;
   mainnetEthBalance: string | null;
@@ -1453,22 +1543,43 @@ function HomeDashboard({
   const assetTiles = topAssets.length > 0 ? topAssets : fallbackAssetTiles();
 
   const visibleWidgetSet = new Set(visibleWidgets.length ? visibleWidgets : DEFAULT_WALLET_UI_SETTINGS.visibleWidgets);
-  const actionWidgets = [
-    { id: "send", node: <ActionWidget icon={<Send size={18} />} title={t("popup:widgets.send.title")} detail={t("popup:widgets.send.detail")} disabled={!wallet} onClick={() => onNavigate("send")} key="send" /> },
-    { id: "receive", node: <ActionWidget icon={<QrCode size={18} />} title={t("popup:widgets.receive.title")} detail={t("popup:widgets.receive.detail")} disabled={!wallet} onClick={() => onNavigate("receive")} key="receive" /> },
-    { id: "swap", node: <ActionWidget icon={<RefreshCcw size={18} />} title={t("popup:widgets.swap.title")} detail={t("popup:widgets.swap.detail")} disabled onClick={() => undefined} key="swap" /> },
-    { id: "activity", node: <ActionWidget icon={<Activity size={18} />} title={t("popup:widgets.activity.title")} detail={t("popup:widgets.activity.detail")} disabled={!wallet} onClick={onOpenActivitySettings} key="activity" /> },
-    { id: "pufeth", node: <PufETHWidget wallet={wallet} network={mainnetNetwork} ethBalance={mainnetEthBalance} onConverted={onRecordActivity} key="pufeth" /> }
-  ]
-    .filter((widget) => visibleWidgetSet.has(widget.id))
-    .sort((a, b) => {
-      const order = widgetOrder.length ? widgetOrder : DEFAULT_WALLET_UI_SETTINGS.widgetOrder;
-      return order.indexOf(a.id) - order.indexOf(b.id);
-    })
-    .map((widget) => widget.node);
+  const actionWidgets: Record<string, ReactNode> = {
+    send: <ActionWidget icon={<Send size={18} />} title={t("popup:widgets.send.title")} detail={t("popup:widgets.send.detail")} disabled={!wallet} onClick={() => onNavigate("send")} key="send" />,
+    receive: <ActionWidget icon={<QrCode size={18} />} title={receiveRequestLabel.trim() || t("popup:widgets.receive.title")} detail={`${receiveRequestAmount.trim() || "0.00"} ${receiveNetwork?.nativeCurrencySymbol ?? "ETH"}`} disabled={!wallet} onClick={() => onNavigate("receive")} key="receive" />,
+    swap: <ActionWidget icon={<RefreshCcw size={18} />} title={t("popup:widgets.swap.title")} detail={t("popup:widgets.swap.detail")} disabled onClick={() => undefined} key="swap" />,
+    activity: <ActionWidget icon={<Activity size={18} />} title={t("popup:widgets.activity.title")} detail={t("popup:widgets.activity.detail")} disabled={!wallet} onClick={onOpenActivitySettings} key="activity" />,
+    pufeth: <PufETHWidget wallet={wallet} network={mainnetNetwork} ethBalance={mainnetEthBalance} onConverted={onRecordActivity} key="pufeth" />
+  };
   const assetWidgets = assetTiles.map((snapshot, index) => (
     <AssetWidgetRow snapshot={snapshot} privacyMode={privacyMode} toneIndex={index} key={snapshot.networkId} />
   ));
+  const orderedWidgetIds = (widgetOrder.length ? widgetOrder : DEFAULT_WALLET_UI_SETTINGS.widgetOrder)
+    .filter((widgetId) => widgetId !== "balance" && visibleWidgetSet.has(widgetId));
+  const portalWidgets = orderedWidgetIds.reduce<ReactNode[]>((widgets, widgetId) => {
+    if (widgetId === "assets") {
+      widgets.push(...assetWidgets);
+      return widgets;
+    }
+
+    if (widgetId === "portfolio") {
+      widgets.push(<SummaryWidget
+        icon={<Network size={17} />}
+        label={t("popup:portfolio.heading")}
+        value={privacyMode ? t("popup:home.balance.hidden") : displayPortfolioTotal}
+        detail={failedNetworkCount > 0 ? t("popup:home.failedRefresh", { count: failedNetworkCount }) : "+2.10%"}
+        tone={failedNetworkCount > 0 ? "warning" : "ready"}
+        onClick={onOpenPortfolioSettings}
+        key="portfolio"
+      />);
+      return widgets;
+    }
+
+    if (actionWidgets[widgetId]) {
+      widgets.push(actionWidgets[widgetId]);
+    }
+
+    return widgets;
+  }, []);
 
   return (
     <section className="portal-shell" aria-label={t("popup:regions.walletPortal")}>
@@ -1492,22 +1603,7 @@ function HomeDashboard({
         {portfolioError ? <p className="inline-error">{portfolioError}</p> : null}
       </section> : null}
 
-      {actionWidgets.length || visibleWidgetSet.has("portfolio") || visibleWidgetSet.has("assets") ? <section className="portal-content">
-        <div className="portal-left">
-          {actionWidgets.length ? <div className="portal-action-grid">{actionWidgets}</div> : null}
-          {visibleWidgetSet.has("portfolio") ? <SummaryWidget
-            icon={<Network size={17} />}
-            label={t("popup:portfolio.heading")}
-            value={privacyMode ? t("popup:home.balance.hidden") : displayPortfolioTotal}
-            detail={failedNetworkCount > 0 ? t("popup:home.failedRefresh", { count: failedNetworkCount }) : "+2.10%"}
-            tone={failedNetworkCount > 0 ? "warning" : "ready"}
-            onClick={onOpenPortfolioSettings}
-          /> : null}
-        </div>
-        {visibleWidgetSet.has("assets") ? <div className="portal-right">
-          <div className="portal-asset-grid">{assetWidgets}</div>
-        </div> : null}
-      </section> : null}
+      {portalWidgets.length ? <section className="portal-widget-grid">{portalWidgets}</section> : null}
 
 
       <button type="button" className="view-all-assets portal-view-all" disabled={!wallet} onClick={onOpenPortfolioSettings}>
@@ -2015,12 +2111,16 @@ function chainStatusLabel(snapshot: ChainAssetSnapshot, t?: (key: string) => str
 function ReceiveView({
   wallet,
   network,
+  amount,
+  label,
   copied,
   onCopy,
   onDone
 }: {
   wallet: WalletRecord;
   network: WalletNetworkSetting | null;
+  amount: string;
+  label: string;
   copied: boolean;
   onCopy: () => void;
   onDone: () => void;
@@ -2030,6 +2130,13 @@ function ReceiveView({
   const asset = network?.nativeCurrencySymbol ?? "ETH";
   const networkName = network?.name.replace(/\s+(Mainnet|network)$/i, "") ?? "Ethereum";
   const address = showFullAddress ? wallet.address : formatAddress(wallet.address);
+  const receiveRequest = useMemo(() => {
+    try {
+      return buildNativeReceiveRequestUri({ address: wallet.address, chainId: network?.chainId, amount });
+    } catch {
+      return buildNativeReceiveRequestUri({ address: wallet.address, chainId: network?.chainId });
+    }
+  }, [amount, network?.chainId, wallet.address]);
 
   async function handleShare() {
     if (navigator.share) {
@@ -2059,7 +2166,7 @@ function ReceiveView({
 
       <div className="receive-qr-stage">
         <div className="qr-wrap receive-qr-card">
-          <QRCodeSVG value={wallet.address} size={212} marginSize={2} level="M" />
+          <QRCodeSVG value={receiveRequest.uri} size={212} marginSize={2} level="M" />
         </div>
         <p>{t("popup:receive.qrHint", { asset, network: networkName })}</p>
       </div>
@@ -2073,6 +2180,7 @@ function ReceiveView({
           <div>
             <strong>{address}</strong>
             <small title={wallet.address}>{wallet.address}</small>
+            {label.trim() ? <small>{label}</small> : null}
           </div>
           <button type="button" onClick={onCopy} aria-label={copied ? t("popup:receive.addressCopied") : t("popup:receive.copyAddress")}>
             {copied ? <Check size={20} /> : <Copy size={20} />}
@@ -2122,13 +2230,19 @@ function SendView({
   signingError,
   signatureResult,
   broadcastHash,
+  broadcastSubmittedAt,
+  confirmationStatus,
+  confirmationResult,
+  confirmationError,
   broadcastExplorerUrl,
   onRecipientInput,
   onNetworkSelect,
   onTokenPickerOpen,
   onAmountInput,
   onPreviewAction,
-  onCancelPreview
+  onCancelPreview,
+  onDone,
+  onActivity
 }: {
   resolverStatus: ResolverStatus;
   recipientInput: string;
@@ -2146,6 +2260,10 @@ function SendView({
   signingError: string | null;
   signatureResult: NativeTransferSignResult | null;
   broadcastHash: string | null;
+  broadcastSubmittedAt: string | null;
+  confirmationStatus: ConfirmationStatus;
+  confirmationResult: TransactionConfirmation | null;
+  confirmationError: string | null;
   broadcastExplorerUrl: string | null;
   onRecipientInput: (value: string) => void;
   onNetworkSelect: (networkId: string | null) => void;
@@ -2153,6 +2271,8 @@ function SendView({
   onAmountInput: (value: string) => void;
   onPreviewAction: () => void;
   onCancelPreview: () => void;
+  onDone: () => void;
+  onActivity: () => void;
 }) {
   const { t } = useTranslation();
   const selectedSnapshot = selectedSendNetwork
@@ -2182,6 +2302,23 @@ function SendView({
     } catch {
       return;
     }
+  }
+
+  if (signingStatus === "broadcasted" && broadcastHash && signatureResult && previewResult.ok) {
+    return (
+      <SubmittedTransactionView
+        preview={previewResult.preview}
+        signedHash={signatureResult.txHash}
+        broadcastHash={broadcastHash}
+        submittedAt={broadcastSubmittedAt}
+        explorerUrl={broadcastExplorerUrl}
+        confirmationStatus={confirmationStatus}
+        confirmationResult={confirmationResult}
+        confirmationError={confirmationError}
+        onDone={onDone}
+        onActivity={onActivity}
+      />
+    );
   }
 
   if (previewAccepted) {
@@ -2340,6 +2477,121 @@ function SendView({
 
       {signingError ? <p className="resolver-result invalid">{signingError}</p> : null}
     </section>
+  );
+}
+
+function SubmittedTransactionView({
+  preview,
+  signedHash,
+  broadcastHash,
+  submittedAt,
+  explorerUrl,
+  confirmationStatus,
+  confirmationResult,
+  confirmationError,
+  onDone,
+  onActivity
+}: {
+  preview: Extract<ReturnType<typeof buildNativeTokenTransferPreview>, { ok: true }>["preview"];
+  signedHash: string;
+  broadcastHash: string;
+  submittedAt: string | null;
+  explorerUrl: string | null;
+  confirmationStatus: ConfirmationStatus;
+  confirmationResult: TransactionConfirmation | null;
+  confirmationError: string | null;
+  onDone: () => void;
+  onActivity: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const networkLabel = preview.networkName.replace(/\s+(Mainnet|network)$/i, "");
+  const formattedSubmittedAt = submittedAt
+    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "medium" }).format(new Date(submittedAt))
+    : t("popup:send.submittedNow");
+  const isConfirmed = confirmationStatus === "confirmed";
+  const isReverted = confirmationStatus === "reverted";
+  const statusTitle = isConfirmed ? t("popup:send.confirmedTitle") : isReverted ? t("popup:send.revertedTitle") : t("popup:send.submittedTitle");
+  const statusSubtitle = isConfirmed
+    ? t("popup:send.confirmedSubtitle", { network: networkLabel, block: confirmationResult?.blockNumber.toString() ?? "" })
+    : isReverted
+      ? t("popup:send.revertedSubtitle", { network: networkLabel })
+      : t("popup:send.submittedSubtitle", { network: networkLabel });
+
+  return (
+    <section className={`transaction-submitted-screen ${isConfirmed ? "confirmed" : ""} ${isReverted ? "reverted" : ""}`} aria-label={statusTitle}>
+      <header className="transaction-submitted-hero">
+        <span aria-hidden="true">
+          <CircleCheck size={30} />
+        </span>
+        <div>
+          <h2>{statusTitle}</h2>
+          <p>{statusSubtitle}</p>
+        </div>
+      </header>
+
+      <ol className="transaction-submitted-steps" aria-label={t("popup:send.submittedProgress")}>
+        <li className="done">
+          <Check size={15} />
+          <span>{t("popup:send.progressSigned")}</span>
+        </li>
+        <li className="done">
+          <Check size={15} />
+          <span>{t("popup:send.progressSubmitted")}</span>
+        </li>
+        <li className={isConfirmed ? "done" : isReverted ? "failed" : "pending"}>
+          {isConfirmed ? <Check size={15} /> : <span />}
+          <b>{isConfirmed ? t("popup:send.progressConfirmed") : isReverted ? t("popup:send.progressFailed") : t("popup:send.progressPending")}</b>
+        </li>
+      </ol>
+
+      <section className="transaction-submitted-details" aria-label={t("popup:send.submittedDetails")}>
+        <PreviewRow label={t("popup:send.transactionType")} value={preview.title} />
+        <PreviewRow label={t("popup:send.amount")} value={`${preview.amount} ${preview.asset}`} />
+        <PreviewRow label={t("popup:network.heading")} value={networkLabel} />
+        <PreviewRow label={t("popup:send.recipient")} value={preview.recipientLabel} detail={formatAddress(preview.to)} />
+        <PreviewRow label={t("popup:clearSigning.from")} value={formatAddress(preview.from)} />
+        <PreviewRow label={t("popup:clearSigning.feeLabel")} value={preview.estimatedNetworkFee} />
+        <PreviewRow label={t("popup:send.submittedAt")} value={formattedSubmittedAt} />
+      </section>
+
+      <section className="transaction-submitted-chain" aria-label={t("popup:send.onchainInfo")}>
+        <h3>
+          <Globe size={17} />
+          {t("popup:send.onchainInfo")}
+        </h3>
+        <SubmittedHashRow label={t("popup:send.signedTxHash")} hash={signedHash} explorerUrl={explorerUrl} />
+        <SubmittedHashRow label={t("popup:send.broadcastHash")} hash={broadcastHash} explorerUrl={explorerUrl} />
+      </section>
+
+      <div className={`transaction-submitted-note ${confirmationStatus}`}>
+        <Info size={16} />
+        <span>{confirmationError ?? (isConfirmed ? t("popup:send.confirmedHint") : isReverted ? t("popup:send.revertedHint") : t("popup:send.confirmationHint"))}</span>
+      </div>
+
+      <button type="button" className="primary-button transaction-submitted-done" onClick={onDone}>
+        {t("common:actions.done")}
+      </button>
+      <button type="button" className="transaction-submitted-activity" onClick={onActivity}>
+        {t("popup:send.goToActivity")}
+      </button>
+    </section>
+  );
+}
+
+function SubmittedHashRow({ label, hash, explorerUrl }: { label: string; hash: string; explorerUrl: string | null }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="transaction-submitted-hash">
+      <span>{label}</span>
+      <strong title={hash}>{formatAddress(hash)}</strong>
+      {explorerUrl ? (
+        <a href={explorerUrl} target="_blank" rel="noreferrer">
+          {t("popup:send.viewOnExplorer")}
+          <ArrowRight size={13} />
+        </a>
+      ) : null}
+    </div>
   );
 }
 

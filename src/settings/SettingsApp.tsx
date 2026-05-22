@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { QRCodeSVG } from "qrcode.react";
 import i18n, { changeAppLanguage } from "../i18n";
 import { SUPPORTED_LANGUAGES, type AppLanguage } from "../i18n/config";
 import { formatUnits, parseUnits, type Address } from "viem";
@@ -64,6 +65,7 @@ import { isEvmAssetNetwork } from "../core/assets";
 import { curatedEvmSwapAssets } from "../core/evmAssets";
 import { searchAddressBookContacts, type AddressBookContact } from "../core/addressBook";
 import { estimateNativeTokenTransfer, type TransactionFeeEstimate } from "../core/rpc";
+import { buildNativeReceiveRequestUri } from "../core/eip681";
 import {
   getZeroExSwapPrice,
   getZeroExSwapQuote,
@@ -90,7 +92,7 @@ import {
 } from "../lib/storage";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
-type SettingsView = "networks" | "connected-dapps" | "portfolio" | "activity" | "address-book" | "send" | "swap" | "security" | "settings";
+type SettingsView = "networks" | "connected-dapps" | "portfolio" | "activity" | "address-book" | "send" | "receive" | "swap" | "security" | "settings";
 type WalletConnectSessionsStatus = "idle" | "loading" | "ready" | "error";
 type SendResolverStatus = "idle" | "resolving";
 type SendFeeStatus = "idle" | "estimating" | "ready" | "error";
@@ -206,6 +208,8 @@ function settingsViewFromHash(): SettingsView {
       ? "connected-dapps"
     : window.location.hash === "#send"
         ? "send"
+    : window.location.hash === "#receive"
+        ? "receive"
         : window.location.hash === "#swap"
           ? "swap"
         : window.location.hash === "#security"
@@ -972,7 +976,7 @@ export function SettingsApp() {
           <SidebarItem icon={<PieChart size={18} />} label={t("settings:sidebar.portfolio")} active={view === "portfolio"} onClick={() => selectView("portfolio")} />
           <SidebarItem icon={<Activity size={18} />} label={t("settings:sidebar.activity")} active={view === "activity"} onClick={() => selectView("activity")} />
           <SidebarItem icon={<Send size={18} />} label={t("settings:sidebar.send")} active={view === "send"} onClick={() => selectView("send")} />
-          <SidebarItem icon={<Download size={18} />} label={t("settings:sidebar.receive")} />
+          <SidebarItem icon={<Download size={18} />} label={t("settings:sidebar.receive")} active={view === "receive"} onClick={() => selectView("receive")} />
           <SidebarItem icon={<Repeat2 size={18} />} label={t("settings:sidebar.swap")} active={view === "swap"} onClick={() => selectView("swap")} />
           <SidebarItem icon={<Globe2 size={18} />} label={t("settings:sidebar.networks")} active={view === "networks"} onClick={() => selectView("networks")} />
           <SidebarItem icon={<UsersRound size={18} />} label={t("settings:sidebar.addressBook")} active={view === "address-book"} onClick={() => selectView("address-book")} />
@@ -1030,6 +1034,14 @@ export function SettingsApp() {
         onAmountInput={setSendAmountInput}
         onReviewTransfer={handleReviewSendTransfer}
         onOpenAddressBook={() => selectView("address-book")}
+      />
+      ) : view === "receive" ? (
+      <ReceiveSettingsPanel
+        walletAddress={walletAddress}
+        networks={sendNetworks}
+        settings={uiSettings}
+        events={activityEvents.filter((event) => event.category === "receive")}
+        onSettings={persistUiSettings}
       />
       ) : view === "swap" ? (
       <SwapSettingsPanel
@@ -1881,6 +1893,135 @@ function activityStatusLabel(status: ActivityStatus, t: (key: string) => string)
   }
 }
 
+function ReceiveSettingsPanel({
+  walletAddress,
+  networks,
+  settings,
+  events,
+  onSettings
+}: {
+  walletAddress: string | null;
+  networks: WalletNetworkSetting[];
+  settings: WalletUiSettings;
+  events: ActivityEvent[];
+  onSettings: (settings: WalletUiSettings) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const receiveNetworks = networks.filter((network) => typeof network.chainId === "number");
+  const network = receiveNetworks.find((item) => item.networkId === settings.defaultReceiveNetworkId) ?? receiveNetworks[0] ?? null;
+  const requestUri = useMemo(() => {
+    if (!walletAddress) return null;
+
+    try {
+      return buildNativeReceiveRequestUri({
+        address: walletAddress,
+        chainId: network?.chainId,
+        amount: settings.receiveRequestAmount
+      });
+    } catch {
+      return null;
+    }
+  }, [network?.chainId, settings.receiveRequestAmount, walletAddress]);
+  const latestReceives = events.slice(0, 3);
+  const amountInvalid = Boolean(settings.receiveRequestAmount.trim()) && !requestUri;
+
+  function updateRequest(patch: Partial<WalletUiSettings>) {
+    void onSettings({ ...settings, ...patch });
+  }
+
+  return (
+    <section className="settings-main-panel receive-settings-panel">
+      <header className="settings-page-header">
+        <div>
+          <h1>{t("settings:receive.title")}</h1>
+          <p>{t("settings:receive.description")}</p>
+        </div>
+      </header>
+
+      <section className="receive-settings-hero" aria-label={t("settings:receive.overview")}>
+        <SettingsMetric icon={<Globe2 size={24} />} value={network?.name.replace(/\s+(Mainnet|network)$/i, "") ?? "--"} label={t("settings:receive.defaultNetwork")} detail={t("settings:receive.activeNetwork")} />
+        <SettingsMetric icon={<Wallet size={24} />} value={walletAddress ? 1 : 0} label={t("settings:receive.savedAddress")} detail={t("settings:receive.addressCount")} />
+        <SettingsMetric icon={<Clock3 size={24} />} value={latestReceives.length} label={t("settings:receive.recentReceipts")} detail={t("settings:receive.activityCount")} />
+      </section>
+
+      <section className="receive-settings-grid">
+        <div className="receive-settings-qr-column">
+          <section className="receive-settings-qr-card">
+            <div className="qr-wrap">
+              <QRCodeSVG value={requestUri?.uri ?? walletAddress ?? ""} size={194} marginSize={2} level="M" />
+            </div>
+            <strong>{network?.name.replace(/\s+(Mainnet|network)$/i, "") ?? t("settings:receive.noNetwork")}</strong>
+            <h2 title={walletAddress ?? undefined}>{walletAddress ? formatAddress(walletAddress) : t("settings:sidebar.noWallet")}</h2>
+            {settings.receiveRequestLabel ? <p>{settings.receiveRequestLabel}</p> : null}
+            <code title={requestUri?.uri}>{requestUri?.uri ?? t("settings:receive.noRequest")}</code>
+          </section>
+
+          <section className="receive-widget-preview" aria-label={t("settings:receive.widgetPreview")}>
+            <header>
+              <h2>{t("settings:receive.widgetPreview")}</h2>
+              <small>{t("settings:receive.widgetPreviewDetail")}</small>
+            </header>
+            <ReceiveRequestWidgetPreview address={walletAddress} network={network} amount={settings.receiveRequestAmount} label={settings.receiveRequestLabel} />
+          </section>
+        </div>
+
+        <div className="receive-settings-side">
+          <section className="receive-request-settings">
+            <h2>{t("settings:receive.requestSettings")}</h2>
+            <label>
+              <span>{t("settings:receive.defaultNetwork")}</span>
+              <select value={network?.networkId ?? ""} onChange={(event) => updateRequest({ defaultReceiveNetworkId: event.target.value || null })}>
+                {receiveNetworks.map((item) => <option value={item.networkId} key={item.networkId}>{item.name}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>{t("settings:receive.amount")}</span>
+              <input inputMode="decimal" value={settings.receiveRequestAmount} onChange={(event) => updateRequest({ receiveRequestAmount: event.target.value })} placeholder="0.00" />
+              <small>{network?.nativeCurrencySymbol ?? "ETH"}</small>
+            </label>
+            <label>
+              <span>{t("settings:receive.label")}</span>
+              <input value={settings.receiveRequestLabel} onChange={(event) => updateRequest({ receiveRequestLabel: event.target.value })} placeholder={t("settings:receive.labelPlaceholder")} />
+            </label>
+            <p>{t("settings:receive.eip681Hint")}</p>
+            {amountInvalid ? <p className="inline-error">{t("settings:receive.amountInvalid")}</p> : null}
+          </section>
+
+          <section className="receive-recent-list">
+            <h2>{t("settings:receive.recentReceipts")}</h2>
+            {latestReceives.length ? latestReceives.map((event) => (
+              <article key={event.id}>
+                <span><Download size={15} /></span>
+                <div>
+                  <strong>{event.title}</strong>
+                  <small>{event.detail}</small>
+                </div>
+                <em>{event.amount ? `+${event.amount.value} ${event.amount.symbol}` : formatRelativeAge(event.createdAt)}</em>
+              </article>
+            )) : <p>{t("settings:receive.recentEmpty")}</p>}
+          </section>
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function ReceiveRequestWidgetPreview({ address, network, amount, label }: { address: string | null; network: WalletNetworkSetting | null; amount: string; label: string }) {
+  const { t } = useTranslation();
+
+  return (
+    <article className="receive-request-widget-preview">
+      <span><QrCode size={18} /></span>
+      <div>
+        <strong>{label.trim() || t("settings:widgets.receiveTitle")}</strong>
+        <small>{network?.name.replace(/\s+(Mainnet|network)$/i, "") ?? t("settings:receive.noNetwork")}</small>
+      </div>
+      <p title={address ?? undefined}>{address ? formatAddress(address) : t("settings:sidebar.noWallet")}</p>
+      <em>{amount.trim() || "0.00"} {network?.nativeCurrencySymbol ?? "ETH"}</em>
+    </article>
+  );
+}
+
 
 function WalletSettingsPanel({
   walletRecord,
@@ -2093,7 +2234,7 @@ function WalletSettingsPanel({
   );
 }
 
-function SettingsMetric({ icon, value, label, detail }: { icon: ReactNode; value: number; label: string; detail: string }) {
+function SettingsMetric({ icon, value, label, detail }: { icon: ReactNode; value: ReactNode; label: string; detail: string }) {
   return (
     <div>
       <span>{icon}</span>

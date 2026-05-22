@@ -91,6 +91,28 @@
     "title": "接続済みセッション",
     "unknownOrigin": "不明な送信元"
   },
+  "receive": {
+    "activeNetwork": "受取リクエストで使用中",
+    "activityCount": "記録された受取アクティビティ",
+    "addressCount": "ローカルウォレットアドレス",
+    "amount": "金額（任意）",
+    "amountInvalid": "有効なネイティブ資産金額を入力してください。",
+    "defaultNetwork": "既定のネットワーク",
+    "description": "ウォレットアドレスまたは標準 EIP-681 ネイティブ資産受取リクエストを共有します。",
+    "eip681Hint": "QR リクエストは EIP-681 を使用します: ethereum:<address>@<chainId>?value=<wei>。EIP-681 にメモ項目はないため、ラベルはローカルに保持します。",
+    "label": "ラベル（任意）",
+    "labelPlaceholder": "この受取リクエストのラベル",
+    "noNetwork": "ネットワークなし",
+    "noRequest": "ウォレットを作成するとリクエスト URI を生成できます。",
+    "overview": "受取の概要",
+    "recentEmpty": "受取アクティビティが記録されるとここに表示されます。",
+    "recentReceipts": "最近の受取",
+    "requestSettings": "受取設定",
+    "savedAddress": "保存済みアドレス",
+    "title": "受取",
+    "widgetPreview": "Portal 受取ウィジェット",
+    "widgetPreviewDetail": "設定した受取リクエストを Portal に表示します。"
+  },
   "errors": {
     "addContact": "連絡先を保存できませんでした。",
     "addContactValidation": "連絡先名と ENS 名またはアドレスを入力してください。",

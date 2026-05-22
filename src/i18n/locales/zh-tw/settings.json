@@ -91,6 +91,28 @@
     "title": "已連接的工作階段",
     "unknownOrigin": "未知來源"
   },
+  "receive": {
+    "activeNetwork": "目前收款請求使用",
+    "activityCount": "已記錄的收款活動",
+    "addressCount": "本機錢包地址",
+    "amount": "金額（選填）",
+    "amountInvalid": "請輸入有效的原生資產金額。",
+    "defaultNetwork": "預設網路",
+    "description": "分享錢包地址或標準 EIP-681 原生資產收款請求。",
+    "eip681Hint": "QR 請求使用 EIP-681：ethereum:<address>@<chainId>?value=<wei>。EIP-681 未定義備註欄位，標註只保留在本機。",
+    "label": "標註（選填）",
+    "labelPlaceholder": "為這次收款標註",
+    "noNetwork": "無網路",
+    "noRequest": "建立錢包後才能產生請求 URI。",
+    "overview": "收款總覽",
+    "recentEmpty": "記錄到收款活動後會顯示在這裡。",
+    "recentReceipts": "最近收款",
+    "requestSettings": "收款設定",
+    "savedAddress": "已儲存地址",
+    "title": "接收",
+    "widgetPreview": "Portal 收款小組件",
+    "widgetPreviewDetail": "設定好的收款請求會顯示在 Portal。"
+  },
   "errors": {
     "addContact": "無法儲存聯絡人。",
     "addContactValidation": "請輸入聯絡人名稱與 ENS 名稱或位址。",

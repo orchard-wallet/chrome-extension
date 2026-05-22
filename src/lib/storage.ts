@@ -2,7 +2,7 @@ import type { WalletNetworkSetting } from "../core/networks";
 import { emptyAssetStore, type AssetStore } from "../core/assets";
 import { createAddressBookContact, normalizeAddressBookContact, type AddressBookContact, type AddressBookContactInput } from "../core/addressBook";
 import type { RecipientResolution } from "../core/ens";
-import { createActivityEvent, normalizeActivityEvent, type ActivityEvent, type ActivityEventInput } from "../core/activity";
+import { createActivityEvent, normalizeActivityEvent, type ActivityEvent, type ActivityEventInput, type ActivityStatus } from "../core/activity";
 
 export interface WalletRecord {
   name?: string;
@@ -28,6 +28,9 @@ export interface WalletUiSettings {
   widgetOrder: string[];
   collapsedWidgets: string[];
   defaultSendNetworkId: string | null;
+  defaultReceiveNetworkId: string | null;
+  receiveRequestAmount: string;
+  receiveRequestLabel: string;
   language: string;
 }
 
@@ -91,6 +94,9 @@ export const DEFAULT_WALLET_UI_SETTINGS: WalletUiSettings = {
   widgetOrder: ["balance", "assets", "send", "receive", "swap", "activity", "portfolio", "pufeth"],
   collapsedWidgets: [],
   defaultSendNetworkId: null,
+  defaultReceiveNetworkId: null,
+  receiveRequestAmount: "",
+  receiveRequestLabel: "",
   language: "en"
 };
 
@@ -172,6 +178,14 @@ function normalizeWalletUiSettings(settings: Partial<WalletUiSettings> | undefin
       typeof settings?.defaultSendNetworkId === "string" || settings?.defaultSendNetworkId === null
         ? settings.defaultSendNetworkId
         : DEFAULT_WALLET_UI_SETTINGS.defaultSendNetworkId,
+    defaultReceiveNetworkId:
+      typeof settings?.defaultReceiveNetworkId === "string" || settings?.defaultReceiveNetworkId === null
+        ? settings.defaultReceiveNetworkId
+        : DEFAULT_WALLET_UI_SETTINGS.defaultReceiveNetworkId,
+    receiveRequestAmount:
+      typeof settings?.receiveRequestAmount === "string" ? settings.receiveRequestAmount : DEFAULT_WALLET_UI_SETTINGS.receiveRequestAmount,
+    receiveRequestLabel:
+      typeof settings?.receiveRequestLabel === "string" ? settings.receiveRequestLabel : DEFAULT_WALLET_UI_SETTINGS.receiveRequestLabel,
     language:
       typeof settings?.language === "string" ? settings.language : DEFAULT_WALLET_UI_SETTINGS.language
   };
@@ -340,6 +354,18 @@ export async function appendActivityEvent(event: ActivityEventInput): Promise<Ac
   const events = await readActivityEvents();
   const nextEvent = createActivityEvent(event);
   const nextEvents = [nextEvent, ...events].slice(0, 80);
+  await writeActivityEvents(nextEvents);
+  return nextEvents;
+}
+
+export async function updateTransactionActivityStatus(txHash: string, status: Extract<ActivityStatus, "pending" | "completed" | "failed">): Promise<ActivityEvent[]> {
+  const events = await readActivityEvents();
+  const nextEvents = events.map((event) =>
+    event.type === "transaction_broadcasted" && event.txHash === txHash
+      ? { ...event, status, severity: status === "failed" ? "danger" as const : event.severity }
+      : event
+  );
+
   await writeActivityEvents(nextEvents);
   return nextEvents;
 }

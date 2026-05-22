@@ -91,6 +91,28 @@
     "title": "已连接会话",
     "unknownOrigin": "未知来源"
   },
+  "receive": {
+    "activeNetwork": "当前收款请求使用",
+    "activityCount": "已记录的收款活动",
+    "addressCount": "本地钱包地址",
+    "amount": "金额（选填）",
+    "amountInvalid": "请输入有效的原生资产金额。",
+    "defaultNetwork": "默认网络",
+    "description": "分享钱包地址或标准 EIP-681 原生资产收款请求。",
+    "eip681Hint": "QR 请求使用 EIP-681：ethereum:<address>@<chainId>?value=<wei>。EIP-681 未定义备注字段，标注只保留在本地。",
+    "label": "标注（选填）",
+    "labelPlaceholder": "为这次收款标注",
+    "noNetwork": "无网络",
+    "noRequest": "创建钱包后才能生成请求 URI。",
+    "overview": "收款总览",
+    "recentEmpty": "记录到收款活动后会显示在这里。",
+    "recentReceipts": "最近收款",
+    "requestSettings": "收款设置",
+    "savedAddress": "已保存地址",
+    "title": "接收",
+    "widgetPreview": "Portal 收款小组件",
+    "widgetPreviewDetail": "配置好的收款请求会显示在 Portal。"
+  },
   "errors": {
     "addContact": "无法保存联系人。",
     "addContactValidation": "请输入联系人名称及 ENS 名称或地址。",

@@ -27,6 +27,11 @@ export interface NetworkHealthCheck {
   failureReason?: string;
 }
 
+export interface TransactionConfirmation {
+  status: "confirmed" | "reverted";
+  blockNumber: bigint;
+}
+
 const defaultTransports = [
   http("https://ethereum.publicnode.com"),
   http("https://eth.llamarpc.com"),
@@ -146,6 +151,19 @@ export async function broadcastSignedTransaction(serializedTransaction: Hex, net
       serializedTransaction
     })
   );
+}
+
+export async function waitForTransactionConfirmation(hash: Hex, network?: WalletNetworkSetting): Promise<TransactionConfirmation> {
+  const client = network ? createClientForNetwork(network) : await createMainnetClient();
+  const receipt = await client.waitForTransactionReceipt({
+    hash,
+    confirmations: 1
+  });
+
+  return {
+    status: receipt.status === "success" ? "confirmed" : "reverted",
+    blockNumber: receipt.blockNumber
+  };
 }
 
 export async function checkNetworkHealth(network: WalletNetworkSetting): Promise<NetworkHealthCheck> {
