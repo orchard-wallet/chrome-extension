@@ -363,3 +363,47 @@ export function canSignPreview(preview: ClearSigningPreview): boolean {
     preview.maxPriorityFeePerGas !== null
   );
 }
+
+export interface PufferDepositPreview {
+  action: "puffer-deposit";
+  title: string;
+  vaultAddress: Address;
+  from: Address;
+  ethAmount: string;
+  ethAmountWei: bigint;
+  estimatedPufEth: string | null;
+  networkName: string;
+  warnings: PreviewWarning[];
+}
+
+export function buildPufferDepositPreview(input: {
+  from: Address;
+  vaultAddress: Address;
+  ethAmount: string;
+  ethAmountWei: bigint;
+  estimatedPufEth: string | null;
+  networkName: string;
+}): PufferDepositPreview {
+  const warnings: PreviewWarning[] = [
+    { severity: "info", message: i18n.t("common:clearSigning.puffer.reviewNote") }
+  ];
+
+  if (input.estimatedPufEth === null) {
+    warnings.push({
+      severity: "warning",
+      message: i18n.t("common:clearSigning.puffer.estimateUnavailable")
+    });
+  }
+
+  return {
+    action: "puffer-deposit",
+    title: i18n.t("common:clearSigning.puffer.title"),
+    vaultAddress: input.vaultAddress,
+    from: input.from,
+    ethAmount: input.ethAmount,
+    ethAmountWei: input.ethAmountWei,
+    estimatedPufEth: input.estimatedPufEth,
+    networkName: input.networkName,
+    warnings
+  };
+}
