@@ -28,10 +28,13 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { Address } from "viem";
+import { createPublicClient, createWalletClient, http, parseEther, type Address } from "viem";
+import { mainnet } from "viem/chains";
 import { formatTokenAmount, formatUsd, type AssetStore, type ChainAssetSnapshot } from "../core/assets";
 import type { ActivityEventInput } from "../core/activity";
-import { buildNativeTokenTransferPreview, canSignPreview } from "../core/clearSigning";
+import { buildNativeTokenTransferPreview, buildPufferDepositPreview, canSignPreview, type PufferDepositPreview } from "../core/clearSigning";
+import { createPufferClient, fetchPufETHRate, fetchPufferApy, PUFFER_DEPOSIT_NETWORK_ID, PUFFER_VAULT_MAINNET } from "../core/puffer";
+import { createTcxViemAccount } from "../core/tcxViemAccount";
 import { resolveRecipient, type RecipientResolution } from "../core/ens";
 import { getBuiltInNetworkSettings, type WalletNetworkSetting } from "../core/networks";
 import { readPortfolioStore, refreshPortfolio } from "../core/portfolio";
@@ -1035,12 +1038,15 @@ export function App() {
             visibleWidgets={visibleWidgets}
             widgetOrder={widgetOrder}
             failedNetworkCount={portfolioStore?.portfolioSnapshot?.failedNetworkIds?.length ?? 0}
+            chainSnapshots={chainSnapshots}
+            networkSettings={networkSettings}
             onCreateWallet={handleCreateWallet}
             onReset={handleReset}
             onRefreshPortfolio={handleRefreshPortfolio}
             onNavigate={setView}
             onOpenPortfolioSettings={() => openSettingsPage("portfolio")}
             onOpenActivitySettings={() => openSettingsPage("activity")}
+            onRecordActivity={recordActivity}
           />
         ) : null}
 
@@ -1388,6 +1394,284 @@ function AppHeader({
   );
 }
 
+function PufETHWidget({
+  wallet,
+  network,
+  ethBalance,
+  onConverted
+}: {
+  wallet: WalletRecord | null;
+  network: WalletNetworkSetting | null;
+  ethBalance: string | null;
+  onConverted: (event: ActivityEventInput) => void;
+}) {
+  const { t } = useTranslation();
+  const [amount, setAmount] = useState("");
+  const [rate, setRate] = useState<string | null>(null);
+  const [apy, setApy] = useState<string | null>(null);
+  const [phase, setPhase] = useState<"input" | "preview" | "signing" | "success" | "error">("input");
+  const [preview, setPreview] = useState<PufferDepositPreview | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const isMainnet = network?.networkId === PUFFER_DEPOSIT_NETWORK_ID;
+
+  useEffect(() => {
+    void fetchPufETHRate().then((value) => setRate(value?.pufEthPerEth ?? null));
+    void fetchPufferApy().then(setApy);
+  }, []);
+
+  const estimatedPufEth = useMemo(() => {
+    const eth = Number(amount);
+    if (!rate || !Number.isFinite(eth) || eth <= 0) {
+      return null;
+    }
+    return (eth * Number(rate)).toFixed(6);
+  }, [amount, rate]);
+
+  const insufficient = useMemo(() => {
+    const eth = Number(amount);
+    return Number.isFinite(eth) && eth > 0 && ethBalance != null && eth > Number(ethBalance);
+  }, [amount, ethBalance]);
+
+  function handleMax() {
+    if (ethBalance == null) {
+      return;
+    }
+    const max = Math.max(0, Number(ethBalance) - 0.002);
+    setAmount(max > 0 ? max.toFixed(6) : "0");
+  }
+
+  function handleConvert() {
+    if (!wallet || !network) {
+      return;
+    }
+    const eth = Number(amount);
+    if (!Number.isFinite(eth) || eth <= 0 || insufficient) {
+      return;
+    }
+    setError(null);
+    setPreview(
+      buildPufferDepositPreview({
+        from: wallet.address as Address,
+        vaultAddress: PUFFER_VAULT_MAINNET as Address,
+        ethAmount: amount,
+        ethAmountWei: parseEther(amount),
+        estimatedPufEth,
+        networkName: network.name
+      })
+    );
+    setPhase("preview");
+  }
+
+  async function handleConfirm() {
+    if (!wallet || !network || !preview) {
+      return;
+    }
+    setPhase("signing");
+    setError(null);
+    try {
+      const transport = http(network.selectedRpcUrl);
+      const account = createTcxViemAccount(wallet);
+      const walletClient = createWalletClient({ account, chain: mainnet, transport });
+      const publicClient = createPublicClient({ chain: mainnet, transport });
+      const pufferClient = createPufferClient(walletClient, publicClient);
+
+      const hash = await pufferClient.vault
+        .depositETH(wallet.address as Address)
+        .transact(preview.ethAmountWei);
+
+      setTxHash(hash);
+      setPhase("success");
+      onConverted({
+        type: "transaction_broadcasted",
+        title: t("popup:pufeth.successTitle"),
+        detail: preview.estimatedPufEth
+          ? t("popup:pufeth.estimate", { amount: preview.estimatedPufEth })
+          : t("popup:pufeth.successDetail"),
+        severity: "success",
+        amount: {
+          value: preview.ethAmount,
+          symbol: "ETH",
+          direction: "out"
+        },
+        networkName: preview.networkName,
+        txHash: hash ?? undefined
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("popup:pufeth.errors.convert"));
+      setPhase("error");
+    }
+  }
+
+  if (phase === "preview" && preview) {
+    return (
+      <div className="clear-signing-sheet pufeth-preview" role="region" aria-label={t("popup:pufeth.previewTitle")}>
+        <div className="preview-hero">
+          <span className="preview-direction" aria-hidden="true">
+            <ArrowRight size={18} />
+          </span>
+          <span>{preview.title}</span>
+          <strong>{preview.ethAmount} ETH</strong>
+          <small>{preview.networkName}</small>
+        </div>
+        <PreviewRow label={t("popup:pufeth.pay")} value={`${preview.ethAmount} ETH`} />
+        <PreviewRow
+          label={t("popup:pufeth.receive")}
+          value={preview.estimatedPufEth ? t("popup:pufeth.estimate", { amount: preview.estimatedPufEth }) : "≈ — pufETH"}
+        />
+        <PreviewRow label={t("popup:pufeth.networkFee")} value={t("popup:clearSigning.pending")} detail={preview.networkName} />
+        <PreviewRow label={t("popup:clearSigning.from")} value={formatAddress(preview.from)} detail={formatAddress(preview.vaultAddress)} />
+        <div className="warning-list">
+          {preview.warnings.map((warning) => (
+            <div className={`warning-item ${warning.severity}`} key={warning.message}>
+              <AlertTriangle size={14} />
+              <span>{warning.message}</span>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="primary-button"
+          onClick={() => void handleConfirm()}
+        >
+          <KeyRound size={18} />
+          {t("popup:pufeth.confirm")}
+        </button>
+        <button
+          type="button"
+          className="clear-signing-cancel"
+          onClick={() => setPhase("input")}
+        >
+          {t("common:actions.cancel")}
+        </button>
+      </div>
+    );
+  }
+
+  if (phase === "signing") {
+    return (
+      <div className="clear-signing-sheet pufeth-signing" role="status">
+        <div className="preview-hero">
+          <Loader2 className="spin" size={32} />
+          <span>{t("popup:pufeth.signing")}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "success") {
+    return (
+      <div className="clear-signing-sheet pufeth-success" role="status">
+        <div className="preview-hero">
+          <Check size={32} />
+          <span>{t("popup:pufeth.successTitle")}</span>
+          <small>{t("popup:pufeth.successDetail")}</small>
+        </div>
+        {txHash ? (
+          <a
+            href={`https://etherscan.io/tx/${txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="primary-button"
+          >
+            {t("popup:pufeth.viewTx")}
+          </a>
+        ) : null}
+        <button
+          type="button"
+          className="clear-signing-cancel"
+          onClick={() => {
+            setPhase("input");
+            setAmount("");
+            setTxHash(null);
+          }}
+        >
+          {t("common:actions.done")}
+        </button>
+      </div>
+    );
+  }
+
+  if (phase === "error") {
+    return (
+      <div className="clear-signing-sheet pufeth-error" role="alert">
+        <div className="warning-list">
+          <div className="warning-item danger">
+            <AlertTriangle size={14} />
+            <span>{error ?? t("popup:pufeth.errors.convert")}</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="primary-button"
+          onClick={() => setPhase("input")}
+        >
+          {t("common:actions.retry")}
+        </button>
+      </div>
+    );
+  }
+
+  // input phase
+  return (
+    <div className="action-widget pufeth-input" role="region" aria-label={t("popup:pufeth.title")}>
+      <strong>{t("popup:pufeth.title")}</strong>
+      <small>{t("popup:pufeth.subtitle")}</small>
+
+      {!isMainnet ? (
+        <p className="inline-error">{t("popup:pufeth.wrongNetwork")}</p>
+      ) : (
+        <>
+          <div className="pufeth-amount-row">
+            <input
+              type="number"
+              min="0"
+              step="any"
+              placeholder={t("popup:pufeth.amountPlaceholder")}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="pufeth-amount-input"
+              aria-label={t("popup:pufeth.amountLabel")}
+            />
+            <button
+              type="button"
+              className="mini-icon-button"
+              onClick={handleMax}
+              disabled={!wallet || ethBalance == null}
+            >
+              {t("popup:pufeth.max")}
+            </button>
+          </div>
+
+          {estimatedPufEth ? (
+            <small className="pufeth-estimate">
+              {t("popup:pufeth.estimate", { amount: estimatedPufEth })}
+            </small>
+          ) : null}
+
+          <small className="pufeth-apy">
+            {apy ? t("popup:pufeth.apy", { apy }) : t("popup:pufeth.apyUnavailable")}
+          </small>
+
+          {insufficient ? (
+            <p className="inline-error">{t("popup:pufeth.insufficient")}</p>
+          ) : null}
+
+          <button
+            type="button"
+            className="primary-button"
+            disabled={!wallet || !amount || Number(amount) <= 0 || insufficient}
+            onClick={handleConvert}
+          >
+            {t("popup:pufeth.convert")}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function HomeDashboard({
   wallet,
   status,
@@ -1401,12 +1685,15 @@ function HomeDashboard({
   visibleWidgets,
   widgetOrder,
   failedNetworkCount,
+  chainSnapshots,
+  networkSettings,
   onCreateWallet,
   onReset,
   onRefreshPortfolio,
   onNavigate,
   onOpenPortfolioSettings,
-  onOpenActivitySettings
+  onOpenActivitySettings,
+  onRecordActivity
 }: {
   wallet: WalletRecord | null;
   status: Status;
@@ -1420,12 +1707,15 @@ function HomeDashboard({
   visibleWidgets: string[];
   widgetOrder: string[];
   failedNetworkCount: number;
+  chainSnapshots: ChainAssetSnapshot[];
+  networkSettings: WalletNetworkSetting[];
   onCreateWallet: () => void;
   onReset: () => void;
   onRefreshPortfolio: () => void;
   onNavigate: (view: PopupView) => void;
   onOpenPortfolioSettings: () => void;
   onOpenActivitySettings: () => void;
+  onRecordActivity: (event: ActivityEventInput) => void;
 }) {
   const { t } = useTranslation();
   const topAssets = snapshots
@@ -1433,6 +1723,13 @@ function HomeDashboard({
     .sort((a, b) => Number(b.totalValueUsd ?? 0) - Number(a.totalValueUsd ?? 0))
     .slice(0, 4);
   const assetTiles = topAssets.length > 0 ? topAssets : fallbackAssetTiles();
+
+  // Derive the mainnet ETH balance for the pufETH widget from portfolio snapshots.
+  const mainnetSnapshot = chainSnapshots.find((snapshot) => snapshot.networkId === PUFFER_DEPOSIT_NETWORK_ID);
+  const mainnetEthBalance = mainnetSnapshot?.nativeBalance ?? null;
+
+  // Find the mainnet network setting for the pufETH widget.
+  const mainnetNetwork = networkSettings.find((n) => n.networkId === PUFFER_DEPOSIT_NETWORK_ID) ?? null;
 
   const visibleWidgetSet = new Set(visibleWidgets.length ? visibleWidgets : DEFAULT_WALLET_UI_SETTINGS.visibleWidgets);
   const actionWidgets = [
@@ -1489,6 +1786,17 @@ function HomeDashboard({
           <div className="portal-asset-grid">{assetWidgets}</div>
         </div> : null}
       </section> : null}
+
+      {visibleWidgetSet.has("pufeth") ? (
+        <section className="portal-pufeth-section">
+          <PufETHWidget
+            wallet={wallet}
+            network={mainnetNetwork}
+            ethBalance={mainnetEthBalance}
+            onConverted={onRecordActivity}
+          />
+        </section>
+      ) : null}
 
       <button type="button" className="view-all-assets portal-view-all" disabled={!wallet} onClick={onOpenPortfolioSettings}>
         <span>{t("popup:home.viewAllAssets")}</span>
@@ -2862,7 +3170,8 @@ function WidgetCustomizationList({
     actions: { title: t("popup:widgets.actions.title"), detail: t("popup:widgets.actions.detail"), recommended: true },
     assets: { title: t("popup:widgets.assets.title"), detail: t("popup:widgets.assets.detail"), recommended: true },
     networks: { title: t("popup:widgets.networks.title"), detail: t("popup:widgets.networks.detail") },
-    sessions: { title: t("popup:widgets.sessions.title"), detail: t("popup:widgets.sessions.detail") }
+    sessions: { title: t("popup:widgets.sessions.title"), detail: t("popup:widgets.sessions.detail") },
+    pufeth: { title: t("popup:pufeth.title"), detail: t("popup:pufeth.subtitle") }
   };
   const order = widgetOrder.length ? widgetOrder : Object.keys(widgetDescriptions);
 

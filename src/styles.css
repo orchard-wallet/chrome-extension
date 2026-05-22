@@ -8041,3 +8041,53 @@ body.settings-body {
     width: 420px;
   }
 }
+
+/* ── PufETH widget ─────────────────────────────────────────────────────────── */
+
+.pufeth-input .pufeth-amount-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.pufeth-input .pufeth-amount-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #11141a;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.pufeth-input .pufeth-amount-input:focus {
+  border-color: rgba(17, 17, 17, 0.28);
+  box-shadow: 0 0 0 3px rgba(40, 104, 255, 0.12);
+}
+
+.pufeth-input .pufeth-amount-input::placeholder {
+  color: #8b93a4;
+}
+
+.pufeth-input .pufeth-estimate,
+.pufeth-input .pufeth-apy {
+  display: block;
+  margin-top: 4px;
+  color: #7d7d82;
+  font-size: 12px;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
+.pufeth-input .pufeth-apy {
+  margin-top: 2px;
+}
+
+.pufeth-input .primary-button {
+  margin-top: 8px;
+  width: 100%;
+}
