@@ -17,6 +17,7 @@ Chrome Extension wallet prototype using `@consenlabs/tcx-wasm` for local keystor
 - ETH balance display from Ethereum Mainnet RPC.
 - Receive panel with QR code and copyable address.
 - Built-in network settings for Ethereum, Arbitrum, Hyperliquid, Tron, Bitcoin, Polygon, related testnets, and manual custom RPCs.
+- Multi-language UI (English, Simplified Chinese, Traditional Chinese, Japanese) with a runtime language switch.
 
 ## Run
 
@@ -53,6 +54,19 @@ Then open:
 http://127.0.0.1:5173/src/popup/index.html
 ```
 
+## Languages
+
+The UI ships with four locales: English (`en`), Simplified Chinese (`zh-cn`),
+Traditional Chinese (`zh-tw`), and Japanese (`ja-jp`). The language is chosen
+in **Settings → Settings** and persists in `chrome.storage.local`. On first
+run the wallet picks a language from the browser locale, defaulting to English.
+
+Translations are bundled JSON catalogs under `src/i18n/locales/<locale>/`,
+split into `common`, `popup`, and `settings` namespaces. To add or change a
+string, edit `src/i18n/locales/en/<namespace>.json` first, mirror the key into
+the other three locales, then run `node scripts/check-i18n-parity.mjs` to
+confirm every locale has the same key set.
+
 ## Architecture
 
 ```text
@@ -64,6 +78,7 @@ src/core/networks.ts    Built-in network and RPC settings
 src/core/clearSigning.ts Clear Signing transaction intent builder
 src/core/rpc.ts         Ethereum Mainnet RPC balance, fee, gas, nonce estimation, and broadcast
 src/settings/SettingsApp.tsx Network settings page
+src/i18n/index.ts       i18next setup, language bootstrap and runtime switch
 src/lib/storage.ts      chrome.storage.local with localStorage fallback
 src/background.ts       MV3 service worker placeholder
 ```
