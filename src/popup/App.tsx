@@ -29,18 +29,17 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { createPublicClient, createWalletClient, http, parseEther, type Address } from "viem";
+import { createPublicClient, encodeFunctionData, http, parseEther, type Address } from "viem";
 import { mainnet } from "viem/chains";
 import { formatTokenAmount, formatUsd, type AssetStore, type ChainAssetSnapshot } from "../core/assets";
 import type { ActivityEventInput } from "../core/activity";
 import { buildNativeTokenTransferPreview, buildPufferDepositPreview, canSignPreview, type PufferDepositPreview } from "../core/clearSigning";
-import { createPufferClient, fetchPufETHRate, fetchPufferApy, PUFFER_DEPOSIT_NETWORK_ID, PUFFER_VAULT_MAINNET } from "../core/puffer";
-import { createTcxViemAccount } from "../core/tcxViemAccount";
+import { fetchPufETHRate, fetchPufferApy, PUFFER_DEPOSIT_ABI, PUFFER_DEPOSIT_NETWORK_ID, PUFFER_VAULT_MAINNET } from "../core/puffer";
 import { resolveRecipient, type RecipientResolution } from "../core/ens";
 import { getBuiltInNetworkSettings, type WalletNetworkSetting } from "../core/networks";
 import { readPortfolioStore, refreshPortfolio } from "../core/portfolio";
 import { broadcastSignedTransaction, checkNetworkHealth, estimateNativeTokenTransfer, type NetworkHealthCheck, type TransactionFeeEstimate } from "../core/rpc";
-import { createEthereumPasskeyWallet, signNativeTokenTransfer, type NativeTransferSignResult } from "../core/tcx";
+import { createEthereumPasskeyWallet, signEthereumTransaction, signNativeTokenTransfer, type NativeTransferSignResult } from "../core/tcx";
 import { createPasskeyPrf, unlockPasskeyPrf } from "../core/webauthn";
 import ethTokenIcon from "./assets/eth-token.png";
 import {
@@ -1474,12 +1473,22 @@ function PufETHWidget({
       return;
     }
     setError(null);
+
+    let ethAmountWei: bigint;
+    try {
+      ethAmountWei = parseEther(amount);
+    } catch {
+      setError(t("popup:pufeth.errors.convert"));
+      setPhase("error");
+      return;
+    }
+
     setPreview(
       buildPufferDepositPreview({
         from: wallet.address as Address,
-        vaultAddress: PUFFER_VAULT_MAINNET as Address,
+        vaultAddress: PUFFER_VAULT_MAINNET,
         ethAmount: amount,
-        ethAmountWei: parseEther(amount),
+        ethAmountWei,
         estimatedPufEth,
         networkName: network.name
       })
@@ -1494,15 +1503,41 @@ function PufETHWidget({
     setPhase("signing");
     setError(null);
     try {
-      const transport = http(network.selectedRpcUrl);
-      const account = createTcxViemAccount(wallet);
-      const walletClient = createWalletClient({ account, chain: mainnet, transport });
-      const publicClient = createPublicClient({ chain: mainnet, transport });
-      const pufferClient = createPufferClient(walletClient, publicClient);
+      // The Puffer SDK's transact() forces viem's JSON-RPC eth_sendTransaction
+      // path, which cannot use this wallet's passkey/tcx signer. So build the
+      // depositETH call ourselves and run it through the wallet's own pipeline.
+      const from = wallet.address as Address;
+      const publicClient = createPublicClient({ chain: mainnet, transport: http(network.selectedRpcUrl) });
+      const data = encodeFunctionData({
+        abi: PUFFER_DEPOSIT_ABI,
+        functionName: "depositETH",
+        args: [from]
+      });
 
-      const hash = await pufferClient.vault
-        .depositETH(wallet.address as Address)
-        .transact(preview.ethAmountWei);
+      const [nonce, fees, gasLimit] = await Promise.all([
+        publicClient.getTransactionCount({ address: from, blockTag: "pending" }),
+        publicClient.estimateFeesPerGas(),
+        publicClient.estimateGas({ account: from, to: PUFFER_VAULT_MAINNET, value: preview.ethAmountWei, data })
+      ]);
+
+      const prfKey = await unlockPasskeyPrf(wallet.credentialId);
+      const signed = await signEthereumTransaction({
+        keystoreJson: wallet.keystoreJson,
+        key: prfKey,
+        derivationPath: wallet.derivationPath,
+        tx: {
+          nonce,
+          gasLimit,
+          to: PUFFER_VAULT_MAINNET,
+          value: preview.ethAmountWei,
+          data,
+          chainId: mainnet.id,
+          maxFeePerGas: fees.maxFeePerGas,
+          maxPriorityFeePerGas: fees.maxPriorityFeePerGas
+        }
+      });
+
+      const hash = await broadcastSignedTransaction(signed.serializedTransaction, network);
 
       setTxHash(hash);
       setPhase("success");
@@ -1519,7 +1554,7 @@ function PufETHWidget({
           direction: "out"
         },
         networkName: preview.networkName,
-        txHash: hash ?? undefined
+        txHash: hash
       });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("popup:pufeth.errors.convert"));
@@ -1608,6 +1643,8 @@ function PufETHWidget({
             setPhase("input");
             setAmount("");
             setTxHash(null);
+            setPreview(null);
+            setError(null);
             onDone?.();
           }}
         >
@@ -1629,7 +1666,11 @@ function PufETHWidget({
         <button
           type="button"
           className="primary-button"
-          onClick={() => setPhase("input")}
+          onClick={() => {
+            setPhase("input");
+            setPreview(null);
+            setError(null);
+          }}
         >
           {t("common:actions.retry")}
         </button>
