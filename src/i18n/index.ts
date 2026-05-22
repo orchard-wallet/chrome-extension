@@ -37,6 +37,11 @@ export function initI18n(language: AppLanguage = DEFAULT_LANGUAGE): typeof i18ne
       resources,
       lng: language,
       fallbackLng: DEFAULT_LANGUAGE,
+      // Resource keys are lowercase (en, zh-cn, zh-tw, ja-jp); without this
+      // i18next region-uppercases codes (zh-tw -> zh-TW) and misses them.
+      lowerCaseLng: true,
+      supportedLngs: ["en", "zh-cn", "zh-tw", "ja-jp"],
+      nonExplicitSupportedLngs: false,
       ns: [...I18N_NAMESPACES],
       defaultNS: "common",
       interpolation: { escapeValue: false },
