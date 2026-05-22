@@ -1,19 +1,58 @@
 {
   "actions": {
-    "cancel": "Cancel",
-    "close": "Close",
-    "confirm": "Confirm",
-    "back": "Back",
-    "save": "Save",
-    "copy": "Copy",
-    "copied": "Copied",
-    "retry": "Retry",
-    "refresh": "Refresh",
-    "done": "Done"
+    "back": "返回",
+    "cancel": "取消",
+    "close": "关闭",
+    "confirm": "确认",
+    "copied": "已复制",
+    "copy": "复制",
+    "done": "完成",
+    "refresh": "刷新",
+    "retry": "重试",
+    "save": "保存"
+  },
+  "clearSigning": {
+    "fee": {
+      "pending": "估算中"
+    },
+    "message": {
+      "typedDataRequest": "类型化数据请求"
+    },
+    "recipient": {
+      "ethereumAddress": "Ethereum 地址",
+      "unknown": "未知收款方"
+    },
+    "title": {
+      "sendNative": "发送 {{symbol}}",
+      "tokenApproval": "代币授权",
+      "unlimitedTokenApproval": "无限代币授权",
+      "unsupportedContractCall": "不支持的合约调用",
+      "unsupportedMessageSignature": "不支持的消息签名",
+      "unsupportedWalletConnect": "不支持的 WalletConnect 请求"
+    },
+    "validation": {
+      "amountTooLow": "金额必须大于 0。",
+      "invalidAmount": "请输入有效的 {{symbol}} 金额。",
+      "noAmount": "请输入金额。",
+      "noNetwork": "发送前请先启用一个 EVM 网络。",
+      "noRecipient": "请输入收款地址或 ENS 名称。",
+      "noWallet": "发送前请先创建或解锁钱包。"
+    },
+    "warning": {
+      "exactApproval": "此授权将代币支出权限授予另一个地址。",
+      "feeNotEstimated": "网络手续费尚未估算，此预览仅涵盖交易意图。",
+      "rawAddress": "收款方以原始地址输入，签名前请通过其他方式核实。",
+      "reverseEns": "反向 ENS 指向 {{name}}。",
+      "reviewBeforeSigning": "使用 Passkey 签名前，请核实收款方、金额、网络和手续费。",
+      "unlimitedApproval": "此授权在撤销前允许支出方无限转移代币。",
+      "unsupportedContractCall": "该合约调用不受明文签名解析器支持，无法直接签名。",
+      "unsupportedMessage": "明文签名解析器暂不支持消息签名。",
+      "unsupportedMethod": "{{method}} 不受明文签名解析器支持。"
+    }
   },
   "status": {
-    "loading": "Loading…",
-    "ready": "Ready",
-    "error": "Error"
+    "error": "错误",
+    "loading": "加载中…",
+    "ready": "就绪"
   }
 }

@@ -1,1 +1,392 @@
-{}
+{
+  "activity": {
+    "history": "履歴"
+  },
+  "assets": {
+    "enabled": "有効なネットワーク",
+    "heading": "資産",
+    "hint": "設定でネットワークを有効にしてから資産を更新してください。",
+    "refreshButton": "資産を更新",
+    "refreshing": "残高を更新中"
+  },
+  "chainDetail": {
+    "chainId": "チェーン ID {{chainId}}",
+    "freshUntil": "{{time}} まで有効",
+    "nativeAsset": "ネイティブ資産",
+    "network": "ネットワーク",
+    "notRefreshed": "未更新",
+    "refreshButton": "{{symbol}} を更新",
+    "refreshSymbol": "{{symbol}} を更新",
+    "stale": "{{time}} から古いデータ",
+    "status": "ステータス",
+    "tokens": "トークン",
+    "updated": "{{time}} に更新"
+  },
+  "clearSigning": {
+    "advancedData": "詳細データ",
+    "advancedDataSubtitle": "生のコールデータ、ノンス、ガスリミット、最大手数料など。",
+    "broadcastHash": "ブロードキャストハッシュ",
+    "broadcasting": "ブロードキャスト中...",
+    "calldata": "コールデータ",
+    "calldataDetail": "ネイティブ転送にはコントラクトのコールデータがありません",
+    "cancel": "キャンセル",
+    "contractData": "コントラクトデータ",
+    "contractDataDetail": "ネイティブ ETH 転送",
+    "estimating": "見積もり中",
+    "expiresIn": "有効期限",
+    "feeLabel": "ネットワーク手数料",
+    "from": "送信元",
+    "gas": "ガス",
+    "nonce": "ノンス {{nonce}}",
+    "parsed": "解析済み",
+    "pending": "保留中",
+    "recipient": "受取人",
+    "reviewNote": "Passkey で署名する前に、受取人・金額・ネットワーク・手数料を確認してください。",
+    "risk": "リスク",
+    "safetyScope": "安全スコープ",
+    "safetyScopeText": "このリクエストはネイティブ {{asset}} のみを転送します。トークン承認・スワップ・コントラクトの操作は検出されていません。コントラクトのコールデータは展開しない限り非表示です。",
+    "signAndContinue": "署名して続行",
+    "signedTxHash": "署名済みトランザクションハッシュ",
+    "signing": "署名中...",
+    "viewOnExplorer": "エクスプローラーで表示"
+  },
+  "errors": {
+    "createWallet": "ウォレットを作成できませんでした。",
+    "enterWalletName": "Passkey を作成する前にウォレット名を入力してください。",
+    "estimateFee": "ネットワーク手数料を見積もれませんでした。",
+    "loadWallet": "ウォレットの状態を読み込めませんでした。",
+    "loadNetworks": "有効なネットワークを読み込めませんでした。",
+    "refreshPortfolio": "ポートフォリオを更新できませんでした。",
+    "resolveRecipient": "受取人を解決できませんでした。",
+    "saveNetwork": "ネットワーク設定を保存できませんでした。",
+    "privacyMode": "このポップアップのプライバシーモードが変更されましたが、保存できませんでした。",
+    "widgetLayout": "このポップアップのウィジェットレイアウトが変更されましたが、保存できませんでした。",
+    "defaultSendNetwork": "このポップアップのデフォルト送信ネットワークが変更されましたが、保存できませんでした。",
+    "signOrBroadcast": "トランザクションの署名またはブロードキャストができませんでした。",
+    "wcNoWallet": "WalletConnect をペアリングする前にウォレットを作成またはロック解除してください。",
+    "wcPair": "WalletConnect URI をペアリングできませんでした。",
+    "wcSessions": "WalletConnect セッションを読み込めませんでした。",
+    "wcProposals": "WalletConnect プロポーザルを読み込めませんでした。",
+    "wcApprove": "WalletConnect プロポーザルを承認できませんでした。",
+    "wcReject": "WalletConnect プロポーザルを拒否できませんでした。",
+    "wcDisconnect": "WalletConnect セッションを切断できませんでした。",
+    "wcDisconnectAll": "WalletConnect セッションをすべて切断できませんでした。"
+  },
+  "header": {
+    "backToHome": "ホームに戻る",
+    "noWallet": "ウォレットなし",
+    "receive": "受取",
+    "send": "送信",
+    "settings": "設定"
+  },
+  "home": {
+    "balance": {
+      "hidden": "非表示",
+      "label": "総残高",
+      "noRefresh": "未更新",
+      "refreshAriaLabel": "ポートフォリオを更新",
+      "refreshing": "残高を更新中",
+      "today": "+2.10% 本日",
+      "updated": "{{time}} に更新"
+    },
+    "failedRefresh": "{{count}} 件の更新失敗",
+    "viewAllAssets": "すべての資産を表示"
+  },
+  "network": {
+    "addOrEdit": "カスタム RPC を追加・編集",
+    "balanceUnavailable": "残高を取得できません",
+    "chainId": "チェーン ID {{chainId}}",
+    "checking": "確認中",
+    "defaultBadge": "デフォルト",
+    "defaultSendNetwork": "デフォルト送信ネットワーク",
+    "disabled": "無効",
+    "editAction": "編集",
+    "enabledAndBuiltIn": "有効および組み込みチェーン",
+    "enabled_false": "無効",
+    "enabled_true": "有効",
+    "explorer": "エクスプローラー",
+    "explorerNotConfigured": "未設定",
+    "gasStatus": "ガスステータス",
+    "gasStatusReady": "RPC はガス見積もりに対応済み",
+    "gasStatusUnavailable": "利用不可",
+    "heading": "ネットワーク",
+    "nativeToken": "ネイティブトークン",
+    "notChecked": "未確認",
+    "rpcFailed": "RPC 失敗",
+    "rpcReady": "{{latency}}ms",
+    "rpcSelected": "選択中の RPC",
+    "rpcStatus": "RPC ステータス",
+    "unsupported": "非対応",
+    "useForSends": "送信に使用"
+  },
+  "onboarding": {
+    "backup": "バックアップは後でセキュリティから追加できます。",
+    "brandName": "Orchard Wallet",
+    "checklist": {
+      "eoa": "EOA ウォレット作成済み",
+      "networks": "共通ネットワークを自動で有効化",
+      "passkey": "Passkey 準備完了"
+    },
+    "checkingState": "ローカルウォレットの状態を確認中。",
+    "close": "オンボーディングを閉じる",
+    "createWallet": "ウォレットを作成",
+    "creating": "ウォレットを作成中...",
+    "cta": "続行",
+    "feature": {
+      "biometrics": {
+        "detail": "生体認証で即座にロック解除できます。",
+        "title": "Face ID または Touch ID でロック解除"
+      },
+      "eoa": {
+        "detail": "アプリやチェーンをまたいでウォレットを使用できます。",
+        "title": "Web3 全体で EOA に対応"
+      },
+      "selfCustody": {
+        "detail": "鍵と資産はご自身で管理します。",
+        "title": "デフォルトでセルフカストディ"
+      },
+      "signin": {
+        "detail": "パスワード不要で Web3 をすぐに利用できます。",
+        "title": "このデバイスで高速サインイン"
+      }
+    },
+    "goToPortal": "ポータルへ",
+    "intro": {
+      "heading": "Passkey で高速。EOA で柔軟。",
+      "subtext": "Face ID または Touch ID でロック解除しながら、Web3 全体で使えるセルフカストディウォレットを利用できます。"
+    },
+    "name": {
+      "heading": "ウォレットに名前をつけてください。",
+      "hint": "このデバイス上でウォレットを識別するために使用されます。",
+      "label": "ウォレット名",
+      "passkeyNote": "Passkey がアクセスを保護します。次に EOA ウォレットが作成されます。",
+      "placeholder": "マイウォレット",
+      "subtext": "このウォレットの名前を選択してください。後で設定から変更できます。",
+      "thisDevice": "このデバイス"
+    },
+    "ready": {
+      "heading": "ウォレットの準備ができました。",
+      "subtext": "Passkey と EOA ウォレットが設定されました。今すぐ Orchard Wallet を使い始めることができます。"
+    },
+    "sectionLabel": "Passkey ウォレットを作成",
+    "walletSetupCompleted": "ウォレットのセットアップ完了"
+  },
+  "portfolio": {
+    "adapterPending": "アダプター保留中",
+    "balancePriceUnavailable": "残高は取得済み、価格は取得できません",
+    "distribution": {
+      "heading": "分布",
+      "label": "ネットワーク別 {{symbol}}",
+      "lowestNetwork": "最低ネットワーク",
+      "none": "なし",
+      "topNetwork": "最上位ネットワーク"
+    },
+    "heading": "ポートフォリオ",
+    "refreshFailed": "更新失敗",
+    "refreshing": "更新中"
+  },
+  "receive": {
+    "addressCopied": "アドレスをコピーしました",
+    "addressLabel": "受取アドレス",
+    "addressTab": "アドレス",
+    "copyAddress": "アドレスをコピー",
+    "heading": "{{asset}} 受取",
+    "label": "受取",
+    "qrHint": "{{network}} で {{asset}} を受け取るにはスキャン",
+    "sectionLabel": "資産を受け取る",
+    "setAmount": "金額を設定（任意）",
+    "shareAddress": "アドレスを共有",
+    "showFullAddress": "完全なアドレスを表示",
+    "showShortAddress": "短縮アドレスを表示"
+  },
+  "regions": {
+    "clearSigningPreview": "クリア署名プレビュー",
+    "multiChainAssets": "マルチチェーン資産",
+    "portfolioBalance": "ポートフォリオ残高",
+    "receiveOptions": "受取オプション",
+    "tokenDistributionSelector": "トークン分布セレクター",
+    "transactionPreview": "トランザクションプレビュー",
+    "walletPortal": "ウォレットポータル",
+    "walletStatus": "ウォレットステータス"
+  },
+  "resolver": {
+    "ethAddress": "Ethereum アドレス",
+    "hint": "CCIP Read ゲートウェイ対応のユニバーサルリゾルバー。"
+  },
+  "security": {
+    "clearSigning": {
+      "label": "クリア署名",
+      "waiting": "有効な転送を待機中",
+      "active": "ネイティブ転送パーサー有効"
+    },
+    "dappSessions": {
+      "label": "Dapp セッション",
+      "value": "{{count}} 件接続中、{{risky}} 件の危険なリクエスト",
+      "value_other": "{{count}} 件接続中、{{risky}} 件の危険なリクエスト"
+    },
+    "heading": "セキュリティセンター",
+    "networkMismatch": {
+      "label": "ネットワーク不一致",
+      "issue": "{{count}} 件の RPC ヘルス問題",
+      "issue_other": "{{count}} 件の RPC ヘルス問題",
+      "noIssues": "RPC ヘルス問題はありません"
+    },
+    "passkey": {
+      "label": "Passkey ウォレット",
+      "noWallet": "ウォレット未作成",
+      "ready": "ローカル暗号化キーストア準備完了"
+    },
+    "portfolioRefresh": {
+      "label": "ポートフォリオ更新",
+      "noErrors": "更新エラーなし"
+    },
+    "title": "ウォレット安全性サマリー"
+  },
+  "send": {
+    "amount": "金額",
+    "available": "{{amount}} {{symbol}} 利用可能",
+    "balanceUnavailable": "残高を取得できません",
+    "broadcasting": "ブロードキャスト中...",
+    "broadcastHash": "ブロードキャストハッシュ",
+    "broadcastSuccess": "トランザクションブロードキャスト済み",
+    "completeDetails": "転送詳細を完成させる",
+    "continue": "続行",
+    "enableEvm": "EVM ネットワークを有効化",
+    "estimatedFee": "推定ネットワーク手数料",
+    "estimating": "RPC から見積もり中",
+    "formLabel": "送信転送フォーム",
+    "heading": "送信",
+    "max": "最大",
+    "noNetwork": "送信元が指定されていません",
+    "pasteRecipient": "受取人を貼り付け",
+    "recipient": "受取人",
+    "recipientPlaceholder": "ENS 名またはアドレス",
+    "resolvingRecipient": "受取人を解決中...",
+    "sectionLabel": "ネイティブトークン送信",
+    "signedTxHash": "署名済みトランザクションハッシュ",
+    "signing": "署名中...",
+    "usdEquivalent": "$0.00 USD",
+    "viewOnExplorer": "エクスプローラーで表示"
+  },
+  "settings": {
+    "createPasskey": "Passkey で作成",
+    "creating": "作成中...",
+    "hideBalances": "残高を非表示",
+    "keystoreDescription": "暗号化された tcx-wasm キーストアはローカルに保存され、Passkey PRF でロック解除されます。",
+    "openNetworkSettings": "ネットワーク設定を開く",
+    "portfolio": "ポートフォリオウィジェット",
+    "resetLocalWallet": "ローカルウォレットをリセット",
+    "showBalances": "残高を表示",
+    "walletCreated": "ウォレット作成済み",
+    "walletDescription": "Passkey の WebAuthn PRF キーで暗号化されたローカル HD ウォレットを作成します。",
+    "walletTitle": "ウォレットを作成"
+  },
+  "smartInsight": {
+    "dappsConnected": "{{count}} 件の Dapp が {{networks}} 個の有効なネットワークに接続中。",
+    "dappsConnected_other": "{{count}} 件の Dapp が {{networks}} 個の有効なネットワークに接続中。",
+    "label": "スマートインサイト",
+    "usdcApy": "厳選されたストラテジーを通じて、アイドル USDC で最大 4.2% の APY を獲得できます。"
+  },
+  "tokenPicker": {
+    "heading": "トークンを選択",
+    "manageTokens": "トークンを管理",
+    "searchPlaceholder": "トークンまたはネットワークを検索"
+  },
+  "walletConnect": {
+    "allSessions": "すべて",
+    "approve": "承認",
+    "approved": "Dapp 接続済み",
+    "connectionRequests": "接続リクエスト",
+    "connectedDapps": "接続済み Dapp",
+    "connectedSessions": "接続済みセッション",
+    "disconnectAll": "すべての Dapp を切断",
+    "disconnectSession": "セッションを切断",
+    "disconnecting": "ペアリング中...",
+    "domainMismatch": "Dapp 名と URL が明確に一致しません。",
+    "expiringFilter": "まもなく期限切れ",
+    "expirySort": "有効期限",
+    "filterLabel": "フィルター",
+    "heading": "WalletConnect v2",
+    "lastActive": "最終アクティブ",
+    "loadingRequests": "接続リクエストを読み込み中。",
+    "loadingSessions": "接続済み Dapp を読み込み中。",
+    "manageTokens": "トークンを管理",
+    "nameSort": "名前",
+    "noActiveFilter": "最近アクティブ",
+    "noOrigin": "送信元が指定されていません",
+    "noPendingRequests": "保留中の接続リクエストはありません。",
+    "noSessions": "アクティブな WalletConnect セッションはありません。",
+    "pair": "WalletConnect をペアリング",
+    "pairingLabel": "ペアリング URI",
+    "pairingPlaceholder": "wc:...",
+    "pairing": "ペアリング中...",
+    "pairingSent": "ペアリング送信済み。アクティブなペアリング: {{count}}",
+    "proposalRejected": "Dapp リクエスト拒否",
+    "refreshRequests": "接続リクエストを更新",
+    "refreshSessions": "セッションを更新",
+    "reject": "拒否",
+    "rejected": "拒否済み",
+    "riskyMethods": "非対応のメソッド: {{methods}}",
+    "sectionLabel": "WalletConnect",
+    "searchPlaceholder": "Dapp またはチェーンを検索",
+    "sessionDetail": "WalletConnect セッション詳細",
+    "sessionDetailHeading": "セッション詳細",
+    "sessionAccounts": "接続済みアカウント",
+    "sessionAllowedChains": "許可されたチェーン",
+    "sessionDomain": "ドメイン",
+    "sessionExpiry": "有効期限",
+    "sessionLastActive": "最終アクティブ",
+    "sessionNoAccounts": "アカウントなし",
+    "sessionNoActivity": "アクティビティなし",
+    "sessionNoChains": "チェーンなし",
+    "sessionNoExpiry": "未設定",
+    "sessionPermissions": "権限",
+    "sortLabel": "並べ替え",
+    "unsupportedChains": "非対応のチェーン: {{chains}}",
+    "viewDetails": "セッション詳細を表示"
+  },
+  "widgets": {
+    "actions": {
+      "detail": "送信・受取・スワップ・アクティビティのショートカット",
+      "title": "アクション"
+    },
+    "activity": {
+      "detail": "履歴",
+      "title": "アクティビティ"
+    },
+    "assets": {
+      "detail": "チェーン別上位ネイティブ残高",
+      "title": "資産"
+    },
+    "balance": {
+      "detail": "ポートフォリオヒーローと更新ステータス",
+      "title": "残高"
+    },
+    "heading": "ホームウィジェット",
+    "networks": {
+      "detail": "有効なネットワークと RPC ヘルス",
+      "title": "ネットワーク"
+    },
+    "personalization": "パーソナライズ",
+    "receive": {
+      "detail": "2 件新着",
+      "title": "受取"
+    },
+    "recommended": "おすすめ",
+    "reset": "リセット",
+    "send": {
+      "detail": "0.32 ETH",
+      "title": "送信"
+    },
+    "sessions": {
+      "detail": "WalletConnect Dapp サマリー",
+      "title": "セッション"
+    },
+    "shown": "表示中",
+    "hidden": "非表示",
+    "swap": {
+      "detail": "最良レート",
+      "title": "スワップ"
+    }
+  }
+}

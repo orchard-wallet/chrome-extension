@@ -1,19 +1,58 @@
 {
   "actions": {
-    "cancel": "Cancel",
-    "close": "Close",
-    "confirm": "Confirm",
-    "back": "Back",
-    "save": "Save",
-    "copy": "Copy",
-    "copied": "Copied",
-    "retry": "Retry",
-    "refresh": "Refresh",
-    "done": "Done"
+    "back": "返回",
+    "cancel": "取消",
+    "close": "關閉",
+    "confirm": "確認",
+    "copied": "已複製",
+    "copy": "複製",
+    "done": "完成",
+    "refresh": "重新整理",
+    "retry": "重試",
+    "save": "儲存"
+  },
+  "clearSigning": {
+    "fee": {
+      "pending": "估算中"
+    },
+    "message": {
+      "typedDataRequest": "型別資料請求"
+    },
+    "recipient": {
+      "ethereumAddress": "Ethereum 位址",
+      "unknown": "未知收款人"
+    },
+    "title": {
+      "sendNative": "傳送 {{symbol}}",
+      "tokenApproval": "代幣授權",
+      "unlimitedTokenApproval": "無限制代幣授權",
+      "unsupportedContractCall": "不支援的合約呼叫",
+      "unsupportedMessageSignature": "不支援的訊息簽署",
+      "unsupportedWalletConnect": "不支援的 WalletConnect 請求"
+    },
+    "validation": {
+      "amountTooLow": "金額必須大於 0。",
+      "invalidAmount": "請輸入有效的 {{symbol}} 金額。",
+      "noAmount": "請輸入金額。",
+      "noNetwork": "傳送前請先啟用一個 EVM 網路。",
+      "noRecipient": "請輸入收款位址或 ENS 名稱。",
+      "noWallet": "傳送前請先建立或解鎖錢包。"
+    },
+    "warning": {
+      "exactApproval": "此授權將代幣花費權限授予另一個位址。",
+      "feeNotEstimated": "網路手續費尚未估算。此預覽僅涵蓋交易意圖。",
+      "rawAddress": "收款人為直接輸入的原始位址，簽署前請透過其他管道確認。",
+      "reverseEns": "反向 ENS 指向 {{name}}。",
+      "reviewBeforeSigning": "使用 Passkey 簽署前，請確認收款人、金額、網路與手續費。",
+      "unlimitedApproval": "此授權可讓花費方移動無限制數量的代幣，直到撤銷為止。",
+      "unsupportedContractCall": "此合約呼叫不受明文簽署解析器支援，無法直接簽署。",
+      "unsupportedMessage": "明文簽署解析器尚不支援訊息簽署。",
+      "unsupportedMethod": "{{method}} 不受明文簽署解析器支援。"
+    }
   },
   "status": {
-    "loading": "Loading…",
-    "ready": "Ready",
-    "error": "Error"
+    "error": "錯誤",
+    "loading": "載入中…",
+    "ready": "就緒"
   }
 }

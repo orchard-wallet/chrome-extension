@@ -1,19 +1,58 @@
 {
   "actions": {
-    "cancel": "Cancel",
-    "close": "Close",
-    "confirm": "Confirm",
-    "back": "Back",
-    "save": "Save",
-    "copy": "Copy",
-    "copied": "Copied",
-    "retry": "Retry",
-    "refresh": "Refresh",
-    "done": "Done"
+    "back": "戻る",
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "confirm": "確認",
+    "copied": "コピー済み",
+    "copy": "コピー",
+    "done": "完了",
+    "refresh": "更新",
+    "retry": "再試行",
+    "save": "保存"
+  },
+  "clearSigning": {
+    "fee": {
+      "pending": "見積もり中"
+    },
+    "message": {
+      "typedDataRequest": "型付きデータリクエスト"
+    },
+    "recipient": {
+      "ethereumAddress": "Ethereum アドレス",
+      "unknown": "不明な受取人"
+    },
+    "title": {
+      "sendNative": "{{symbol}} 送信",
+      "tokenApproval": "トークン承認",
+      "unlimitedTokenApproval": "無制限トークン承認",
+      "unsupportedContractCall": "非対応のコントラクト呼び出し",
+      "unsupportedMessageSignature": "非対応のメッセージ署名",
+      "unsupportedWalletConnect": "非対応の WalletConnect リクエスト"
+    },
+    "validation": {
+      "amountTooLow": "金額は0より大きい値を入力してください。",
+      "invalidAmount": "有効な {{symbol}} の金額を入力してください。",
+      "noAmount": "金額を入力してください。",
+      "noNetwork": "送信前に有効な EVM ネットワークを選択してください。",
+      "noRecipient": "受取人のアドレスまたは ENS 名を入力してください。",
+      "noWallet": "送信前にウォレットを作成またはロック解除してください。"
+    },
+    "warning": {
+      "exactApproval": "この承認は、別のアドレスへのトークン使用権限を付与します。",
+      "feeNotEstimated": "ネットワーク手数料はまだ見積もられていません。このプレビューはトランザクションの意図のみを示します。",
+      "rawAddress": "受取人は生のアドレスとして入力されました。署名前に帯域外で確認してください。",
+      "reverseEns": "リバース ENS は {{name}} を指しています。",
+      "reviewBeforeSigning": "Passkey で署名する前に、受取人・金額・ネットワーク・手数料を確認してください。",
+      "unlimitedApproval": "この承認は、取り消されるまで無制限のトークン移動を許可する可能性があります。",
+      "unsupportedContractCall": "このコントラクト呼び出しはクリア署名パーサーに対応しておらず、直接署名できません。",
+      "unsupportedMessage": "メッセージ署名はクリア署名パーサーにまだ対応していません。",
+      "unsupportedMethod": "{{method}} はクリア署名パーサーに対応していません。"
+    }
   },
   "status": {
-    "loading": "Loading…",
-    "ready": "Ready",
-    "error": "Error"
+    "error": "エラー",
+    "loading": "読み込み中…",
+    "ready": "準備完了"
   }
 }

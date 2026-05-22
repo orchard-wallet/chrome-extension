@@ -1,1 +1,392 @@
-{}
+{
+  "activity": {
+    "history": "歷史紀錄"
+  },
+  "assets": {
+    "enabled": "已啟用的網路",
+    "heading": "資產",
+    "hint": "在設定中啟用網路，然後重新整理資產。",
+    "refreshButton": "重新整理資產",
+    "refreshing": "重新整理餘額中"
+  },
+  "chainDetail": {
+    "chainId": "鏈 ID {{chainId}}",
+    "freshUntil": "有效至 {{time}}",
+    "nativeAsset": "原生資產",
+    "network": "網路",
+    "notRefreshed": "尚未重新整理",
+    "refreshButton": "重新整理 {{symbol}}",
+    "refreshSymbol": "重新整理 {{symbol}}",
+    "stale": "自 {{time}} 起已過期",
+    "status": "狀態",
+    "tokens": "代幣",
+    "updated": "更新於 {{time}}"
+  },
+  "clearSigning": {
+    "advancedData": "進階資料",
+    "advancedDataSubtitle": "原始 calldata、nonce、gas 上限、最高手續費等。",
+    "broadcastHash": "廣播雜湊",
+    "broadcasting": "廣播中...",
+    "calldata": "Calldata",
+    "calldataDetail": "原生轉帳無合約 calldata",
+    "cancel": "取消",
+    "contractData": "合約資料",
+    "contractDataDetail": "原生 ETH 轉帳",
+    "estimating": "估算中",
+    "expiresIn": "到期時間",
+    "feeLabel": "網路手續費",
+    "from": "發送方",
+    "gas": "Gas",
+    "nonce": "Nonce {{nonce}}",
+    "parsed": "已解析",
+    "pending": "待處理",
+    "recipient": "收款人",
+    "reviewNote": "使用 Passkey 簽署前，請確認收款人、金額、網路與手續費。",
+    "risk": "風險",
+    "safetyScope": "安全範圍",
+    "safetyScopeText": "此請求僅轉移原生 {{asset}}。未偵測到代幣授權、兌換或合約互動。合約 calldata 預設隱藏，可展開查看。",
+    "signAndContinue": "簽署並繼續",
+    "signedTxHash": "已簽署的交易雜湊",
+    "signing": "簽署中...",
+    "viewOnExplorer": "在區塊瀏覽器查看"
+  },
+  "errors": {
+    "createWallet": "無法建立錢包。",
+    "enterWalletName": "建立 Passkey 前請先輸入錢包名稱。",
+    "estimateFee": "無法估算網路手續費。",
+    "loadWallet": "無法載入錢包狀態。",
+    "loadNetworks": "無法載入已啟用的網路。",
+    "refreshPortfolio": "無法重新整理投資組合。",
+    "resolveRecipient": "無法解析收款人。",
+    "saveNetwork": "無法儲存網路設定。",
+    "privacyMode": "此彈窗的隱私模式已變更，但無法儲存。",
+    "widgetLayout": "此彈窗的小工具版面已變更，但無法儲存。",
+    "defaultSendNetwork": "此彈窗的預設傳送網路已變更，但無法儲存。",
+    "signOrBroadcast": "無法簽署或廣播交易。",
+    "wcNoWallet": "配對 WalletConnect 前請先建立或解鎖錢包。",
+    "wcPair": "無法配對 WalletConnect URI。",
+    "wcSessions": "無法載入 WalletConnect 工作階段。",
+    "wcProposals": "無法載入 WalletConnect 提案。",
+    "wcApprove": "無法核准 WalletConnect 提案。",
+    "wcReject": "無法拒絕 WalletConnect 提案。",
+    "wcDisconnect": "無法中斷 WalletConnect 工作階段。",
+    "wcDisconnectAll": "無法中斷所有 WalletConnect 工作階段。"
+  },
+  "header": {
+    "backToHome": "返回首頁",
+    "noWallet": "尚無錢包",
+    "receive": "接收",
+    "send": "傳送",
+    "settings": "設定"
+  },
+  "home": {
+    "balance": {
+      "hidden": "已隱藏",
+      "label": "總餘額",
+      "noRefresh": "尚未重新整理",
+      "refreshAriaLabel": "重新整理投資組合",
+      "refreshing": "重新整理餘額中",
+      "today": "+2.10% 今日",
+      "updated": "更新於 {{time}}"
+    },
+    "failedRefresh": "{{count}} 次重新整理失敗",
+    "viewAllAssets": "查看所有資產"
+  },
+  "network": {
+    "addOrEdit": "新增或編輯自訂 RPC",
+    "balanceUnavailable": "餘額無法取得",
+    "chainId": "鏈 ID {{chainId}}",
+    "checking": "檢查中",
+    "defaultBadge": "預設",
+    "defaultSendNetwork": "預設傳送網路",
+    "disabled": "已停用",
+    "editAction": "編輯",
+    "enabledAndBuiltIn": "已啟用的內建鏈",
+    "enabled_false": "已停用",
+    "enabled_true": "已啟用",
+    "explorer": "區塊瀏覽器",
+    "explorerNotConfigured": "未設定",
+    "gasStatus": "Gas 狀態",
+    "gasStatusReady": "RPC 已就緒可估算 gas",
+    "gasStatusUnavailable": "無法取得",
+    "heading": "網路",
+    "nativeToken": "原生代幣",
+    "notChecked": "尚未檢查",
+    "rpcFailed": "RPC 失敗",
+    "rpcReady": "{{latency}}ms",
+    "rpcSelected": "已選擇的 RPC",
+    "rpcStatus": "RPC 狀態",
+    "unsupported": "不支援",
+    "useForSends": "用於傳送"
+  },
+  "onboarding": {
+    "backup": "備份可在安全性設定中稍後新增。",
+    "brandName": "Orchard Wallet",
+    "checklist": {
+      "eoa": "EOA 錢包已建立",
+      "networks": "常用網路已自動啟用",
+      "passkey": "Passkey 已就緒"
+    },
+    "checkingState": "正在檢查本機錢包狀態。",
+    "close": "關閉導覽",
+    "createWallet": "建立錢包",
+    "creating": "建立錢包中...",
+    "cta": "繼續",
+    "feature": {
+      "biometrics": {
+        "detail": "使用生物辨識即時解鎖。",
+        "title": "以 Face ID 或 Touch ID 解鎖"
+      },
+      "eoa": {
+        "detail": "在各應用程式與鏈上使用您的錢包。",
+        "title": "相容 EOA 跨 web3 使用"
+      },
+      "selfCustody": {
+        "detail": "您自行持有金鑰與資產。",
+        "title": "預設自我托管"
+      },
+      "signin": {
+        "detail": "略過密碼，直接進入 web3。",
+        "title": "在此裝置快速登入"
+      }
+    },
+    "goToPortal": "前往 Portal",
+    "intro": {
+      "heading": "Passkey 高速。EOA 靈活。",
+      "subtext": "以 Face ID 或 Touch ID 解鎖，同時保有可跨 web3 使用的自我托管錢包。"
+    },
+    "name": {
+      "heading": "為您的錢包命名。",
+      "hint": "用於識別此裝置上的錢包。",
+      "label": "錢包名稱",
+      "passkeyNote": "Passkey 保護存取安全。接下來將建立您的 EOA 錢包。",
+      "placeholder": "我的錢包",
+      "subtext": "為此錢包選擇一個名稱，稍後可在設定中更改。",
+      "thisDevice": "此裝置"
+    },
+    "ready": {
+      "heading": "您的錢包已就緒。",
+      "subtext": "Passkey 與 EOA 錢包已設定完成。您現在可以開始使用 Orchard Wallet。"
+    },
+    "sectionLabel": "建立 Passkey 錢包",
+    "walletSetupCompleted": "錢包設定完成"
+  },
+  "portfolio": {
+    "adapterPending": "適配器待處理",
+    "balancePriceUnavailable": "餘額已就緒，價格無法取得",
+    "distribution": {
+      "heading": "分佈",
+      "label": "{{symbol}} 跨網路分佈",
+      "lowestNetwork": "最低網路",
+      "none": "無",
+      "topNetwork": "最高網路"
+    },
+    "heading": "投資組合",
+    "refreshFailed": "重新整理失敗",
+    "refreshing": "重新整理中"
+  },
+  "receive": {
+    "addressCopied": "位址已複製",
+    "addressLabel": "接收位址",
+    "addressTab": "位址",
+    "copyAddress": "複製位址",
+    "heading": "接收 {{asset}}",
+    "label": "接收",
+    "qrHint": "掃描以在 {{network}} 接收 {{asset}}",
+    "sectionLabel": "接收資產",
+    "setAmount": "設定金額（選填）",
+    "shareAddress": "分享位址",
+    "showFullAddress": "顯示完整位址",
+    "showShortAddress": "顯示縮短位址"
+  },
+  "regions": {
+    "clearSigningPreview": "明文簽署預覽",
+    "multiChainAssets": "多鏈資產",
+    "portfolioBalance": "投資組合餘額",
+    "receiveOptions": "接收選項",
+    "tokenDistributionSelector": "代幣分佈選擇器",
+    "transactionPreview": "交易預覽",
+    "walletPortal": "錢包 Portal",
+    "walletStatus": "錢包狀態"
+  },
+  "resolver": {
+    "ethAddress": "Ethereum 位址",
+    "hint": "支援 CCIP Read 閘道的通用解析器。"
+  },
+  "security": {
+    "clearSigning": {
+      "label": "明文簽署",
+      "waiting": "等待有效轉帳",
+      "active": "原生轉帳解析器已啟用"
+    },
+    "dappSessions": {
+      "label": "Dapp 工作階段",
+      "value": "已連接 {{count}} 個，{{risky}} 個高風險請求",
+      "value_other": "已連接 {{count}} 個，{{risky}} 個高風險請求"
+    },
+    "heading": "安全中心",
+    "networkMismatch": {
+      "label": "網路不符",
+      "issue": "{{count}} 個 RPC 健康問題",
+      "issue_other": "{{count}} 個 RPC 健康問題",
+      "noIssues": "無 RPC 健康問題"
+    },
+    "passkey": {
+      "label": "Passkey 錢包",
+      "noWallet": "尚未建立錢包",
+      "ready": "本機加密金鑰庫已就緒"
+    },
+    "portfolioRefresh": {
+      "label": "投資組合重新整理",
+      "noErrors": "無重新整理錯誤"
+    },
+    "title": "錢包安全摘要"
+  },
+  "send": {
+    "amount": "金額",
+    "available": "可用 {{amount}} {{symbol}}",
+    "balanceUnavailable": "餘額無法取得",
+    "broadcasting": "廣播中...",
+    "broadcastHash": "廣播雜湊",
+    "broadcastSuccess": "交易已廣播",
+    "completeDetails": "完整轉帳詳情",
+    "continue": "繼續",
+    "enableEvm": "啟用一個 EVM 網路",
+    "estimatedFee": "預估網路手續費",
+    "estimating": "從 RPC 估算中",
+    "formLabel": "傳送轉帳表單",
+    "heading": "傳送",
+    "max": "最大",
+    "noNetwork": "未提供來源",
+    "pasteRecipient": "貼上收款人",
+    "recipient": "收款人",
+    "recipientPlaceholder": "ENS 名稱或位址",
+    "resolvingRecipient": "解析收款人中...",
+    "sectionLabel": "傳送原生代幣",
+    "signedTxHash": "已簽署的交易雜湊",
+    "signing": "簽署中...",
+    "usdEquivalent": "$0.00 USD",
+    "viewOnExplorer": "在區塊瀏覽器查看"
+  },
+  "settings": {
+    "createPasskey": "以 Passkey 建立",
+    "creating": "建立中...",
+    "hideBalances": "隱藏餘額",
+    "keystoreDescription": "加密的 tcx-wasm 金鑰庫儲存於本機，並由 Passkey PRF 解鎖。",
+    "openNetworkSettings": "開啟網路設定",
+    "portfolio": "投資組合小工具",
+    "resetLocalWallet": "重置本機錢包",
+    "showBalances": "顯示餘額",
+    "walletCreated": "錢包已建立",
+    "walletDescription": "建立以 WebAuthn PRF 金鑰加密的本機 HD 錢包。",
+    "walletTitle": "建立您的錢包"
+  },
+  "smartInsight": {
+    "dappsConnected": "{{count}} 個 dapp 已連接至 {{networks}} 個已啟用的網路。",
+    "dappsConnected_other": "{{count}} 個 dapp 已連接至 {{networks}} 個已啟用的網路。",
+    "label": "智慧洞察",
+    "usdcApy": "您可透過精選策略在閒置 USDC 上賺取最高 4.2% APY。"
+  },
+  "tokenPicker": {
+    "heading": "選擇代幣",
+    "manageTokens": "管理代幣",
+    "searchPlaceholder": "搜尋代幣或網路"
+  },
+  "walletConnect": {
+    "allSessions": "全部",
+    "approve": "核准",
+    "approved": "Dapp 已連接",
+    "connectionRequests": "連接請求",
+    "connectedDapps": "已連接的 Dapp",
+    "connectedSessions": "已連接的工作階段",
+    "disconnectAll": "中斷所有 Dapp",
+    "disconnectSession": "中斷工作階段",
+    "disconnecting": "配對中...",
+    "domainMismatch": "Dapp 名稱與 URL 明顯不符。",
+    "expiringFilter": "即將到期",
+    "expirySort": "到期日",
+    "filterLabel": "篩選",
+    "heading": "WalletConnect v2",
+    "lastActive": "最後活躍",
+    "loadingRequests": "載入連接請求中。",
+    "loadingSessions": "載入已連接的 Dapp 中。",
+    "manageTokens": "管理代幣",
+    "nameSort": "名稱",
+    "noActiveFilter": "最近活躍",
+    "noOrigin": "未提供來源",
+    "noPendingRequests": "無待處理的連接請求。",
+    "noSessions": "無活躍的 WalletConnect 工作階段。",
+    "pair": "配對 WalletConnect",
+    "pairingLabel": "配對 URI",
+    "pairingPlaceholder": "wc:...",
+    "pairing": "配對中...",
+    "pairingSent": "配對已送出。活躍配對數：{{count}}",
+    "proposalRejected": "Dapp 請求已拒絕",
+    "refreshRequests": "重新整理連接請求",
+    "refreshSessions": "重新整理工作階段",
+    "reject": "拒絕",
+    "rejected": "已拒絕",
+    "riskyMethods": "不支援的方法：{{methods}}",
+    "sectionLabel": "WalletConnect",
+    "searchPlaceholder": "搜尋 dapp 或鏈",
+    "sessionDetail": "WalletConnect 工作階段詳情",
+    "sessionDetailHeading": "工作階段詳情",
+    "sessionAccounts": "已連接帳戶",
+    "sessionAllowedChains": "允許的鏈",
+    "sessionDomain": "網域",
+    "sessionExpiry": "到期日",
+    "sessionLastActive": "最後活躍",
+    "sessionNoAccounts": "無帳戶",
+    "sessionNoActivity": "尚無活動",
+    "sessionNoChains": "無鏈",
+    "sessionNoExpiry": "未提供",
+    "sessionPermissions": "權限",
+    "sortLabel": "排序",
+    "unsupportedChains": "不支援的鏈：{{chains}}",
+    "viewDetails": "查看工作階段詳情"
+  },
+  "widgets": {
+    "actions": {
+      "detail": "傳送、接收、兌換與活動捷徑",
+      "title": "操作"
+    },
+    "activity": {
+      "detail": "歷史紀錄",
+      "title": "活動"
+    },
+    "assets": {
+      "detail": "各鏈最高原生餘額",
+      "title": "資產"
+    },
+    "balance": {
+      "detail": "投資組合主視圖與重新整理狀態",
+      "title": "餘額"
+    },
+    "heading": "首頁小工具",
+    "networks": {
+      "detail": "已啟用的網路與 RPC 健康狀態",
+      "title": "網路"
+    },
+    "personalization": "個人化",
+    "receive": {
+      "detail": "2 筆新增",
+      "title": "接收"
+    },
+    "recommended": "推薦",
+    "reset": "重置",
+    "send": {
+      "detail": "0.32 ETH",
+      "title": "傳送"
+    },
+    "sessions": {
+      "detail": "WalletConnect dapp 摘要",
+      "title": "工作階段"
+    },
+    "shown": "顯示中",
+    "hidden": "已隱藏",
+    "swap": {
+      "detail": "最佳匯率",
+      "title": "兌換"
+    }
+  }
+}

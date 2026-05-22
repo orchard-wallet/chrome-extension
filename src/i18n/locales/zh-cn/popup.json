@@ -1,1 +1,392 @@
-{}
+{
+  "activity": {
+    "history": "历史记录"
+  },
+  "assets": {
+    "enabled": "已启用网络",
+    "heading": "资产",
+    "hint": "在设置中启用网络，然后刷新资产。",
+    "refreshButton": "刷新资产",
+    "refreshing": "正在刷新余额"
+  },
+  "chainDetail": {
+    "chainId": "Chain ID {{chainId}}",
+    "freshUntil": "有效至 {{time}}",
+    "nativeAsset": "原生资产",
+    "network": "网络",
+    "notRefreshed": "未刷新",
+    "refreshButton": "刷新 {{symbol}}",
+    "refreshSymbol": "刷新 {{symbol}}",
+    "stale": "自 {{time}} 起已过期",
+    "status": "状态",
+    "tokens": "代币",
+    "updated": "更新于 {{time}}"
+  },
+  "clearSigning": {
+    "advancedData": "高级数据",
+    "advancedDataSubtitle": "原始 calldata、nonce、gas 限额、最高手续费等。",
+    "broadcastHash": "广播哈希",
+    "broadcasting": "广播中...",
+    "calldata": "Calldata",
+    "calldataDetail": "原生转账无合约 calldata",
+    "cancel": "取消",
+    "contractData": "合约数据",
+    "contractDataDetail": "原生 ETH 转账",
+    "estimating": "估算中",
+    "expiresIn": "到期时间",
+    "feeLabel": "网络手续费",
+    "from": "发送方",
+    "gas": "Gas",
+    "nonce": "Nonce {{nonce}}",
+    "parsed": "已解析",
+    "pending": "待处理",
+    "recipient": "收款方",
+    "reviewNote": "使用 Passkey 签名前，请核实收款方、金额、网络和手续费。",
+    "risk": "风险",
+    "safetyScope": "安全范围",
+    "safetyScopeText": "此请求仅转移原生 {{asset}}，未检测到代币授权、兑换或合约交互。合约 calldata 折叠后不可见。",
+    "signAndContinue": "签名并继续",
+    "signedTxHash": "已签名交易哈希",
+    "signing": "签名中...",
+    "viewOnExplorer": "在浏览器中查看"
+  },
+  "errors": {
+    "createWallet": "无法创建钱包。",
+    "enterWalletName": "创建 Passkey 前请先输入钱包名称。",
+    "estimateFee": "无法估算网络手续费。",
+    "loadWallet": "无法加载钱包状态。",
+    "loadNetworks": "无法加载已启用网络。",
+    "refreshPortfolio": "无法刷新投资组合。",
+    "resolveRecipient": "无法解析收款方。",
+    "saveNetwork": "无法保存网络设置。",
+    "privacyMode": "隐私模式已在此弹窗中更改，但无法保存。",
+    "widgetLayout": "小组件布局已在此弹窗中更改，但无法保存。",
+    "defaultSendNetwork": "默认发送网络已在此弹窗中更改，但无法保存。",
+    "signOrBroadcast": "无法签名或广播交易。",
+    "wcNoWallet": "配对 WalletConnect 前请先创建或解锁钱包。",
+    "wcPair": "无法配对 WalletConnect URI。",
+    "wcSessions": "无法加载 WalletConnect 会话。",
+    "wcProposals": "无法加载 WalletConnect 提案。",
+    "wcApprove": "无法批准 WalletConnect 提案。",
+    "wcReject": "无法拒绝 WalletConnect 提案。",
+    "wcDisconnect": "无法断开 WalletConnect 会话。",
+    "wcDisconnectAll": "无法断开所有 WalletConnect 会话。"
+  },
+  "header": {
+    "backToHome": "返回主页",
+    "noWallet": "尚无钱包",
+    "receive": "接收",
+    "send": "发送",
+    "settings": "设置"
+  },
+  "home": {
+    "balance": {
+      "hidden": "已隐藏",
+      "label": "总余额",
+      "noRefresh": "尚未刷新",
+      "refreshAriaLabel": "刷新投资组合",
+      "refreshing": "正在刷新余额",
+      "today": "+2.10% 今日",
+      "updated": "更新于 {{time}}"
+    },
+    "failedRefresh": "{{count}} 次刷新失败",
+    "viewAllAssets": "查看全部资产"
+  },
+  "network": {
+    "addOrEdit": "添加或编辑自定义 RPC",
+    "balanceUnavailable": "余额不可用",
+    "chainId": "Chain ID {{chainId}}",
+    "checking": "检查中",
+    "defaultBadge": "默认",
+    "defaultSendNetwork": "默认发送网络",
+    "disabled": "已禁用",
+    "editAction": "编辑",
+    "enabledAndBuiltIn": "已启用及内置链",
+    "enabled_false": "已禁用",
+    "enabled_true": "已启用",
+    "explorer": "浏览器",
+    "explorerNotConfigured": "未配置",
+    "gasStatus": "Gas 状态",
+    "gasStatusReady": "RPC 已就绪，可估算 gas",
+    "gasStatusUnavailable": "不可用",
+    "heading": "网络",
+    "nativeToken": "原生代币",
+    "notChecked": "未检查",
+    "rpcFailed": "RPC 失败",
+    "rpcReady": "{{latency}}ms",
+    "rpcSelected": "已选 RPC",
+    "rpcStatus": "RPC 状态",
+    "unsupported": "不支持",
+    "useForSends": "用于发送"
+  },
+  "onboarding": {
+    "backup": "稍后可在安全设置中添加备份。",
+    "brandName": "Orchard Wallet",
+    "checklist": {
+      "eoa": "EOA 钱包已创建",
+      "networks": "常用网络已自动启用",
+      "passkey": "Passkey 已就绪"
+    },
+    "checkingState": "正在检查本地钱包状态。",
+    "close": "关闭引导",
+    "createWallet": "创建钱包",
+    "creating": "创建中...",
+    "cta": "继续",
+    "feature": {
+      "biometrics": {
+        "detail": "使用生物识别即时解锁。",
+        "title": "使用 Face ID 或 Touch ID 解锁"
+      },
+      "eoa": {
+        "detail": "在各应用和链上使用您的钱包。",
+        "title": "与 web3 EOA 全面兼容"
+      },
+      "selfCustody": {
+        "detail": "您完全掌控自己的密钥和资产。",
+        "title": "默认自托管"
+      },
+      "signin": {
+        "detail": "无需密码，直接进入 web3。",
+        "title": "本设备快速登录"
+      }
+    },
+    "goToPortal": "前往 Portal",
+    "intro": {
+      "heading": "Passkey 极速，EOA 灵活。",
+      "subtext": "使用 Face ID 或 Touch ID 解锁，同时保持可跨 web3 使用的自托管钱包。"
+    },
+    "name": {
+      "heading": "为您的钱包命名。",
+      "hint": "用于在此设备上识别该钱包。",
+      "label": "钱包名称",
+      "passkeyNote": "Passkey 保护访问权限，EOA 钱包将在下一步创建。",
+      "placeholder": "我的钱包",
+      "subtext": "为此钱包选择一个名称，稍后可在设置中更改。",
+      "thisDevice": "本设备"
+    },
+    "ready": {
+      "heading": "您的钱包已就绪。",
+      "subtext": "Passkey 和 EOA 钱包已设置完成，您现在可以开始使用 Orchard Wallet。"
+    },
+    "sectionLabel": "创建 Passkey 钱包",
+    "walletSetupCompleted": "钱包设置完成"
+  },
+  "portfolio": {
+    "adapterPending": "适配器待处理",
+    "balancePriceUnavailable": "余额已就绪，价格不可用",
+    "distribution": {
+      "heading": "分布",
+      "label": "{{symbol}} 跨网络分布",
+      "lowestNetwork": "最低网络",
+      "none": "无",
+      "topNetwork": "最高网络"
+    },
+    "heading": "投资组合",
+    "refreshFailed": "刷新失败",
+    "refreshing": "刷新中"
+  },
+  "receive": {
+    "addressCopied": "地址已复制",
+    "addressLabel": "收款地址",
+    "addressTab": "地址",
+    "copyAddress": "复制地址",
+    "heading": "接收 {{asset}}",
+    "label": "接收",
+    "qrHint": "扫码在 {{network}} 上接收 {{asset}}",
+    "sectionLabel": "接收资产",
+    "setAmount": "设置金额（可选）",
+    "shareAddress": "分享地址",
+    "showFullAddress": "显示完整地址",
+    "showShortAddress": "显示简短地址"
+  },
+  "regions": {
+    "clearSigningPreview": "明文签名预览",
+    "multiChainAssets": "多链资产",
+    "portfolioBalance": "投资组合余额",
+    "receiveOptions": "接收选项",
+    "tokenDistributionSelector": "代币分布选择器",
+    "transactionPreview": "交易预览",
+    "walletPortal": "钱包 Portal",
+    "walletStatus": "钱包状态"
+  },
+  "resolver": {
+    "ethAddress": "Ethereum 地址",
+    "hint": "支持 CCIP Read 网关的通用解析器。"
+  },
+  "security": {
+    "clearSigning": {
+      "label": "明文签名",
+      "waiting": "等待有效转账",
+      "active": "原生转账解析器已激活"
+    },
+    "dappSessions": {
+      "label": "Dapp 会话",
+      "value": "{{count}} 个已连接，{{risky}} 个高风险请求",
+      "value_other": "{{count}} 个已连接，{{risky}} 个高风险请求"
+    },
+    "heading": "安全中心",
+    "networkMismatch": {
+      "label": "网络不匹配",
+      "issue": "{{count}} 个 RPC 健康问题",
+      "issue_other": "{{count}} 个 RPC 健康问题",
+      "noIssues": "无 RPC 健康问题"
+    },
+    "passkey": {
+      "label": "Passkey 钱包",
+      "noWallet": "尚未创建钱包",
+      "ready": "本地加密密钥库已就绪"
+    },
+    "portfolioRefresh": {
+      "label": "投资组合刷新",
+      "noErrors": "无刷新错误"
+    },
+    "title": "钱包安全摘要"
+  },
+  "send": {
+    "amount": "金额",
+    "available": "可用 {{amount}} {{symbol}}",
+    "balanceUnavailable": "余额不可用",
+    "broadcasting": "广播中...",
+    "broadcastHash": "广播哈希",
+    "broadcastSuccess": "交易已广播",
+    "completeDetails": "完整转账详情",
+    "continue": "继续",
+    "enableEvm": "启用 EVM 网络",
+    "estimatedFee": "预估网络手续费",
+    "estimating": "从 RPC 估算中",
+    "formLabel": "发送转账表单",
+    "heading": "发送",
+    "max": "最大",
+    "noNetwork": "未提供来源网络",
+    "pasteRecipient": "粘贴收款方",
+    "recipient": "收款方",
+    "recipientPlaceholder": "ENS 名称或地址",
+    "resolvingRecipient": "解析收款方中...",
+    "sectionLabel": "发送原生代币",
+    "signedTxHash": "已签名交易哈希",
+    "signing": "签名中...",
+    "usdEquivalent": "$0.00 USD",
+    "viewOnExplorer": "在浏览器中查看"
+  },
+  "settings": {
+    "createPasskey": "使用 Passkey 创建",
+    "creating": "创建中...",
+    "hideBalances": "隐藏余额",
+    "keystoreDescription": "加密的 tcx-wasm 密钥库存储在本地，由 Passkey PRF 解锁。",
+    "openNetworkSettings": "打开网络设置",
+    "portfolio": "投资组合小组件",
+    "resetLocalWallet": "重置本地钱包",
+    "showBalances": "显示余额",
+    "walletCreated": "钱包已创建",
+    "walletDescription": "创建一个使用 Passkey WebAuthn PRF 密钥加密的本地 HD 钱包。",
+    "walletTitle": "创建您的钱包"
+  },
+  "smartInsight": {
+    "dappsConnected": "{{count}} 个 dapp 连接至 {{networks}} 个已启用网络。",
+    "dappsConnected_other": "{{count}} 个 dapp 连接至 {{networks}} 个已启用网络。",
+    "label": "智能洞察",
+    "usdcApy": "通过精选策略，您的闲置 USDC 最高可获得 4.2% APY。"
+  },
+  "tokenPicker": {
+    "heading": "选择代币",
+    "manageTokens": "管理代币",
+    "searchPlaceholder": "搜索代币或网络"
+  },
+  "walletConnect": {
+    "allSessions": "全部",
+    "approve": "批准",
+    "approved": "Dapp 已连接",
+    "connectionRequests": "连接请求",
+    "connectedDapps": "已连接 Dapp",
+    "connectedSessions": "已连接会话",
+    "disconnectAll": "断开所有 Dapp",
+    "disconnectSession": "断开会话",
+    "disconnecting": "配对中...",
+    "domainMismatch": "Dapp 名称与 URL 不明确匹配。",
+    "expiringFilter": "即将到期",
+    "expirySort": "到期时间",
+    "filterLabel": "筛选",
+    "heading": "WalletConnect v2",
+    "lastActive": "最近活跃",
+    "loadingRequests": "加载连接请求中。",
+    "loadingSessions": "加载已连接 Dapp 中。",
+    "manageTokens": "管理代币",
+    "nameSort": "名称",
+    "noActiveFilter": "最近活跃",
+    "noOrigin": "未提供来源",
+    "noPendingRequests": "无待处理连接请求。",
+    "noSessions": "无活跃 WalletConnect 会话。",
+    "pair": "配对 WalletConnect",
+    "pairingLabel": "配对 URI",
+    "pairingPlaceholder": "wc:...",
+    "pairing": "配对中...",
+    "pairingSent": "配对已发送，活跃配对数：{{count}}",
+    "proposalRejected": "Dapp 请求已拒绝",
+    "refreshRequests": "刷新连接请求",
+    "refreshSessions": "刷新会话",
+    "reject": "拒绝",
+    "rejected": "已拒绝",
+    "riskyMethods": "不支持的方法：{{methods}}",
+    "sectionLabel": "WalletConnect",
+    "searchPlaceholder": "搜索 Dapp 或链",
+    "sessionDetail": "WalletConnect 会话详情",
+    "sessionDetailHeading": "会话详情",
+    "sessionAccounts": "已连接账户",
+    "sessionAllowedChains": "允许的链",
+    "sessionDomain": "域名",
+    "sessionExpiry": "到期时间",
+    "sessionLastActive": "最近活跃",
+    "sessionNoAccounts": "无账户",
+    "sessionNoActivity": "暂无活动",
+    "sessionNoChains": "无链",
+    "sessionNoExpiry": "未提供",
+    "sessionPermissions": "权限",
+    "sortLabel": "排序",
+    "unsupportedChains": "不支持的链：{{chains}}",
+    "viewDetails": "查看会话详情"
+  },
+  "widgets": {
+    "actions": {
+      "detail": "发送、接收、兑换和活动快捷方式",
+      "title": "操作"
+    },
+    "activity": {
+      "detail": "历史记录",
+      "title": "活动"
+    },
+    "assets": {
+      "detail": "各链最高原生余额",
+      "title": "资产"
+    },
+    "balance": {
+      "detail": "投资组合概览及刷新状态",
+      "title": "余额"
+    },
+    "heading": "主页小组件",
+    "networks": {
+      "detail": "已启用网络及 RPC 健康状态",
+      "title": "网络"
+    },
+    "personalization": "个性化",
+    "receive": {
+      "detail": "2 条新消息",
+      "title": "接收"
+    },
+    "recommended": "推荐",
+    "reset": "重置",
+    "send": {
+      "detail": "0.32 ETH",
+      "title": "发送"
+    },
+    "sessions": {
+      "detail": "WalletConnect Dapp 摘要",
+      "title": "会话"
+    },
+    "shown": "显示中",
+    "hidden": "已隐藏",
+    "swap": {
+      "detail": "最优汇率",
+      "title": "兑换"
+    }
+  }
+}
