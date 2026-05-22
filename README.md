@@ -56,6 +56,19 @@ Then open:
 http://127.0.0.1:5173/src/popup/index.html
 ```
 
+## Package
+
+To produce an upload-ready archive for the Chrome Web Store:
+
+```bash
+npm run package
+```
+
+This builds the extension and zips the `dist/` contents (with `manifest.json`
+at the archive root) into `my-passkey-wallet.zip`. Upload that zip in the
+Chrome Web Store developer console; bump `version` in `public/manifest.json`
+before each store update.
+
 ## Languages
 
 The UI ships with four locales: English (`en`), Simplified Chinese (`zh-cn`),
