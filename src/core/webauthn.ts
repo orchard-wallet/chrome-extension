@@ -21,7 +21,7 @@ export interface PasskeyPrfResult {
   userId: string;
 }
 
-const PRF_LABEL = new TextEncoder().encode("my-passkey-wallet:tcx-wasm:v1");
+const PRF_LABEL = new TextEncoder().encode("orchard-wallet:tcx-wasm:v1");
 
 export async function createPasskeyPrf(displayName: string): Promise<PasskeyPrfResult> {
   if (!window.PublicKeyCredential || !navigator.credentials?.create) {

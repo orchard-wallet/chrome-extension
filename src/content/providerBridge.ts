@@ -4,7 +4,7 @@ script.type = "text/javascript";
 script.onload = () => script.remove();
 (document.documentElement || document.head).appendChild(script);
 
-window.addEventListener("my-passkey-wallet:request", (event) => {
+window.addEventListener("orchard-wallet:request", (event) => {
   const detail = (event as CustomEvent).detail as {
     id: string;
     method: string;
@@ -21,7 +21,7 @@ window.addEventListener("my-passkey-wallet:request", (event) => {
     },
     (response) => {
       window.dispatchEvent(
-        new CustomEvent("my-passkey-wallet:response", {
+        new CustomEvent("orchard-wallet:response", {
           detail: {
             id: detail.id,
             response

@@ -78,7 +78,7 @@ function request(args: ProviderRequestArguments): Promise<unknown> {
         return;
       }
 
-      window.removeEventListener("my-passkey-wallet:response", handleResponse);
+      window.removeEventListener("orchard-wallet:response", handleResponse);
 
       if (detail.response?.error) {
         reject(Object.assign(new Error(detail.response.error.message), detail.response.error));
@@ -88,9 +88,9 @@ function request(args: ProviderRequestArguments): Promise<unknown> {
       resolve(detail.response?.result);
     };
 
-    window.addEventListener("my-passkey-wallet:response", handleResponse);
+    window.addEventListener("orchard-wallet:response", handleResponse);
     window.dispatchEvent(
-      new CustomEvent("my-passkey-wallet:request", {
+      new CustomEvent("orchard-wallet:request", {
         detail: {
           id,
           method: args.method,
