@@ -48,6 +48,14 @@ const EVM_TOKEN_DEFINITIONS: Record<string, Erc20TokenDefinitionInput[]> = {
       contractAddress: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
       priceKey: "ethereum:0xdac17f958d2ee523a2206206994597c13d831ec7",
       groupKey: "stablecoin:usdt"
+    },
+    {
+      symbol: "WBTC",
+      name: "Wrapped BTC",
+      decimals: 8,
+      contractAddress: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      priceKey: "ethereum:0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      groupKey: "erc20:wbtc"
     }
   ],
   "arbitrum-one": [
@@ -71,6 +79,41 @@ const EVM_TOKEN_DEFINITIONS: Record<string, Erc20TokenDefinitionInput[]> = {
     }
   ]
 };
+
+export function nativeAssetDefinition(network: WalletNetworkSetting): AssetDefinition {
+  return {
+    assetId: nativeAssetId(network),
+    networkId: network.networkId,
+    chainId: network.chainId,
+    symbol: network.nativeCurrencySymbol,
+    name: `${network.name} ${network.nativeCurrencySymbol}`,
+    decimals: 18,
+    kind: "native",
+    priceKey: nativePriceKey(network),
+    groupKey: `native:${network.nativeCurrencySymbol.toUpperCase()}`
+  };
+}
+
+// Curated, always-available EVM token list for the Swap selector, independent
+// of portfolio-refresh state. Native asset first, then known ERC-20 tokens.
+export function curatedEvmSwapAssets(network: WalletNetworkSetting): AssetDefinition[] {
+  const tokens = EVM_TOKEN_DEFINITIONS[network.networkId] ?? [];
+  return [
+    nativeAssetDefinition(network),
+    ...tokens.map<AssetDefinition>((token) => ({
+      assetId: tokenAssetId(network, token.contractAddress),
+      networkId: network.networkId,
+      chainId: network.chainId,
+      symbol: token.symbol,
+      name: token.name,
+      decimals: token.decimals,
+      kind: "erc20",
+      priceKey: token.priceKey,
+      contractAddress: token.contractAddress,
+      groupKey: token.groupKey
+    }))
+  ];
+}
 
 function withTimeout<T>(operation: Promise<T>, timeoutMs = 12_000): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -123,17 +166,7 @@ export async function fetchEvmNativeBalance(network: WalletNetworkSetting, accou
   );
   const refreshedAt = new Date().toISOString();
   const decimalAmount = formatUnits(wei, 18);
-  const definition: AssetDefinition = {
-    assetId,
-    networkId: network.networkId,
-    chainId: network.chainId,
-    symbol: network.nativeCurrencySymbol,
-    name: `${network.name} ${network.nativeCurrencySymbol}`,
-    decimals: 18,
-    kind: "native",
-    priceKey: nativePriceKey(network),
-    groupKey: `native:${network.nativeCurrencySymbol.toUpperCase()}`
-  };
+  const definition = nativeAssetDefinition(network);
   const balance: AssetBalance = {
     assetId,
     networkId: network.networkId,

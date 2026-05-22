@@ -59,6 +59,8 @@ import {
 } from "../core/networks";
 import { readPortfolioStore, refreshPortfolio } from "../core/portfolio";
 import type { AssetDefinition, AssetStore, ChainAssetSnapshot } from "../core/assets";
+import { isEvmAssetNetwork } from "../core/assets";
+import { curatedEvmSwapAssets } from "../core/evmAssets";
 import { searchAddressBookContacts, type AddressBookContact } from "../core/addressBook";
 import { estimateNativeTokenTransfer, type TransactionFeeEstimate } from "../core/rpc";
 import {
@@ -2622,18 +2624,32 @@ function SendSettingsPanel({
 }
 
 function swapAssetsForNetwork(store: AssetStore | null, network: WalletNetworkSetting | null): SwapAssetOption[] {
-  if (!store || !network) {
+  if (!network || !isEvmAssetNetwork(network)) {
     return [];
   }
 
-  return Object.values(store.assetDefinitions)
-    .filter(
-      (definition) =>
-        definition.networkId === network.networkId &&
-        (definition.kind === "native" || (definition.kind === "erc20" && Boolean(definition.contractAddress)))
-    )
+  // Start from the curated catalog so the selector is never empty, even before
+  // the portfolio has been refreshed. Then merge in any extra tokens the
+  // portfolio discovered (e.g. user-imported ERC-20s).
+  const definitionsById = new Map<string, AssetDefinition>(
+    curatedEvmSwapAssets(network).map((definition) => [definition.assetId, definition])
+  );
+
+  if (store) {
+    for (const definition of Object.values(store.assetDefinitions)) {
+      const usable =
+        definition.kind === "native" || (definition.kind === "erc20" && Boolean(definition.contractAddress));
+      if (definition.networkId === network.networkId && usable && !definitionsById.has(definition.assetId)) {
+        definitionsById.set(definition.assetId, definition);
+      }
+    }
+  }
+
+  return [...definitionsById.values()]
     .map((definition) => {
-      const balance = Object.values(store.assetBalances).find((assetBalance) => assetBalance.assetId === definition.assetId);
+      const balance = store
+        ? Object.values(store.assetBalances).find((assetBalance) => assetBalance.assetId === definition.assetId)
+        : undefined;
       return {
         definition,
         balance: balance?.decimalAmount ?? null,
@@ -3134,6 +3150,26 @@ function TokenGlyph({ symbol, family }: { symbol: string; family: NetworkFamily 
         <svg viewBox="0 0 32 32" role="img" aria-hidden="true">
           <path d="M8 9h16M16 9v14M10.5 15.2c2.3 1.4 8.7 1.4 11 0" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2.4" />
           <ellipse cx="16" cy="15.1" rx="8.5" ry="3.3" fill="none" stroke="currentColor" strokeWidth="2.1" />
+        </svg>
+      );
+    case "WBTC":
+      return (
+        <svg viewBox="0 0 32 32" role="img" aria-hidden="true">
+          <path
+            d="M11.2 4.7h9.6L27.3 11.2v9.6L20.8 27.3h-9.6L4.7 20.8v-9.6L11.2 4.7Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.1"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M14 10.5v11M17.6 10.5v11M12.6 13h5.1c1.7 0 2.7.8 2.7 2 0 .9-.6 1.5-1.5 1.8 1.1.3 1.8 1 1.8 2.1 0 1.4-1.1 2.2-2.9 2.2h-5.2"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.9"
+          />
         </svg>
       );
     default:
