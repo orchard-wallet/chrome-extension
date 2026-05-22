@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy — Orchard Wallet</title>
+    <meta name="description" content="Privacy policy for the Orchard Wallet Chrome Extension." />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fg: #1a1a1a;
+        --muted: #5c5c5c;
+        --bg: #fafaf7;
+        --rule: #e5e3dc;
+        --accent: #1a1a1a;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #ececec;
+          --muted: #9a9a9a;
+          --bg: #111110;
+          --rule: #2a2a28;
+          --accent: #ececec;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.65;
+        color: var(--fg);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 72px 24px 96px;
+      }
+      header {
+        margin-bottom: 48px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--rule);
+      }
+      h1 {
+        font-size: 1.75rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        margin: 0 0 8px;
+      }
+      header p {
+        margin: 4px 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      h2 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        letter-spacing: -0.005em;
+        margin: 40px 0 12px;
+      }
+      p, ul, ol { margin: 0 0 16px; }
+      ul, ol { padding-left: 22px; }
+      li { margin: 4px 0; }
+      code {
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 0.875em;
+        background: var(--rule);
+        padding: 1px 6px;
+        border-radius: 3px;
+      }
+      a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+      a:hover { text-decoration: none; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 8px 0 16px;
+        font-size: 0.92rem;
+      }
+      th, td {
+        text-align: left;
+        vertical-align: top;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--rule);
+      }
+      th {
+        font-weight: 600;
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      tr:last-child td { border-bottom: none; }
+      strong { font-weight: 600; }
+      .summary {
+        background: transparent;
+        border: 1px solid var(--rule);
+        padding: 16px 20px;
+        border-radius: 4px;
+      }
+      footer {
+        margin-top: 64px;
+        padding-top: 24px;
+        border-top: 1px solid var(--rule);
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Privacy Policy — Orchard Wallet</h1>
+        <p><strong>Effective date:</strong> 2026-05-23</p>
+        <p><strong>Extension:</strong> Orchard Wallet (Chrome Web Store)</p>
+        <p><strong>Contact:</strong> randylien@gmail.com</p>
+      </header>
+
+      <p>
+        Orchard Wallet (&ldquo;the extension&rdquo;, &ldquo;we&rdquo;) is a
+        self-custody crypto wallet browser extension. This policy explains what
+        data the extension handles, what leaves your device, and what does not.
+      </p>
+
+      <h2>Summary</h2>
+      <div class="summary">
+        <ul>
+          <li>We <strong>do not</strong> collect, log, sell, or share any personal information.</li>
+          <li>We <strong>do not</strong> use any analytics, tracking, advertising, or telemetry.</li>
+          <li>All wallet data &mdash; including the encrypted keystore, settings, address book, and asset cache &mdash; is stored <strong>only on your device</strong> via <code>chrome.storage.local</code>.</li>
+          <li>The extension makes outbound network requests <strong>only</strong> to the specific third-party services listed below, and only to perform the wallet functions you initiated.</li>
+          <li>Your <strong>private keys never leave your device</strong>. Signing happens locally inside the extension using <code>@consenlabs/tcx-wasm</code>.</li>
+        </ul>
+      </div>
+
+      <h2>Data stored on your device</h2>
+      <p>
+        The extension persists the following in <code>chrome.storage.local</code>
+        (with a fallback to <code>localStorage</code> only when
+        <code>chrome.storage</code> is unavailable, e.g. during development):
+      </p>
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Encrypted keystore (<code>walletRecord</code>)</td><td>The wallet itself &mdash; encrypted with a key derived from your WebAuthn passkey PRF output</td></tr>
+          <tr><td>Wallet settings (networks, default chain, UI preferences)</td><td>Restore your configuration across browser restarts</td></tr>
+          <tr><td>Address book / saved recipients</td><td>Convenience when sending</td></tr>
+          <tr><td>Asset cache (definitions, balances, USD prices, portfolio snapshots)</td><td>Show balances and portfolio value without re-fetching on every popup open</td></tr>
+          <tr><td>WalletConnect v2 session state and pending proposals</td><td>Resume active dApp sessions across browser restarts</td></tr>
+        </tbody>
+      </table>
+      <p>
+        This data never leaves your device through anything controlled by us.
+        <code>chrome.storage.local</code> is intentionally chosen over
+        <code>chrome.storage.sync</code> to avoid syncing wallet state to
+        Google&rsquo;s servers.
+      </p>
+
+      <h2>Passkey and key material</h2>
+      <ul>
+        <li>The extension creates a WebAuthn passkey using the PRF extension. The passkey itself is managed by your operating system or browser (e.g. iCloud Keychain, Windows Hello, a hardware security key). We do not control where it is stored.</li>
+        <li>Each signing operation triggers a passkey assertion; the PRF output is used as the symmetric key that unlocks the local keystore. The PRF output never leaves the extension&rsquo;s memory and is not persisted.</li>
+        <li>The private key is derived inside <code>tcx-wasm</code> only at signing time and is never written to disk, sent over the network, or exposed to web pages.</li>
+      </ul>
+
+      <h2>Outbound network requests</h2>
+      <p>
+        The extension makes outbound requests <strong>only</strong> to the
+        following endpoints, and only to perform wallet functions:
+      </p>
+      <table>
+        <thead>
+          <tr><th>Endpoint</th><th>Purpose</th><th>What is sent</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>coins.llama.fi</code> (DefiLlama)</td>
+            <td>Fetch USD prices for tokens in your portfolio</td>
+            <td>Chain identifiers and token contract addresses. No wallet address, no personal info.</td>
+          </tr>
+          <tr>
+            <td><code>*.walletconnect.com</code>, <code>*.walletconnect.org</code> (WSS + HTTPS)</td>
+            <td>WalletConnect v2 relay &mdash; pairing with mobile dApps and exchanging signing requests</td>
+            <td>WalletConnect pairing topics, session metadata, and signing payloads you explicitly approve. WalletConnect operates the relay; see <a href="https://walletconnect.com/privacy">walletconnect.com/privacy</a>.</td>
+          </tr>
+          <tr>
+            <td>EVM RPC endpoints (user-configured per network, e.g. Infura, Alchemy, public RPC)</td>
+            <td>Read balances, estimate gas, broadcast transactions</td>
+            <td>Your EVM wallet address (for <code>eth_getBalance</code>, etc.) and the raw signed transactions you choose to broadcast. The specific endpoint depends on what you configure in Settings.</td>
+          </tr>
+          <tr>
+            <td><code>blockstream.info</code>, <code>mempool.space</code></td>
+            <td>Read Bitcoin balances</td>
+            <td>Your Bitcoin address (mainnet / testnet / signet, depending on the active network).</td>
+          </tr>
+          <tr>
+            <td><code>api.trongrid.io</code>, <code>api.shasta.trongrid.io</code>, <code>nile.trongrid.io</code></td>
+            <td>Read TRON balances</td>
+            <td>Your TRON address.</td>
+          </tr>
+          <tr>
+            <td><code>api-v2.puffer.fi</code></td>
+            <td>(Optional, only when the pufETH widget is used) Fetch pufETH conversion rate and protocol TVL</td>
+            <td>Public protocol info only &mdash; no user data.</td>
+          </tr>
+          <tr>
+            <td><code>api.0x.org</code></td>
+            <td>(Optional, only when the Settings &rarr; Swap feature is used) Fetch swap quotes from 0x</td>
+            <td>Token addresses, amounts, and your taker address &mdash; required by the 0x quote API to compute a swap.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        These endpoints are operated by third parties and have their own
+        privacy practices. We do not proxy any of this traffic through our
+        own servers &mdash; we operate no servers. Requests go directly from
+        your browser to the listed endpoints.
+      </p>
+
+      <h2>Data we do <em>not</em> collect</h2>
+      <ul>
+        <li>We do not collect personally identifiable information (name, email, phone number, IP address logs, etc.).</li>
+        <li>We do not collect browsing history or page content. The extension&rsquo;s content script only injects an EIP-1193 / EIP-6963 Ethereum provider into pages so that dApps can request connections; it does not read DOM, cookies, form fields, or any page data.</li>
+        <li>We do not use cookies for tracking.</li>
+        <li>We do not use analytics SDKs, crash reporters, or telemetry.</li>
+        <li>We do not advertise.</li>
+      </ul>
+
+      <h2>How data is used</h2>
+      <p>
+        The extension is a tool you use to manage your own assets and connect
+        to dApps. Data flows are exactly what the chosen action requires:
+        reading a balance fetches a balance; broadcasting a transaction
+        broadcasts that transaction; nothing else.
+      </p>
+
+      <h2>Permissions explained</h2>
+      <ul>
+        <li><strong><code>storage</code></strong> &mdash; persist your encrypted keystore, settings, address book, asset cache, and WalletConnect sessions locally on your device.</li>
+        <li><strong><code>alarms</code></strong> &mdash; schedule a 15-minute background refresh of balances and prices. Manifest V3 service workers are evicted aggressively, so <code>chrome.alarms</code> is the only reliable way to schedule periodic work.</li>
+        <li><strong>Host permission <code>https://*/*</code></strong> and content script matches on <code>http://*/*</code> / <code>https://*/*</code> &mdash; inject an EIP-1193 / EIP-6963 provider into every web page so dApps can detect and call the wallet. This is the standard mechanism defined by the EIP-6963 open standard. The content script does not read page content; it only relays <code>CustomEvent</code> messages between the page-context provider and the background service worker.</li>
+        <li><strong>Host permissions for <code>*.walletconnect.com</code> / <code>*.walletconnect.org</code></strong> (HTTPS + WSS) &mdash; required by the WalletConnect v2 SDK to open relay connections.</li>
+        <li><strong>Host permission for <code>coins.llama.fi</code></strong> &mdash; fetch token prices from DefiLlama.</li>
+      </ul>
+
+      <h2>Data sharing and selling</h2>
+      <p>
+        We do not sell, rent, or transfer any user data to third parties. We
+        do not transfer user data for purposes unrelated to the
+        extension&rsquo;s single purpose. We do not transfer user data to
+        determine creditworthiness or for lending purposes.
+      </p>
+
+      <h2>Changes to this policy</h2>
+      <p>
+        If this policy materially changes, the new effective date will be set
+        at the top of this document and the change will be visible in the
+        extension&rsquo;s GitHub repository commit history.
+      </p>
+
+      <footer>
+        Questions or concerns: <a href="mailto:randylien@gmail.com">randylien@gmail.com</a>
+      </footer>
+    </main>
+  </body>
+</html>
