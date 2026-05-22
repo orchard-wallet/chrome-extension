@@ -18,6 +18,11 @@
     "message": {
       "typedDataRequest": "Typed data request"
     },
+    "puffer": {
+      "estimateUnavailable": "The pufETH estimate is unavailable; you will still receive pufETH at the vault rate.",
+      "reviewNote": "Review the amount, network, and fee before signing with your passkey.",
+      "title": "Convert ETH to pufETH"
+    },
     "recipient": {
       "ethereumAddress": "Ethereum address",
       "unknown": "Unknown recipient"

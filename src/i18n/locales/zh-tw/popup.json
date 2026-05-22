@@ -52,25 +52,25 @@
   },
   "errors": {
     "createWallet": "無法建立錢包。",
+    "defaultSendNetwork": "此彈窗的預設傳送網路已變更，但無法儲存。",
     "enterWalletName": "建立 Passkey 前請先輸入錢包名稱。",
     "estimateFee": "無法估算網路手續費。",
-    "loadWallet": "無法載入錢包狀態。",
     "loadNetworks": "無法載入已啟用的網路。",
+    "loadWallet": "無法載入錢包狀態。",
+    "privacyMode": "此彈窗的隱私模式已變更，但無法儲存。",
     "refreshPortfolio": "無法重新整理投資組合。",
     "resolveRecipient": "無法解析收款人。",
     "saveNetwork": "無法儲存網路設定。",
-    "privacyMode": "此彈窗的隱私模式已變更，但無法儲存。",
-    "widgetLayout": "此彈窗的小工具版面已變更，但無法儲存。",
-    "defaultSendNetwork": "此彈窗的預設傳送網路已變更，但無法儲存。",
     "signOrBroadcast": "無法簽署或廣播交易。",
+    "wcApprove": "無法核准 WalletConnect 提案。",
+    "wcDisconnect": "無法中斷 WalletConnect 工作階段。",
+    "wcDisconnectAll": "無法中斷所有 WalletConnect 工作階段。",
     "wcNoWallet": "配對 WalletConnect 前請先建立或解鎖錢包。",
     "wcPair": "無法配對 WalletConnect URI。",
-    "wcSessions": "無法載入 WalletConnect 工作階段。",
     "wcProposals": "無法載入 WalletConnect 提案。",
-    "wcApprove": "無法核准 WalletConnect 提案。",
     "wcReject": "無法拒絕 WalletConnect 提案。",
-    "wcDisconnect": "無法中斷 WalletConnect 工作階段。",
-    "wcDisconnectAll": "無法中斷所有 WalletConnect 工作階段。"
+    "wcSessions": "無法載入 WalletConnect 工作階段。",
+    "widgetLayout": "此彈窗的小工具版面已變更，但無法儲存。"
   },
   "header": {
     "backToHome": "返回首頁",
@@ -101,9 +101,9 @@
     "defaultSendNetwork": "預設傳送網路",
     "disabled": "已停用",
     "editAction": "編輯",
-    "enabledAndBuiltIn": "已啟用的內建鏈",
     "enabled_false": "已停用",
     "enabled_true": "已啟用",
+    "enabledAndBuiltIn": "已啟用的內建鏈",
     "explorer": "區塊瀏覽器",
     "explorerNotConfigured": "未設定",
     "gasStatus": "Gas 狀態",
@@ -122,12 +122,12 @@
   "onboarding": {
     "backup": "備份可在安全性設定中稍後新增。",
     "brandName": "Orchard Wallet",
+    "checkingState": "正在檢查本機錢包狀態。",
     "checklist": {
       "eoa": "EOA 錢包已建立",
       "networks": "常用網路已自動啟用",
       "passkey": "Passkey 已就緒"
     },
-    "checkingState": "正在檢查本機錢包狀態。",
     "close": "關閉導覽",
     "createWallet": "建立錢包",
     "creating": "建立錢包中...",
@@ -185,6 +185,32 @@
     "refreshFailed": "重新整理失敗",
     "refreshing": "重新整理中"
   },
+  "pufeth": {
+    "amountLabel": "兑換數量",
+    "amountPlaceholder": "0.0",
+    "apy": "{{apy}}% APY",
+    "apyUnavailable": "APY 暫無",
+    "confirm": "使用 Passkey 確認",
+    "convert": "兑換",
+    "errors": {
+      "convert": "無法完成 pufETH 兑換。",
+      "rate": "無法載入 pufETH 匯率。"
+    },
+    "estimate": "≈ {{amount}} pufETH",
+    "insufficient": "ETH 不足以支付此數量與 gas。",
+    "max": "最大",
+    "networkFee": "網路費用",
+    "pay": "支付",
+    "previewTitle": "將 ETH 兑換成 pufETH",
+    "receive": "獲得",
+    "signing": "簽署中…",
+    "subtitle": "將 ETH 質押進 Puffer，賺取再質押收益。",
+    "successDetail": "交易確認後，你的 pufETH 餘額會更新。",
+    "successTitle": "已兑換成 pufETH",
+    "title": "兑換成 pufETH",
+    "viewTx": "查看交易",
+    "wrongNetwork": "請切換到 Ethereum 主網後兑換。"
+  },
   "receive": {
     "addressCopied": "位址已複製",
     "addressLabel": "接收位址",
@@ -215,9 +241,9 @@
   },
   "security": {
     "clearSigning": {
+      "active": "原生轉帳解析器已啟用",
       "label": "明文簽署",
-      "waiting": "等待有效轉帳",
-      "active": "原生轉帳解析器已啟用"
+      "waiting": "等待有效轉帳"
     },
     "dappSessions": {
       "label": "Dapp 工作階段",
@@ -226,9 +252,9 @@
     },
     "heading": "安全中心",
     "networkMismatch": {
-      "label": "網路不符",
       "issue": "{{count}} 個 RPC 健康問題",
       "issue_other": "{{count}} 個 RPC 健康問題",
+      "label": "網路不符",
       "noIssues": "無 RPC 健康問題"
     },
     "passkey": {
@@ -246,8 +272,8 @@
     "amount": "金額",
     "available": "可用 {{amount}} {{symbol}}",
     "balanceUnavailable": "餘額無法取得",
-    "broadcasting": "廣播中...",
     "broadcastHash": "廣播雜湊",
+    "broadcasting": "廣播中...",
     "broadcastSuccess": "交易已廣播",
     "completeDetails": "完整轉帳詳情",
     "continue": "繼續",
@@ -296,12 +322,12 @@
     "allSessions": "全部",
     "approve": "核准",
     "approved": "Dapp 已連接",
-    "connectionRequests": "連接請求",
     "connectedDapps": "已連接的 Dapp",
     "connectedSessions": "已連接的工作階段",
+    "connectionRequests": "連接請求",
     "disconnectAll": "中斷所有 Dapp",
-    "disconnectSession": "中斷工作階段",
     "disconnecting": "配對中...",
+    "disconnectSession": "中斷工作階段",
     "domainMismatch": "Dapp 名稱與 URL 明顯不符。",
     "expiringFilter": "即將到期",
     "expirySort": "到期日",
@@ -317,9 +343,9 @@
     "noPendingRequests": "無待處理的連接請求。",
     "noSessions": "無活躍的 WalletConnect 工作階段。",
     "pair": "配對 WalletConnect",
+    "pairing": "配對中...",
     "pairingLabel": "配對 URI",
     "pairingPlaceholder": "wc:...",
-    "pairing": "配對中...",
     "pairingSent": "配對已送出。活躍配對數：{{count}}",
     "proposalRejected": "Dapp 請求已拒絕",
     "refreshRequests": "重新整理連接請求",
@@ -327,12 +353,12 @@
     "reject": "拒絕",
     "rejected": "已拒絕",
     "riskyMethods": "不支援的方法：{{methods}}",
-    "sectionLabel": "WalletConnect",
     "searchPlaceholder": "搜尋 dapp 或鏈",
-    "sessionDetail": "WalletConnect 工作階段詳情",
-    "sessionDetailHeading": "工作階段詳情",
+    "sectionLabel": "WalletConnect",
     "sessionAccounts": "已連接帳戶",
     "sessionAllowedChains": "允許的鏈",
+    "sessionDetail": "WalletConnect 工作階段詳情",
+    "sessionDetailHeading": "工作階段詳情",
     "sessionDomain": "網域",
     "sessionExpiry": "到期日",
     "sessionLastActive": "最後活躍",
@@ -363,6 +389,7 @@
       "title": "餘額"
     },
     "heading": "首頁小工具",
+    "hidden": "已隱藏",
     "networks": {
       "detail": "已啟用的網路與 RPC 健康狀態",
       "title": "網路"
@@ -383,7 +410,6 @@
       "title": "工作階段"
     },
     "shown": "顯示中",
-    "hidden": "已隱藏",
     "swap": {
       "detail": "最佳匯率",
       "title": "兌換"

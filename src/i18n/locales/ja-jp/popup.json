@@ -52,25 +52,25 @@
   },
   "errors": {
     "createWallet": "ウォレットを作成できませんでした。",
+    "defaultSendNetwork": "このポップアップのデフォルト送信ネットワークが変更されましたが、保存できませんでした。",
     "enterWalletName": "Passkey を作成する前にウォレット名を入力してください。",
     "estimateFee": "ネットワーク手数料を見積もれませんでした。",
-    "loadWallet": "ウォレットの状態を読み込めませんでした。",
     "loadNetworks": "有効なネットワークを読み込めませんでした。",
+    "loadWallet": "ウォレットの状態を読み込めませんでした。",
+    "privacyMode": "このポップアップのプライバシーモードが変更されましたが、保存できませんでした。",
     "refreshPortfolio": "ポートフォリオを更新できませんでした。",
     "resolveRecipient": "受取人を解決できませんでした。",
     "saveNetwork": "ネットワーク設定を保存できませんでした。",
-    "privacyMode": "このポップアップのプライバシーモードが変更されましたが、保存できませんでした。",
-    "widgetLayout": "このポップアップのウィジェットレイアウトが変更されましたが、保存できませんでした。",
-    "defaultSendNetwork": "このポップアップのデフォルト送信ネットワークが変更されましたが、保存できませんでした。",
     "signOrBroadcast": "トランザクションの署名またはブロードキャストができませんでした。",
+    "wcApprove": "WalletConnect プロポーザルを承認できませんでした。",
+    "wcDisconnect": "WalletConnect セッションを切断できませんでした。",
+    "wcDisconnectAll": "WalletConnect セッションをすべて切断できませんでした。",
     "wcNoWallet": "WalletConnect をペアリングする前にウォレットを作成またはロック解除してください。",
     "wcPair": "WalletConnect URI をペアリングできませんでした。",
-    "wcSessions": "WalletConnect セッションを読み込めませんでした。",
     "wcProposals": "WalletConnect プロポーザルを読み込めませんでした。",
-    "wcApprove": "WalletConnect プロポーザルを承認できませんでした。",
     "wcReject": "WalletConnect プロポーザルを拒否できませんでした。",
-    "wcDisconnect": "WalletConnect セッションを切断できませんでした。",
-    "wcDisconnectAll": "WalletConnect セッションをすべて切断できませんでした。"
+    "wcSessions": "WalletConnect セッションを読み込めませんでした。",
+    "widgetLayout": "このポップアップのウィジェットレイアウトが変更されましたが、保存できませんでした。"
   },
   "header": {
     "backToHome": "ホームに戻る",
@@ -101,9 +101,9 @@
     "defaultSendNetwork": "デフォルト送信ネットワーク",
     "disabled": "無効",
     "editAction": "編集",
-    "enabledAndBuiltIn": "有効および組み込みチェーン",
     "enabled_false": "無効",
     "enabled_true": "有効",
+    "enabledAndBuiltIn": "有効および組み込みチェーン",
     "explorer": "エクスプローラー",
     "explorerNotConfigured": "未設定",
     "gasStatus": "ガスステータス",
@@ -122,12 +122,12 @@
   "onboarding": {
     "backup": "バックアップは後でセキュリティから追加できます。",
     "brandName": "Orchard Wallet",
+    "checkingState": "ローカルウォレットの状態を確認中。",
     "checklist": {
       "eoa": "EOA ウォレット作成済み",
       "networks": "共通ネットワークを自動で有効化",
       "passkey": "Passkey 準備完了"
     },
-    "checkingState": "ローカルウォレットの状態を確認中。",
     "close": "オンボーディングを閉じる",
     "createWallet": "ウォレットを作成",
     "creating": "ウォレットを作成中...",
@@ -185,6 +185,32 @@
     "refreshFailed": "更新失敗",
     "refreshing": "更新中"
   },
+  "pufeth": {
+    "amountLabel": "交換する数量",
+    "amountPlaceholder": "0.0",
+    "apy": "{{apy}}% APY",
+    "apyUnavailable": "APY は取得できません",
+    "confirm": "Passkey で確認",
+    "convert": "交換",
+    "errors": {
+      "convert": "pufETH への交換を完了できませんでした。",
+      "rate": "pufETH レートを読み込めませんでした。"
+    },
+    "estimate": "≈ {{amount}} pufETH",
+    "insufficient": "この数量とガス代に足りる ETH がありません。",
+    "max": "最大",
+    "networkFee": "ネットワーク手数料",
+    "pay": "支払い",
+    "previewTitle": "ETH を pufETH に交換",
+    "receive": "受取",
+    "signing": "署名中…",
+    "subtitle": "ETH を Puffer にステークし、リステーキング利回りを獲得します。",
+    "successDetail": "トランザクションが確定すると pufETH 残高が更新されます。",
+    "successTitle": "pufETH に交換しました",
+    "title": "pufETH に交換",
+    "viewTx": "トランザクションを表示",
+    "wrongNetwork": "交換するには Ethereum メインネットに切り替えてください。"
+  },
   "receive": {
     "addressCopied": "アドレスをコピーしました",
     "addressLabel": "受取アドレス",
@@ -215,9 +241,9 @@
   },
   "security": {
     "clearSigning": {
+      "active": "ネイティブ転送パーサー有効",
       "label": "クリア署名",
-      "waiting": "有効な転送を待機中",
-      "active": "ネイティブ転送パーサー有効"
+      "waiting": "有効な転送を待機中"
     },
     "dappSessions": {
       "label": "Dapp セッション",
@@ -226,9 +252,9 @@
     },
     "heading": "セキュリティセンター",
     "networkMismatch": {
-      "label": "ネットワーク不一致",
       "issue": "{{count}} 件の RPC ヘルス問題",
       "issue_other": "{{count}} 件の RPC ヘルス問題",
+      "label": "ネットワーク不一致",
       "noIssues": "RPC ヘルス問題はありません"
     },
     "passkey": {
@@ -246,8 +272,8 @@
     "amount": "金額",
     "available": "{{amount}} {{symbol}} 利用可能",
     "balanceUnavailable": "残高を取得できません",
-    "broadcasting": "ブロードキャスト中...",
     "broadcastHash": "ブロードキャストハッシュ",
+    "broadcasting": "ブロードキャスト中...",
     "broadcastSuccess": "トランザクションブロードキャスト済み",
     "completeDetails": "転送詳細を完成させる",
     "continue": "続行",
@@ -296,12 +322,12 @@
     "allSessions": "すべて",
     "approve": "承認",
     "approved": "Dapp 接続済み",
-    "connectionRequests": "接続リクエスト",
     "connectedDapps": "接続済み Dapp",
     "connectedSessions": "接続済みセッション",
+    "connectionRequests": "接続リクエスト",
     "disconnectAll": "すべての Dapp を切断",
-    "disconnectSession": "セッションを切断",
     "disconnecting": "ペアリング中...",
+    "disconnectSession": "セッションを切断",
     "domainMismatch": "Dapp 名と URL が明確に一致しません。",
     "expiringFilter": "まもなく期限切れ",
     "expirySort": "有効期限",
@@ -317,9 +343,9 @@
     "noPendingRequests": "保留中の接続リクエストはありません。",
     "noSessions": "アクティブな WalletConnect セッションはありません。",
     "pair": "WalletConnect をペアリング",
+    "pairing": "ペアリング中...",
     "pairingLabel": "ペアリング URI",
     "pairingPlaceholder": "wc:...",
-    "pairing": "ペアリング中...",
     "pairingSent": "ペアリング送信済み。アクティブなペアリング: {{count}}",
     "proposalRejected": "Dapp リクエスト拒否",
     "refreshRequests": "接続リクエストを更新",
@@ -327,12 +353,12 @@
     "reject": "拒否",
     "rejected": "拒否済み",
     "riskyMethods": "非対応のメソッド: {{methods}}",
-    "sectionLabel": "WalletConnect",
     "searchPlaceholder": "Dapp またはチェーンを検索",
-    "sessionDetail": "WalletConnect セッション詳細",
-    "sessionDetailHeading": "セッション詳細",
+    "sectionLabel": "WalletConnect",
     "sessionAccounts": "接続済みアカウント",
     "sessionAllowedChains": "許可されたチェーン",
+    "sessionDetail": "WalletConnect セッション詳細",
+    "sessionDetailHeading": "セッション詳細",
     "sessionDomain": "ドメイン",
     "sessionExpiry": "有効期限",
     "sessionLastActive": "最終アクティブ",
@@ -363,6 +389,7 @@
       "title": "残高"
     },
     "heading": "ホームウィジェット",
+    "hidden": "非表示",
     "networks": {
       "detail": "有効なネットワークと RPC ヘルス",
       "title": "ネットワーク"
@@ -383,7 +410,6 @@
       "title": "セッション"
     },
     "shown": "表示中",
-    "hidden": "非表示",
     "swap": {
       "detail": "最良レート",
       "title": "スワップ"

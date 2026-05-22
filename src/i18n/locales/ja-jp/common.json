@@ -18,6 +18,11 @@
     "message": {
       "typedDataRequest": "型付きデータリクエスト"
     },
+    "puffer": {
+      "estimateUnavailable": "pufETH の概算は取得できませんが、ボールトのレートで pufETH を受け取れます。",
+      "reviewNote": "Passkey で署名する前に、数量・ネットワーク・手数料を確認してください。",
+      "title": "ETH を pufETH に交換"
+    },
     "recipient": {
       "ethereumAddress": "Ethereum アドレス",
       "unknown": "不明な受取人"

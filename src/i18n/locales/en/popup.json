@@ -52,25 +52,25 @@
   },
   "errors": {
     "createWallet": "Unable to create wallet.",
+    "defaultSendNetwork": "Default send network changed for this popup, but could not be saved.",
     "enterWalletName": "Enter a wallet name before creating the passkey.",
     "estimateFee": "Unable to estimate network fee.",
-    "loadWallet": "Unable to load wallet state.",
     "loadNetworks": "Unable to load enabled networks.",
+    "loadWallet": "Unable to load wallet state.",
+    "privacyMode": "Privacy mode changed for this popup, but could not be saved.",
     "refreshPortfolio": "Unable to refresh portfolio.",
     "resolveRecipient": "Unable to resolve recipient.",
     "saveNetwork": "Unable to save network settings.",
-    "privacyMode": "Privacy mode changed for this popup, but could not be saved.",
-    "widgetLayout": "Widget layout changed for this popup, but could not be saved.",
-    "defaultSendNetwork": "Default send network changed for this popup, but could not be saved.",
     "signOrBroadcast": "Unable to sign or broadcast transaction.",
+    "wcApprove": "Unable to approve WalletConnect proposal.",
+    "wcDisconnect": "Unable to disconnect WalletConnect session.",
+    "wcDisconnectAll": "Unable to disconnect WalletConnect sessions.",
     "wcNoWallet": "Create or unlock a wallet before pairing WalletConnect.",
     "wcPair": "Unable to pair WalletConnect URI.",
-    "wcSessions": "Unable to load WalletConnect sessions.",
     "wcProposals": "Unable to load WalletConnect proposals.",
-    "wcApprove": "Unable to approve WalletConnect proposal.",
     "wcReject": "Unable to reject WalletConnect proposal.",
-    "wcDisconnect": "Unable to disconnect WalletConnect session.",
-    "wcDisconnectAll": "Unable to disconnect WalletConnect sessions."
+    "wcSessions": "Unable to load WalletConnect sessions.",
+    "widgetLayout": "Widget layout changed for this popup, but could not be saved."
   },
   "header": {
     "backToHome": "Back to home",
@@ -101,9 +101,9 @@
     "defaultSendNetwork": "Default send network",
     "disabled": "Disabled",
     "editAction": "Edit",
-    "enabledAndBuiltIn": "Enabled and built-in chains",
     "enabled_false": "Disabled",
     "enabled_true": "Enabled",
+    "enabledAndBuiltIn": "Enabled and built-in chains",
     "explorer": "Explorer",
     "explorerNotConfigured": "Not configured",
     "gasStatus": "Gas status",
@@ -122,12 +122,12 @@
   "onboarding": {
     "backup": "Backup can be added later in Security.",
     "brandName": "Orchard Wallet",
+    "checkingState": "Checking local wallet state.",
     "checklist": {
       "eoa": "EOA wallet created",
       "networks": "Common networks enabled automatically",
       "passkey": "Passkey ready"
     },
-    "checkingState": "Checking local wallet state.",
     "close": "Close onboarding",
     "createWallet": "Create Wallet",
     "creating": "Creating Wallet...",
@@ -185,6 +185,32 @@
     "refreshFailed": "Refresh failed",
     "refreshing": "Refreshing"
   },
+  "pufeth": {
+    "amountLabel": "Amount to convert",
+    "amountPlaceholder": "0.0",
+    "apy": "{{apy}}% APY",
+    "apyUnavailable": "APY unavailable",
+    "confirm": "Confirm with Passkey",
+    "convert": "Convert",
+    "errors": {
+      "convert": "Could not complete the pufETH conversion.",
+      "rate": "Could not load the pufETH rate."
+    },
+    "estimate": "≈ {{amount}} pufETH",
+    "insufficient": "Not enough ETH for this amount plus gas.",
+    "max": "Max",
+    "networkFee": "Network fee",
+    "pay": "You pay",
+    "previewTitle": "Convert ETH to pufETH",
+    "receive": "You receive",
+    "signing": "Signing…",
+    "subtitle": "Stake ETH into Puffer and earn restaking yield.",
+    "successDetail": "Your pufETH balance updates after the transaction confirms.",
+    "successTitle": "Converted to pufETH",
+    "title": "Convert to pufETH",
+    "viewTx": "View transaction",
+    "wrongNetwork": "Switch to Ethereum Mainnet to convert."
+  },
   "receive": {
     "addressCopied": "Address copied",
     "addressLabel": "Receiving address",
@@ -215,9 +241,9 @@
   },
   "security": {
     "clearSigning": {
+      "active": "Native transfer parser active",
       "label": "Clear signing",
-      "waiting": "Waiting for a valid transfer",
-      "active": "Native transfer parser active"
+      "waiting": "Waiting for a valid transfer"
     },
     "dappSessions": {
       "label": "Dapp sessions",
@@ -226,9 +252,9 @@
     },
     "heading": "Security Center",
     "networkMismatch": {
-      "label": "Network mismatch",
       "issue": "{{count}} RPC health issue",
       "issue_other": "{{count}} RPC health issues",
+      "label": "Network mismatch",
       "noIssues": "No RPC health issues"
     },
     "passkey": {
@@ -246,8 +272,8 @@
     "amount": "Amount",
     "available": "{{amount}} {{symbol}} available",
     "balanceUnavailable": "Balance unavailable",
-    "broadcasting": "Broadcasting...",
     "broadcastHash": "Broadcast hash",
+    "broadcasting": "Broadcasting...",
     "broadcastSuccess": "Transaction broadcast",
     "completeDetails": "Complete transfer details",
     "continue": "Continue",
@@ -296,12 +322,12 @@
     "allSessions": "All",
     "approve": "Approve",
     "approved": "Dapp connected",
-    "connectionRequests": "Connection requests",
     "connectedDapps": "Connected dapps",
     "connectedSessions": "Connected Sessions",
+    "connectionRequests": "Connection requests",
     "disconnectAll": "Disconnect all dapps",
-    "disconnectSession": "Disconnect session",
     "disconnecting": "Pairing...",
+    "disconnectSession": "Disconnect session",
     "domainMismatch": "Dapp name and URL do not clearly match.",
     "expiringFilter": "Expiring soon",
     "expirySort": "Expiry",
@@ -317,9 +343,9 @@
     "noPendingRequests": "No pending connection requests.",
     "noSessions": "No active WalletConnect sessions.",
     "pair": "Pair WalletConnect",
+    "pairing": "Pairing...",
     "pairingLabel": "Pairing URI",
     "pairingPlaceholder": "wc:...",
-    "pairing": "Pairing...",
     "pairingSent": "Pairing sent. Active pairings: {{count}}",
     "proposalRejected": "Dapp request rejected",
     "refreshRequests": "Refresh connection requests",
@@ -327,12 +353,12 @@
     "reject": "Reject",
     "rejected": "Rejected",
     "riskyMethods": "Unsupported methods: {{methods}}",
-    "sectionLabel": "WalletConnect",
     "searchPlaceholder": "Search dapp or chain",
-    "sessionDetail": "WalletConnect session detail",
-    "sessionDetailHeading": "Session detail",
+    "sectionLabel": "WalletConnect",
     "sessionAccounts": "Connected account",
     "sessionAllowedChains": "Allowed chains",
+    "sessionDetail": "WalletConnect session detail",
+    "sessionDetailHeading": "Session detail",
     "sessionDomain": "Domain",
     "sessionExpiry": "Expiry",
     "sessionLastActive": "Last active",
@@ -363,6 +389,7 @@
       "title": "Balance"
     },
     "heading": "Home widgets",
+    "hidden": "Hidden",
     "networks": {
       "detail": "Enabled networks and RPC health",
       "title": "Networks"
@@ -383,7 +410,6 @@
       "title": "Sessions"
     },
     "shown": "Shown",
-    "hidden": "Hidden",
     "swap": {
       "detail": "Best rate",
       "title": "Swap"

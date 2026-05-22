@@ -18,6 +18,11 @@
     "message": {
       "typedDataRequest": "型別資料請求"
     },
+    "puffer": {
+      "estimateUnavailable": "pufETH 預估暫時無法取得；你仍會以金庫匯率獲得 pufETH。",
+      "reviewNote": "使用 Passkey 簽署前，請確認數量、網路與手續費。",
+      "title": "將 ETH 兑換成 pufETH"
+    },
     "recipient": {
       "ethereumAddress": "Ethereum 位址",
       "unknown": "未知收款人"

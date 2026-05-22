@@ -52,25 +52,25 @@
   },
   "errors": {
     "createWallet": "无法创建钱包。",
+    "defaultSendNetwork": "默认发送网络已在此弹窗中更改，但无法保存。",
     "enterWalletName": "创建 Passkey 前请先输入钱包名称。",
     "estimateFee": "无法估算网络手续费。",
-    "loadWallet": "无法加载钱包状态。",
     "loadNetworks": "无法加载已启用网络。",
+    "loadWallet": "无法加载钱包状态。",
+    "privacyMode": "隐私模式已在此弹窗中更改，但无法保存。",
     "refreshPortfolio": "无法刷新投资组合。",
     "resolveRecipient": "无法解析收款方。",
     "saveNetwork": "无法保存网络设置。",
-    "privacyMode": "隐私模式已在此弹窗中更改，但无法保存。",
-    "widgetLayout": "小组件布局已在此弹窗中更改，但无法保存。",
-    "defaultSendNetwork": "默认发送网络已在此弹窗中更改，但无法保存。",
     "signOrBroadcast": "无法签名或广播交易。",
+    "wcApprove": "无法批准 WalletConnect 提案。",
+    "wcDisconnect": "无法断开 WalletConnect 会话。",
+    "wcDisconnectAll": "无法断开所有 WalletConnect 会话。",
     "wcNoWallet": "配对 WalletConnect 前请先创建或解锁钱包。",
     "wcPair": "无法配对 WalletConnect URI。",
-    "wcSessions": "无法加载 WalletConnect 会话。",
     "wcProposals": "无法加载 WalletConnect 提案。",
-    "wcApprove": "无法批准 WalletConnect 提案。",
     "wcReject": "无法拒绝 WalletConnect 提案。",
-    "wcDisconnect": "无法断开 WalletConnect 会话。",
-    "wcDisconnectAll": "无法断开所有 WalletConnect 会话。"
+    "wcSessions": "无法加载 WalletConnect 会话。",
+    "widgetLayout": "小组件布局已在此弹窗中更改，但无法保存。"
   },
   "header": {
     "backToHome": "返回主页",
@@ -101,9 +101,9 @@
     "defaultSendNetwork": "默认发送网络",
     "disabled": "已禁用",
     "editAction": "编辑",
-    "enabledAndBuiltIn": "已启用及内置链",
     "enabled_false": "已禁用",
     "enabled_true": "已启用",
+    "enabledAndBuiltIn": "已启用及内置链",
     "explorer": "浏览器",
     "explorerNotConfigured": "未配置",
     "gasStatus": "Gas 状态",
@@ -122,12 +122,12 @@
   "onboarding": {
     "backup": "稍后可在安全设置中添加备份。",
     "brandName": "Orchard Wallet",
+    "checkingState": "正在检查本地钱包状态。",
     "checklist": {
       "eoa": "EOA 钱包已创建",
       "networks": "常用网络已自动启用",
       "passkey": "Passkey 已就绪"
     },
-    "checkingState": "正在检查本地钱包状态。",
     "close": "关闭引导",
     "createWallet": "创建钱包",
     "creating": "创建中...",
@@ -185,6 +185,32 @@
     "refreshFailed": "刷新失败",
     "refreshing": "刷新中"
   },
+  "pufeth": {
+    "amountLabel": "兑换数量",
+    "amountPlaceholder": "0.0",
+    "apy": "{{apy}}% APY",
+    "apyUnavailable": "APY 暂无",
+    "confirm": "使用 Passkey 确认",
+    "convert": "兑换",
+    "errors": {
+      "convert": "无法完成 pufETH 兑换。",
+      "rate": "无法载入 pufETH 汇率。"
+    },
+    "estimate": "≈ {{amount}} pufETH",
+    "insufficient": "ETH 不足以支付该数量与 gas。",
+    "max": "最大",
+    "networkFee": "网络费用",
+    "pay": "支付",
+    "previewTitle": "将 ETH 兑换成 pufETH",
+    "receive": "获得",
+    "signing": "签署中…",
+    "subtitle": "将 ETH 质押进 Puffer，赚取再质押收益。",
+    "successDetail": "交易确认后，你的 pufETH 余额会更新。",
+    "successTitle": "已兑换成 pufETH",
+    "title": "兑换成 pufETH",
+    "viewTx": "查看交易",
+    "wrongNetwork": "请切换到 Ethereum 主网后兑换。"
+  },
   "receive": {
     "addressCopied": "地址已复制",
     "addressLabel": "收款地址",
@@ -215,9 +241,9 @@
   },
   "security": {
     "clearSigning": {
+      "active": "原生转账解析器已激活",
       "label": "明文签名",
-      "waiting": "等待有效转账",
-      "active": "原生转账解析器已激活"
+      "waiting": "等待有效转账"
     },
     "dappSessions": {
       "label": "Dapp 会话",
@@ -226,9 +252,9 @@
     },
     "heading": "安全中心",
     "networkMismatch": {
-      "label": "网络不匹配",
       "issue": "{{count}} 个 RPC 健康问题",
       "issue_other": "{{count}} 个 RPC 健康问题",
+      "label": "网络不匹配",
       "noIssues": "无 RPC 健康问题"
     },
     "passkey": {
@@ -246,8 +272,8 @@
     "amount": "金额",
     "available": "可用 {{amount}} {{symbol}}",
     "balanceUnavailable": "余额不可用",
-    "broadcasting": "广播中...",
     "broadcastHash": "广播哈希",
+    "broadcasting": "广播中...",
     "broadcastSuccess": "交易已广播",
     "completeDetails": "完整转账详情",
     "continue": "继续",
@@ -296,12 +322,12 @@
     "allSessions": "全部",
     "approve": "批准",
     "approved": "Dapp 已连接",
-    "connectionRequests": "连接请求",
     "connectedDapps": "已连接 Dapp",
     "connectedSessions": "已连接会话",
+    "connectionRequests": "连接请求",
     "disconnectAll": "断开所有 Dapp",
-    "disconnectSession": "断开会话",
     "disconnecting": "配对中...",
+    "disconnectSession": "断开会话",
     "domainMismatch": "Dapp 名称与 URL 不明确匹配。",
     "expiringFilter": "即将到期",
     "expirySort": "到期时间",
@@ -317,9 +343,9 @@
     "noPendingRequests": "无待处理连接请求。",
     "noSessions": "无活跃 WalletConnect 会话。",
     "pair": "配对 WalletConnect",
+    "pairing": "配对中...",
     "pairingLabel": "配对 URI",
     "pairingPlaceholder": "wc:...",
-    "pairing": "配对中...",
     "pairingSent": "配对已发送，活跃配对数：{{count}}",
     "proposalRejected": "Dapp 请求已拒绝",
     "refreshRequests": "刷新连接请求",
@@ -327,12 +353,12 @@
     "reject": "拒绝",
     "rejected": "已拒绝",
     "riskyMethods": "不支持的方法：{{methods}}",
-    "sectionLabel": "WalletConnect",
     "searchPlaceholder": "搜索 Dapp 或链",
-    "sessionDetail": "WalletConnect 会话详情",
-    "sessionDetailHeading": "会话详情",
+    "sectionLabel": "WalletConnect",
     "sessionAccounts": "已连接账户",
     "sessionAllowedChains": "允许的链",
+    "sessionDetail": "WalletConnect 会话详情",
+    "sessionDetailHeading": "会话详情",
     "sessionDomain": "域名",
     "sessionExpiry": "到期时间",
     "sessionLastActive": "最近活跃",
@@ -363,6 +389,7 @@
       "title": "余额"
     },
     "heading": "主页小组件",
+    "hidden": "已隐藏",
     "networks": {
       "detail": "已启用网络及 RPC 健康状态",
       "title": "网络"
@@ -383,7 +410,6 @@
       "title": "会话"
     },
     "shown": "显示中",
-    "hidden": "已隐藏",
     "swap": {
       "detail": "最优汇率",
       "title": "兑换"

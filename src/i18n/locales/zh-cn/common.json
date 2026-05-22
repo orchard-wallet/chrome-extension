@@ -18,6 +18,11 @@
     "message": {
       "typedDataRequest": "类型化数据请求"
     },
+    "puffer": {
+      "estimateUnavailable": "pufETH 预估暂时无法取得；你仍会以金库汇率获得 pufETH。",
+      "reviewNote": "使用 Passkey 签名前，请核实数量、网络和手续费。",
+      "title": "将 ETH 兑换成 pufETH"
+    },
     "recipient": {
       "ethereumAddress": "Ethereum 地址",
       "unknown": "未知收款方"
