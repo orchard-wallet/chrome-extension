@@ -17,6 +17,7 @@ Chrome Extension wallet prototype using `@consenlabs/tcx-wasm` for local keystor
 - ETH balance display from Ethereum Mainnet RPC.
 - Receive panel with QR code and copyable address.
 - Built-in network settings for Ethereum, Arbitrum, Hyperliquid, Tron, Bitcoin, Polygon, related testnets, and manual custom RPCs.
+- Settings Swap page with a curated default token list (ETH, USDC, USDT, WBTC) and 0x indicative prices and firm quotes.
 - Multi-language UI (English, Simplified Chinese, Traditional Chinese, Japanese) with a runtime language switch.
 
 ## Run
