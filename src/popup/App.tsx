@@ -1640,7 +1640,6 @@ function PufETHWidget({
   // input phase
   return (
     <div className="action-widget pufeth-input" role="region" aria-label={t("popup:pufeth.title")}>
-      <strong>{t("popup:pufeth.title")}</strong>
       <small>{t("popup:pufeth.subtitle")}</small>
 
       {!isMainnet ? (
@@ -1675,7 +1674,7 @@ function PufETHWidget({
           ) : null}
 
           <small className="pufeth-apy">
-            {apy ? t("popup:pufeth.apy", { apy }) : t("popup:pufeth.apyUnavailable")}
+            {apy ? t("popup:pufeth.apy", { apy: Number(apy).toFixed(2) }) : t("popup:pufeth.apyUnavailable")}
           </small>
 
           {insufficient ? (
