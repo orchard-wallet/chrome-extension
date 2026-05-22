@@ -383,6 +383,8 @@
     "hidden": "非表示",
     "portfolioDetail": "パフォーマンスと配分",
     "portfolioTitle": "ポートフォリオ",
+    "pufethDetail": "ETH を pufETH にステークしてリステーキング利回りを獲得",
+    "pufethTitle": "pufETH ミント",
     "receiveDetail": "トークンと資産を受け取る",
     "receiveTitle": "受取",
     "sendDetail": "トークンと資産を送信",

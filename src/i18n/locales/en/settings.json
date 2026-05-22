@@ -383,6 +383,8 @@
     "hidden": "Hidden",
     "portfolioDetail": "Performance and allocation",
     "portfolioTitle": "Portfolio",
+    "pufethDetail": "Stake ETH into pufETH to earn restaking yield",
+    "pufethTitle": "pufETH Mint",
     "receiveDetail": "Receive tokens and assets",
     "receiveTitle": "Receive",
     "sendDetail": "Send tokens and assets",

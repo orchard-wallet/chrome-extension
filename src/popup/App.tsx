@@ -39,6 +39,7 @@ import { broadcastSignedTransaction, checkNetworkHealth, estimateNativeTokenTran
 import { createEthereumPasskeyWallet, signNativeTokenTransfer, type NativeTransferSignResult } from "../core/tcx";
 import { createPasskeyPrf, unlockPasskeyPrf } from "../core/webauthn";
 import ethTokenIcon from "./assets/eth-token.png";
+import { PufETHWidget } from "./pufeth-widget";
 import {
   appendActivityEvent,
   clearPendingNativeSendReview,
@@ -333,6 +334,14 @@ export function App() {
 const selectedSendNetwork = useMemo(
     () => sendNetworks.find((network) => network.networkId === selectedSendNetworkId) ?? sendNetworks[0] ?? null,
     [selectedSendNetworkId, sendNetworks]
+  );
+  const mainnetNetwork = useMemo(
+    () => networkSettings.find((n) => n.networkId === "ethereum-mainnet") ?? null,
+    [networkSettings]
+  );
+  const mainnetEthBalance = useMemo(
+    () => chainSnapshots.find((s) => s.networkId === "ethereum-mainnet")?.nativeBalance ?? null,
+    [chainSnapshots]
   );
   const broadcastExplorerUrl = useMemo(
     () => (broadcastHash ? txExplorerUrl(broadcastHash, selectedSendNetwork) : null),
@@ -1035,12 +1044,15 @@ const selectedSendNetwork = useMemo(
             visibleWidgets={visibleWidgets}
             widgetOrder={widgetOrder}
             failedNetworkCount={portfolioStore?.portfolioSnapshot?.failedNetworkIds?.length ?? 0}
+            mainnetNetwork={mainnetNetwork}
+            mainnetEthBalance={mainnetEthBalance}
             onCreateWallet={handleCreateWallet}
             onReset={handleReset}
             onRefreshPortfolio={handleRefreshPortfolio}
             onNavigate={setView}
             onOpenPortfolioSettings={() => openSettingsPage("portfolio")}
             onOpenActivitySettings={() => openSettingsPage("activity")}
+            onRecordActivity={recordActivity}
           />
         ) : null}
 
@@ -1401,12 +1413,15 @@ function HomeDashboard({
   visibleWidgets,
   widgetOrder,
   failedNetworkCount,
+  mainnetNetwork,
+  mainnetEthBalance,
   onCreateWallet,
   onReset,
   onRefreshPortfolio,
   onNavigate,
   onOpenPortfolioSettings,
-  onOpenActivitySettings
+  onOpenActivitySettings,
+  onRecordActivity
 }: {
   wallet: WalletRecord | null;
   status: Status;
@@ -1420,12 +1435,15 @@ function HomeDashboard({
   visibleWidgets: string[];
   widgetOrder: string[];
   failedNetworkCount: number;
+  mainnetNetwork: WalletNetworkSetting | null;
+  mainnetEthBalance: string | null;
   onCreateWallet: () => void;
   onReset: () => void;
   onRefreshPortfolio: () => void;
   onNavigate: (view: PopupView) => void;
   onOpenPortfolioSettings: () => void;
   onOpenActivitySettings: () => void;
+  onRecordActivity: (event: ActivityEventInput) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const topAssets = snapshots
@@ -1439,7 +1457,8 @@ function HomeDashboard({
     { id: "send", node: <ActionWidget icon={<Send size={18} />} title={t("popup:widgets.send.title")} detail={t("popup:widgets.send.detail")} disabled={!wallet} onClick={() => onNavigate("send")} key="send" /> },
     { id: "receive", node: <ActionWidget icon={<QrCode size={18} />} title={t("popup:widgets.receive.title")} detail={t("popup:widgets.receive.detail")} disabled={!wallet} onClick={() => onNavigate("receive")} key="receive" /> },
     { id: "swap", node: <ActionWidget icon={<RefreshCcw size={18} />} title={t("popup:widgets.swap.title")} detail={t("popup:widgets.swap.detail")} disabled onClick={() => undefined} key="swap" /> },
-    { id: "activity", node: <ActionWidget icon={<Activity size={18} />} title={t("popup:widgets.activity.title")} detail={t("popup:widgets.activity.detail")} disabled={!wallet} onClick={onOpenActivitySettings} key="activity" /> }
+    { id: "activity", node: <ActionWidget icon={<Activity size={18} />} title={t("popup:widgets.activity.title")} detail={t("popup:widgets.activity.detail")} disabled={!wallet} onClick={onOpenActivitySettings} key="activity" /> },
+    { id: "pufeth", node: <PufETHWidget wallet={wallet} network={mainnetNetwork} ethBalance={mainnetEthBalance} onConverted={onRecordActivity} key="pufeth" /> }
   ]
     .filter((widget) => visibleWidgetSet.has(widget.id))
     .sort((a, b) => {
@@ -2863,7 +2882,8 @@ function WidgetCustomizationList({
     actions: { title: t("popup:widgets.actions.title"), detail: t("popup:widgets.actions.detail"), recommended: true },
     assets: { title: t("popup:widgets.assets.title"), detail: t("popup:widgets.assets.detail"), recommended: true },
     networks: { title: t("popup:widgets.networks.title"), detail: t("popup:widgets.networks.detail") },
-    sessions: { title: t("popup:widgets.sessions.title"), detail: t("popup:widgets.sessions.detail") }
+    sessions: { title: t("popup:widgets.sessions.title"), detail: t("popup:widgets.sessions.detail") },
+    pufeth: { title: t("popup:pufeth.widgetTitle"), detail: t("popup:pufeth.stakeEth") }
   };
   const order = widgetOrder.length ? widgetOrder : Object.keys(widgetDescriptions);
 

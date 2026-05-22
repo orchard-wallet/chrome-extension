@@ -8094,3 +8094,238 @@ body.settings-body {
 
 /* ── PufETH full view ────────────────────────────────────────────────────────── */
 
+/* ── PufETH portal widget (compact, 2-column span) ──────────────────────────── */
+
+/* Span the pufETH widget across 2 columns in the portal action grid */
+.portal-action-grid .pufeth-widget {
+  grid-column: span 2;
+}
+
+.pufeth-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid rgba(17, 17, 17, 0.07);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    0 8px 18px rgba(17, 17, 17, 0.045);
+}
+
+.pufeth-widget-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pufeth-widget-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: #f0f0ef;
+  color: #111111;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 4px 10px rgba(17, 17, 17, 0.05);
+}
+
+.pufeth-widget-title {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.pufeth-widget-title strong {
+  color: #111111;
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.15;
+}
+
+.pufeth-widget-title small {
+  color: #7d7d82;
+  font-size: 11px;
+  font-weight: 720;
+  line-height: 1.3;
+}
+
+.pufeth-widget-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pufeth-widget-amount-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.pufeth-widget-amount-input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #11141a;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.pufeth-widget-amount-input:focus {
+  border-color: rgba(17, 17, 17, 0.28);
+  box-shadow: 0 0 0 3px rgba(40, 104, 255, 0.12);
+}
+
+.pufeth-widget-amount-input::placeholder {
+  color: #8b93a4;
+}
+
+.pufeth-widget-max {
+  flex-shrink: 0;
+  padding: 4px 7px;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  border-radius: 5px;
+  background: transparent;
+  color: #555;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 680;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.pufeth-widget-max:hover:not(:disabled) {
+  background: rgba(17, 17, 17, 0.05);
+}
+
+.pufeth-widget-max:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pufeth-widget-mint {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  background: #111111;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.pufeth-widget-mint:hover:not(:disabled) {
+  background: #222222;
+}
+
+.pufeth-widget-mint:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.pufeth-widget-estimate {
+  display: block;
+  color: #7d7d82;
+  font-size: 11px;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
+.pufeth-widget-insufficient {
+  margin: 0;
+  font-size: 11px;
+}
+
+.pufeth-widget-error {
+  margin: 0;
+  font-size: 11px;
+}
+
+/* ── PufETH preview tile (settings portal preview — wide tile) ────────────── */
+
+.portal-preview-tile.pufeth {
+  grid-column: span 2;
+  min-height: 72px;
+  gap: 6px;
+}
+
+.portal-preview-pufeth-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.portal-preview-pufeth-icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(17, 17, 17, 0.04);
+  color: #101318;
+}
+
+.portal-preview-pufeth-header strong {
+  color: #101318;
+  font-size: 10px;
+  font-weight: 810;
+  line-height: 1.2;
+}
+
+.portal-preview-pufeth-header small {
+  display: block;
+  color: #697181;
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.portal-preview-pufeth-body {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.portal-preview-pufeth-input {
+  flex: 1;
+  display: block;
+  padding: 3px 5px;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  border-radius: 4px;
+  background: rgba(17, 17, 17, 0.03);
+  color: #8b93a4;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.portal-preview-pufeth-max {
+  flex-shrink: 0;
+  color: #555;
+  font-size: 9px;
+  font-weight: 680;
+}
+
+.portal-preview-pufeth-mint {
+  flex-shrink: 0;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: #111111;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 750;
+}
+

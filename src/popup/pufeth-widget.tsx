@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Check, KeyRound, Loader2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, Database, KeyRound, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createPublicClient, encodeFunctionData, http, parseEther, type Address } from "viem";
@@ -302,16 +302,24 @@ export function PufETHWidget({
     );
   }
 
-  // input phase
+  // input phase — compact portal widget design
   return (
-    <div className="action-widget pufeth-input" role="region" aria-label={t("popup:pufeth.title")}>
-      <small>{t("popup:pufeth.subtitle")}</small>
+    <div className="pufeth-widget" role="region" aria-label={t("popup:pufeth.widgetTitle")}>
+      <div className="pufeth-widget-header">
+        <span className="pufeth-widget-icon" aria-hidden="true">
+          <Database size={16} />
+        </span>
+        <div className="pufeth-widget-title">
+          <strong>{t("popup:pufeth.widgetTitle")}</strong>
+          <small>{t("popup:pufeth.stakeEth")}</small>
+        </div>
+      </div>
 
       {!isMainnet ? (
-        <p className="inline-error">{t("popup:pufeth.wrongNetwork")}</p>
+        <p className="inline-error pufeth-widget-error">{t("popup:pufeth.wrongNetwork")}</p>
       ) : (
-        <>
-          <div className="pufeth-amount-row">
+        <div className="pufeth-widget-body">
+          <div className="pufeth-widget-amount-row">
             <input
               type="number"
               min="0"
@@ -319,42 +327,35 @@ export function PufETHWidget({
               placeholder={t("popup:pufeth.amountPlaceholder")}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="pufeth-amount-input"
+              className="pufeth-widget-amount-input"
               aria-label={t("popup:pufeth.amountLabel")}
             />
             <button
               type="button"
-              className="mini-icon-button"
+              className="pufeth-widget-max"
               onClick={handleMax}
               disabled={!wallet || ethBalance == null}
             >
               {t("popup:pufeth.max")}
             </button>
+            <button
+              type="button"
+              className="pufeth-widget-mint"
+              disabled={!wallet || !amount || Number(amount) <= 0 || insufficient}
+              onClick={handleConvert}
+            >
+              {t("popup:pufeth.mint")}
+            </button>
           </div>
 
-          {estimatedPufEth ? (
-            <small className="pufeth-estimate">
+          {insufficient ? (
+            <p className="inline-error pufeth-widget-insufficient">{t("popup:pufeth.insufficient")}</p>
+          ) : estimatedPufEth ? (
+            <small className="pufeth-widget-estimate">
               {t("popup:pufeth.estimate", { amount: estimatedPufEth })}
             </small>
           ) : null}
-
-          <small className="pufeth-apy">
-            {apy ? t("popup:pufeth.apy", { apy: Number(apy).toFixed(2) }) : t("popup:pufeth.apyUnavailable")}
-          </small>
-
-          {insufficient ? (
-            <p className="inline-error">{t("popup:pufeth.insufficient")}</p>
-          ) : null}
-
-          <button
-            type="button"
-            className="primary-button"
-            disabled={!wallet || !amount || Number(amount) <= 0 || insufficient}
-            onClick={handleConvert}
-          >
-            {t("popup:pufeth.convert")}
-          </button>
-        </>
+        </div>
       )}
     </div>
   );

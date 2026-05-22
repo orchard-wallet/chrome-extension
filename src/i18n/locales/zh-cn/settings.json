@@ -383,6 +383,8 @@
     "hidden": "已隐藏",
     "portfolioDetail": "绩效与配置",
     "portfolioTitle": "投资组合",
+    "pufethDetail": "将 ETH 质押为 pufETH 以获取再质押收益",
+    "pufethTitle": "pufETH 铸造",
     "receiveDetail": "接收代币和资产",
     "receiveTitle": "接收",
     "sendDetail": "发送代币和资产",
