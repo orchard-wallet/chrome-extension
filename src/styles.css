@@ -8094,30 +8094,3 @@ body.settings-body {
 
 /* ── PufETH full view ────────────────────────────────────────────────────────── */
 
-.pufeth-view {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  color: #101318;
-  box-shadow: 0 18px 42px rgba(17, 17, 17, 0.09);
-}
-
-.pufeth-view-header {
-  min-width: 0;
-}
-
-.pufeth-view-header span {
-  font-size: 14px;
-  font-weight: 680;
-  color: #11141a;
-}
-
-.pufeth-view .clear-signing-sheet,
-.pufeth-view .pufeth-input {
-  box-shadow: none;
-  padding: 0;
-  background: transparent;
-}

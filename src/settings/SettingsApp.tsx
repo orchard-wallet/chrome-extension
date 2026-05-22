@@ -42,6 +42,7 @@ import i18n, { changeAppLanguage } from "../i18n";
 import { SUPPORTED_LANGUAGES, type AppLanguage } from "../i18n/config";
 import { formatUnits, parseUnits, type Address } from "viem";
 import { buildNativeTokenTransferPreview, canSignPreview } from "../core/clearSigning";
+import { PufETHWidget } from "./pufeth-widget";
 import {
   ACTIVITY_FILTERS,
   activityTotals,
@@ -1419,6 +1420,7 @@ export function SettingsApp() {
         portfolioTotal={portfolioTotal}
         error={uiSettingsError}
         resetWalletPending={resetWalletPending}
+        mainnetNetwork={networks.find((n) => n.networkId === "ethereum-mainnet") ?? null}
         onTogglePrivacy={() => void persistUiSettings({ ...uiSettings, privacyMode: !uiSettings.privacyMode })}
         onResetWallet={() => void handleResetLocalWallet()}
         onOpenNetworks={() => selectView("networks")}
@@ -1889,6 +1891,7 @@ function WalletSettingsPanel({
   portfolioTotal,
   error,
   resetWalletPending,
+  mainnetNetwork,
   onTogglePrivacy,
   onResetWallet,
   onOpenNetworks,
@@ -1906,6 +1909,7 @@ function WalletSettingsPanel({
   portfolioTotal: string;
   error: string | null;
   resetWalletPending: boolean;
+  mainnetNetwork: WalletNetworkSetting | null;
   onTogglePrivacy: () => void;
   onResetWallet: () => void;
   onOpenNetworks: () => void;
@@ -1948,6 +1952,14 @@ function WalletSettingsPanel({
         <SettingsMetric icon={<Wallet size={24} />} value={walletRecord ? 1 : 0} label={t("settings:walletSettings.wallet")} detail={walletRecord ? t("settings:walletSettings.localWalletConnected") : t("settings:walletSettings.noWalletFirst")} />
         <SettingsMetric icon={<QrCode size={24} />} value={visibleWidgetIds.length} label={t("settings:walletSettings.widgetsShown")} detail={t("settings:walletSettings.onPortal")} />
         <SettingsMetric icon={<EyeOff size={24} />} value={Math.max(0, widgetOrder.length - visibleWidgetIds.length)} label={t("settings:walletSettings.hiddenWidgets")} detail={t("settings:walletSettings.notVisible")} />
+      </section>
+
+      <section className="wallet-pufeth-section" aria-label={t("popup:pufeth.title")}>
+        <PufETHWidget
+          wallet={walletRecord}
+          network={mainnetNetwork}
+          ethBalance={snapshots.find((s) => s.networkId === "ethereum-mainnet")?.nativeBalance ?? null}
+        />
       </section>
 
       <h2 className="wallet-settings-section-title">{t("settings:walletSettings.walletControlsTitle")}</h2>

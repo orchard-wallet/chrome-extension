@@ -87,8 +87,8 @@ export const DEFAULT_WALLET_UI_SETTINGS: WalletUiSettings = {
   compactMode: false,
   defaultCurrency: "USD",
   startPage: "portal",
-  visibleWidgets: ["balance", "assets", "pufeth", "send", "receive", "activity", "portfolio"],
-  widgetOrder: ["balance", "assets", "pufeth", "send", "receive", "swap", "activity", "portfolio"],
+  visibleWidgets: ["balance", "assets", "send", "receive", "activity", "portfolio"],
+  widgetOrder: ["balance", "assets", "send", "receive", "swap", "activity", "portfolio"],
   collapsedWidgets: [],
   defaultSendNetworkId: null,
   language: "en"
