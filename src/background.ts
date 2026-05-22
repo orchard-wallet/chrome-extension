@@ -536,8 +536,8 @@ async function initWalletConnect(): Promise<SignClient> {
     const client = await SignClient.init({
       projectId: requireWalletConnectProjectId(),
       metadata: {
-        name: "Passkey Wallet",
-        description: "Passkey wallet Chrome extension prototype",
+        name: "Orchard Wallet",
+        description: "Orchard Wallet Chrome extension prototype",
         url: "https://localhost",
         icons: []
       }
