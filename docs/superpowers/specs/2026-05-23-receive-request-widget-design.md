@@ -58,9 +58,12 @@ like the `pufeth` widget:
 
 ### 2. popup ReceiveView cleanup
 
-Remove the token/symbol picker (`tokenPickerOpen` state and its UI) and the
-safety-note block from the popup `ReceiveView`. After this the receive flow is
-native-currency only, consistent with the settings page.
+> **Correction (post-spec investigation):** the popup `ReceiveView` in the WIP
+> already has **no** token/symbol picker and **no** safety note — it is native-
+> currency only. (`tokenPickerOpen` belongs to the *Send* flow, not Receive;
+> the only "safety" UI in `App.tsx` is the Clear Signing preview.) So there is
+> nothing to remove here. The "no token selector / no safety note" requirement
+> is already satisfied; the implementation plan carries no cleanup task for it.
 
 ### 3. EIP-681 (no change to the URI format)
 
