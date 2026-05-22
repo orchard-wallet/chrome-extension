@@ -52,6 +52,7 @@ import { createEthereumPasskeyWallet, signNativeTokenTransfer, type NativeTransf
 import { createPasskeyPrf, unlockPasskeyPrf } from "../core/webauthn";
 import ethTokenIcon from "./assets/eth-token.png";
 import { PufETHWidget } from "./pufeth-widget";
+import { ReceiveRequestWidget } from "./receive-request-widget";
 import {
   appendActivityEvent,
   clearPendingNativeSendReview,
@@ -1545,7 +1546,8 @@ function HomeDashboard({
   const visibleWidgetSet = new Set(visibleWidgets.length ? visibleWidgets : DEFAULT_WALLET_UI_SETTINGS.visibleWidgets);
   const actionWidgets: Record<string, ReactNode> = {
     send: <ActionWidget icon={<Send size={18} />} title={t("popup:widgets.send.title")} detail={t("popup:widgets.send.detail")} disabled={!wallet} onClick={() => onNavigate("send")} key="send" />,
-    receive: <ActionWidget icon={<QrCode size={18} />} title={receiveRequestLabel.trim() || t("popup:widgets.receive.title")} detail={`${receiveRequestAmount.trim() || "0.00"} ${receiveNetwork?.nativeCurrencySymbol ?? "ETH"}`} disabled={!wallet} onClick={() => onNavigate("receive")} key="receive" />,
+    receive: <ActionWidget icon={<QrCode size={18} />} title={t("popup:widgets.receive.title")} detail={t("popup:widgets.receive.detail")} disabled={!wallet} onClick={() => onNavigate("receive")} key="receive" />,
+    "receive-request": <ReceiveRequestWidget wallet={wallet} network={receiveNetwork} amount={receiveRequestAmount} label={receiveRequestLabel} key="receive-request" />,
     swap: <ActionWidget icon={<RefreshCcw size={18} />} title={t("popup:widgets.swap.title")} detail={t("popup:widgets.swap.detail")} disabled onClick={() => undefined} key="swap" />,
     activity: <ActionWidget icon={<Activity size={18} />} title={t("popup:widgets.activity.title")} detail={t("popup:widgets.activity.detail")} disabled={!wallet} onClick={onOpenActivitySettings} key="activity" />,
     pufeth: <PufETHWidget wallet={wallet} network={mainnetNetwork} ethBalance={mainnetEthBalance} onConverted={onRecordActivity} key="pufeth" />
@@ -3135,7 +3137,8 @@ function WidgetCustomizationList({
     assets: { title: t("popup:widgets.assets.title"), detail: t("popup:widgets.assets.detail"), recommended: true },
     networks: { title: t("popup:widgets.networks.title"), detail: t("popup:widgets.networks.detail") },
     sessions: { title: t("popup:widgets.sessions.title"), detail: t("popup:widgets.sessions.detail") },
-    pufeth: { title: t("popup:pufeth.widgetTitle"), detail: t("popup:pufeth.stakeEth") }
+    pufeth: { title: t("popup:pufeth.widgetTitle"), detail: t("popup:pufeth.stakeEth") },
+    "receive-request": { title: t("popup:receiveRequest.title"), detail: t("popup:receiveRequest.detail") }
   };
   const order = widgetOrder.length ? widgetOrder : Object.keys(widgetDescriptions);
 

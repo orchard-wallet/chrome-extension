@@ -2069,7 +2069,8 @@ function WalletSettingsPanel({
       swap: { title: t("settings:widgets.swapTitle"), detail: t("settings:widgets.swapDetail") },
       activity: { title: t("settings:widgets.activityTitle"), detail: t("settings:widgets.activityDetail") },
       portfolio: { title: t("settings:widgets.portfolioTitle"), detail: t("settings:widgets.portfolioDetail") },
-      pufeth: { title: t("settings:widgets.pufethTitle"), detail: t("settings:widgets.pufethDetail") }
+      pufeth: { title: t("settings:widgets.pufethTitle"), detail: t("settings:widgets.pufethDetail") },
+      "receive-request": { title: t("settings:widgets.receiveRequestTitle"), detail: t("settings:widgets.receiveRequestDetail") }
     };
     return map[widgetId];
   }
@@ -2319,7 +2320,8 @@ function PortalSettingsPreview({
       swap: { title: t("settings:widgets.swapTitle"), detail: t("settings:widgets.swapDetail") },
       activity: { title: t("settings:widgets.activityTitle"), detail: t("settings:widgets.activityDetail") },
       portfolio: { title: t("settings:widgets.portfolioTitle"), detail: t("settings:widgets.portfolioDetail") },
-      pufeth: { title: t("settings:widgets.pufethTitle"), detail: t("settings:widgets.pufethDetail") }
+      pufeth: { title: t("settings:widgets.pufethTitle"), detail: t("settings:widgets.pufethDetail") },
+      "receive-request": { title: t("settings:widgets.receiveRequestTitle"), detail: t("settings:widgets.receiveRequestDetail") }
     };
     return map[widgetId];
   }
@@ -2392,6 +2394,7 @@ function portalWidgetIcon(widgetId: string): ReactNode {
     case "send":
       return <Send size={17} />;
     case "receive":
+    case "receive-request":
       return <QrCode size={17} />;
     case "swap":
       return <Repeat2 size={17} />;

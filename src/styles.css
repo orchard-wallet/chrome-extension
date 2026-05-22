@@ -7800,6 +7800,90 @@ body.settings-body {
   font-weight: 650;
 }
 
+/* ── Receive-request portal widget ───────────────────────────────────────── */
+
+.receive-request-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  height: 100%;
+  border: 1px solid rgba(17, 17, 17, 0.07);
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: rgba(255, 255, 255, 0.74);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.receive-request-widget:hover:not(:disabled) {
+  border-color: rgba(17, 17, 17, 0.16);
+}
+
+.receive-request-widget:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.receive-request-widget-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: #f0f0ef;
+  color: #111111;
+}
+
+.receive-request-widget-title {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.receive-request-widget-title strong {
+  overflow: hidden;
+  color: #111111;
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.receive-request-widget-title small {
+  color: #7d7d82;
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.receive-request-widget-address {
+  margin: 0;
+  overflow: hidden;
+  color: #7d7d82;
+  font-size: 11px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.receive-request-widget-amount {
+  margin-top: auto;
+  color: #111111;
+  font-size: 14px;
+  font-weight: 760;
+  font-style: normal;
+}
+
+.portal-widget-grid .receive-request-widget {
+  gap: 4px;
+  overflow: hidden;
+  padding: 10px 11px;
+}
+
 .receive-request-widget-preview {
   display: grid;
   min-width: 0;
