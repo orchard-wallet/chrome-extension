@@ -1,1 +1,392 @@
-{}
+{
+  "activity": {
+    "history": "History"
+  },
+  "assets": {
+    "enabled": "Enabled networks",
+    "heading": "Assets",
+    "hint": "Enable networks in Settings, then refresh assets.",
+    "refreshButton": "Refresh assets",
+    "refreshing": "Refreshing balances"
+  },
+  "chainDetail": {
+    "chainId": "Chain ID {{chainId}}",
+    "freshUntil": "Fresh until {{time}}",
+    "nativeAsset": "Native asset",
+    "network": "Network",
+    "notRefreshed": "Not refreshed",
+    "refreshButton": "Refresh {{symbol}}",
+    "refreshSymbol": "Refresh {{symbol}}",
+    "stale": "Stale since {{time}}",
+    "status": "Status",
+    "tokens": "Tokens",
+    "updated": "Updated {{time}}"
+  },
+  "clearSigning": {
+    "advancedData": "Advanced data",
+    "advancedDataSubtitle": "Raw calldata, nonce, gas limit, max fee, and more.",
+    "broadcastHash": "Broadcast hash",
+    "broadcasting": "Broadcasting...",
+    "calldata": "Calldata",
+    "calldataDetail": "Native transfer has no contract calldata",
+    "cancel": "Cancel",
+    "contractData": "Contract data",
+    "contractDataDetail": "Native ETH transfer",
+    "estimating": "Estimating",
+    "expiresIn": "Expires in",
+    "feeLabel": "Network fee",
+    "from": "From",
+    "gas": "Gas",
+    "nonce": "Nonce {{nonce}}",
+    "parsed": "Parsed",
+    "pending": "Pending",
+    "recipient": "Recipient",
+    "reviewNote": "Review the recipient, amount, network, and fee before signing with your passkey.",
+    "risk": "Risk",
+    "safetyScope": "Safety scope",
+    "safetyScopeText": "This request only transfers native {{asset}}. No token approval, swap, or contract interaction is detected. Contract calldata stays hidden unless expanded.",
+    "signAndContinue": "Sign and continue",
+    "signedTxHash": "Signed transaction hash",
+    "signing": "Signing...",
+    "viewOnExplorer": "View on explorer"
+  },
+  "errors": {
+    "createWallet": "Unable to create wallet.",
+    "enterWalletName": "Enter a wallet name before creating the passkey.",
+    "estimateFee": "Unable to estimate network fee.",
+    "loadWallet": "Unable to load wallet state.",
+    "loadNetworks": "Unable to load enabled networks.",
+    "refreshPortfolio": "Unable to refresh portfolio.",
+    "resolveRecipient": "Unable to resolve recipient.",
+    "saveNetwork": "Unable to save network settings.",
+    "privacyMode": "Privacy mode changed for this popup, but could not be saved.",
+    "widgetLayout": "Widget layout changed for this popup, but could not be saved.",
+    "defaultSendNetwork": "Default send network changed for this popup, but could not be saved.",
+    "signOrBroadcast": "Unable to sign or broadcast transaction.",
+    "wcNoWallet": "Create or unlock a wallet before pairing WalletConnect.",
+    "wcPair": "Unable to pair WalletConnect URI.",
+    "wcSessions": "Unable to load WalletConnect sessions.",
+    "wcProposals": "Unable to load WalletConnect proposals.",
+    "wcApprove": "Unable to approve WalletConnect proposal.",
+    "wcReject": "Unable to reject WalletConnect proposal.",
+    "wcDisconnect": "Unable to disconnect WalletConnect session.",
+    "wcDisconnectAll": "Unable to disconnect WalletConnect sessions."
+  },
+  "header": {
+    "backToHome": "Back to home",
+    "noWallet": "No wallet yet",
+    "receive": "Receive",
+    "send": "Send",
+    "settings": "Settings"
+  },
+  "home": {
+    "balance": {
+      "hidden": "Hidden",
+      "label": "Total Balance",
+      "noRefresh": "No refresh yet",
+      "refreshAriaLabel": "Refresh portfolio",
+      "refreshing": "Refreshing balances",
+      "today": "+2.10% today",
+      "updated": "Updated {{time}}"
+    },
+    "failedRefresh": "{{count}} failed refresh",
+    "viewAllAssets": "View all assets"
+  },
+  "network": {
+    "addOrEdit": "Add or edit custom RPC",
+    "balanceUnavailable": "Balance unavailable",
+    "chainId": "Chain ID {{chainId}}",
+    "checking": "Checking",
+    "defaultBadge": "Default",
+    "defaultSendNetwork": "Default send network",
+    "disabled": "Disabled",
+    "editAction": "Edit",
+    "enabledAndBuiltIn": "Enabled and built-in chains",
+    "enabled_false": "Disabled",
+    "enabled_true": "Enabled",
+    "explorer": "Explorer",
+    "explorerNotConfigured": "Not configured",
+    "gasStatus": "Gas status",
+    "gasStatusReady": "RPC ready for gas estimates",
+    "gasStatusUnavailable": "Unavailable",
+    "heading": "Networks",
+    "nativeToken": "Native token",
+    "notChecked": "Not checked",
+    "rpcFailed": "RPC failed",
+    "rpcReady": "{{latency}}ms",
+    "rpcSelected": "Selected RPC",
+    "rpcStatus": "RPC status",
+    "unsupported": "Unsupported",
+    "useForSends": "Use for sends"
+  },
+  "onboarding": {
+    "backup": "Backup can be added later in Security.",
+    "brandName": "Orchard Wallet",
+    "checklist": {
+      "eoa": "EOA wallet created",
+      "networks": "Common networks enabled automatically",
+      "passkey": "Passkey ready"
+    },
+    "checkingState": "Checking local wallet state.",
+    "close": "Close onboarding",
+    "createWallet": "Create Wallet",
+    "creating": "Creating Wallet...",
+    "cta": "Continue",
+    "feature": {
+      "biometrics": {
+        "detail": "Use biometrics to unlock instantly.",
+        "title": "Unlock with Face ID or Touch ID"
+      },
+      "eoa": {
+        "detail": "Use your wallet across apps and chains.",
+        "title": "Works with EOA across web3"
+      },
+      "selfCustody": {
+        "detail": "You own your keys and assets.",
+        "title": "Self-custody by default"
+      },
+      "signin": {
+        "detail": "Skip passwords and get straight to web3.",
+        "title": "Fast sign-in on this device"
+      }
+    },
+    "goToPortal": "Go to Portal",
+    "intro": {
+      "heading": "Fast with Passkey. Flexible with EOA.",
+      "subtext": "Unlock with Face ID or Touch ID while keeping a self-custody wallet that works across web3."
+    },
+    "name": {
+      "heading": "Name your wallet.",
+      "hint": "Used to identify this wallet on this device.",
+      "label": "Wallet name",
+      "passkeyNote": "Passkey secures access. Your EOA wallet will be created next.",
+      "placeholder": "My Wallet",
+      "subtext": "Choose a name for this wallet. You can change it later in Settings.",
+      "thisDevice": "This device"
+    },
+    "ready": {
+      "heading": "Your wallet is ready.",
+      "subtext": "Passkey and EOA wallet are set up. You can start using Orchard Wallet now."
+    },
+    "sectionLabel": "Create passkey wallet",
+    "walletSetupCompleted": "Wallet setup completed"
+  },
+  "portfolio": {
+    "adapterPending": "Adapter pending",
+    "balancePriceUnavailable": "Balance ready, price unavailable",
+    "distribution": {
+      "heading": "Distribution",
+      "label": "{{symbol}} across networks",
+      "lowestNetwork": "Lowest network",
+      "none": "None",
+      "topNetwork": "Top network"
+    },
+    "heading": "Portfolio",
+    "refreshFailed": "Refresh failed",
+    "refreshing": "Refreshing"
+  },
+  "receive": {
+    "addressCopied": "Address copied",
+    "addressLabel": "Receiving address",
+    "addressTab": "Address",
+    "copyAddress": "Copy address",
+    "heading": "Receive {{asset}}",
+    "label": "Receive",
+    "qrHint": "Scan to receive {{asset}} on {{network}}",
+    "sectionLabel": "Receive assets",
+    "setAmount": "Set amount (optional)",
+    "shareAddress": "Share address",
+    "showFullAddress": "Show full address",
+    "showShortAddress": "Show short address"
+  },
+  "regions": {
+    "clearSigningPreview": "Clear signing preview",
+    "multiChainAssets": "Multi-chain assets",
+    "portfolioBalance": "Portfolio balance",
+    "receiveOptions": "Receive options",
+    "tokenDistributionSelector": "Token distribution selector",
+    "transactionPreview": "Transaction preview",
+    "walletPortal": "Wallet portal",
+    "walletStatus": "Wallet status"
+  },
+  "resolver": {
+    "ethAddress": "Ethereum address",
+    "hint": "Universal Resolver with CCIP Read gateway support."
+  },
+  "security": {
+    "clearSigning": {
+      "label": "Clear signing",
+      "waiting": "Waiting for a valid transfer",
+      "active": "Native transfer parser active"
+    },
+    "dappSessions": {
+      "label": "Dapp sessions",
+      "value": "{{count}} connected, {{risky}} risky request",
+      "value_other": "{{count}} connected, {{risky}} risky requests"
+    },
+    "heading": "Security Center",
+    "networkMismatch": {
+      "label": "Network mismatch",
+      "issue": "{{count}} RPC health issue",
+      "issue_other": "{{count}} RPC health issues",
+      "noIssues": "No RPC health issues"
+    },
+    "passkey": {
+      "label": "Passkey wallet",
+      "noWallet": "No wallet created",
+      "ready": "Local encrypted keystore ready"
+    },
+    "portfolioRefresh": {
+      "label": "Portfolio refresh",
+      "noErrors": "No refresh errors"
+    },
+    "title": "Wallet safety summary"
+  },
+  "send": {
+    "amount": "Amount",
+    "available": "{{amount}} {{symbol}} available",
+    "balanceUnavailable": "Balance unavailable",
+    "broadcasting": "Broadcasting...",
+    "broadcastHash": "Broadcast hash",
+    "broadcastSuccess": "Transaction broadcast",
+    "completeDetails": "Complete transfer details",
+    "continue": "Continue",
+    "enableEvm": "Enable an EVM network",
+    "estimatedFee": "Estimated network fee",
+    "estimating": "Estimating from RPC",
+    "formLabel": "Send transfer form",
+    "heading": "Send",
+    "max": "Max",
+    "noNetwork": "No origin provided",
+    "pasteRecipient": "Paste recipient",
+    "recipient": "Recipient",
+    "recipientPlaceholder": "ENS name or address",
+    "resolvingRecipient": "Resolving recipient...",
+    "sectionLabel": "Send native token",
+    "signedTxHash": "Signed transaction hash",
+    "signing": "Signing...",
+    "usdEquivalent": "$0.00 USD",
+    "viewOnExplorer": "View on explorer"
+  },
+  "settings": {
+    "createPasskey": "Create with Passkey",
+    "creating": "Creating...",
+    "hideBalances": "Hide balances",
+    "keystoreDescription": "The encrypted tcx-wasm keystore is stored locally and unlocked by the passkey PRF.",
+    "openNetworkSettings": "Open network settings",
+    "portfolio": "Portfolio widget",
+    "resetLocalWallet": "Reset local wallet",
+    "showBalances": "Show balances",
+    "walletCreated": "Wallet created",
+    "walletDescription": "Create a local HD wallet encrypted with a WebAuthn PRF key from your passkey.",
+    "walletTitle": "Create your wallet"
+  },
+  "smartInsight": {
+    "dappsConnected": "{{count}} dapp connected across {{networks}} enabled networks.",
+    "dappsConnected_other": "{{count}} dapps connected across {{networks}} enabled networks.",
+    "label": "Smart Insight",
+    "usdcApy": "You can earn up to 4.2% APY on idle USDC through curated strategies."
+  },
+  "tokenPicker": {
+    "heading": "Choose token",
+    "manageTokens": "Manage tokens",
+    "searchPlaceholder": "Search token or network"
+  },
+  "walletConnect": {
+    "allSessions": "All",
+    "approve": "Approve",
+    "approved": "Dapp connected",
+    "connectionRequests": "Connection requests",
+    "connectedDapps": "Connected dapps",
+    "connectedSessions": "Connected Sessions",
+    "disconnectAll": "Disconnect all dapps",
+    "disconnectSession": "Disconnect session",
+    "disconnecting": "Pairing...",
+    "domainMismatch": "Dapp name and URL do not clearly match.",
+    "expiringFilter": "Expiring soon",
+    "expirySort": "Expiry",
+    "filterLabel": "Filter",
+    "heading": "WalletConnect v2",
+    "lastActive": "Last active",
+    "loadingRequests": "Loading connection requests.",
+    "loadingSessions": "Loading connected dapps.",
+    "manageTokens": "Manage tokens",
+    "nameSort": "Name",
+    "noActiveFilter": "Recently active",
+    "noOrigin": "No origin provided",
+    "noPendingRequests": "No pending connection requests.",
+    "noSessions": "No active WalletConnect sessions.",
+    "pair": "Pair WalletConnect",
+    "pairingLabel": "Pairing URI",
+    "pairingPlaceholder": "wc:...",
+    "pairing": "Pairing...",
+    "pairingSent": "Pairing sent. Active pairings: {{count}}",
+    "proposalRejected": "Dapp request rejected",
+    "refreshRequests": "Refresh connection requests",
+    "refreshSessions": "Refresh sessions",
+    "reject": "Reject",
+    "rejected": "Rejected",
+    "riskyMethods": "Unsupported methods: {{methods}}",
+    "sectionLabel": "WalletConnect",
+    "searchPlaceholder": "Search dapp or chain",
+    "sessionDetail": "WalletConnect session detail",
+    "sessionDetailHeading": "Session detail",
+    "sessionAccounts": "Connected account",
+    "sessionAllowedChains": "Allowed chains",
+    "sessionDomain": "Domain",
+    "sessionExpiry": "Expiry",
+    "sessionLastActive": "Last active",
+    "sessionNoAccounts": "No accounts",
+    "sessionNoActivity": "No activity yet",
+    "sessionNoChains": "No chains",
+    "sessionNoExpiry": "Not provided",
+    "sessionPermissions": "Permissions",
+    "sortLabel": "Sort",
+    "unsupportedChains": "Unsupported chains: {{chains}}",
+    "viewDetails": "View session details"
+  },
+  "widgets": {
+    "actions": {
+      "detail": "Send, receive, swap, and activity shortcuts",
+      "title": "Actions"
+    },
+    "activity": {
+      "detail": "History",
+      "title": "Activity"
+    },
+    "assets": {
+      "detail": "Top native balances by chain",
+      "title": "Assets"
+    },
+    "balance": {
+      "detail": "Portfolio hero and refresh status",
+      "title": "Balance"
+    },
+    "heading": "Home widgets",
+    "networks": {
+      "detail": "Enabled networks and RPC health",
+      "title": "Networks"
+    },
+    "personalization": "Personalization",
+    "receive": {
+      "detail": "2 New",
+      "title": "Receive"
+    },
+    "recommended": "Recommended",
+    "reset": "Reset",
+    "send": {
+      "detail": "0.32 ETH",
+      "title": "Send"
+    },
+    "sessions": {
+      "detail": "WalletConnect dapp summary",
+      "title": "Sessions"
+    },
+    "shown": "Shown",
+    "hidden": "Hidden",
+    "swap": {
+      "detail": "Best rate",
+      "title": "Swap"
+    }
+  }
+}

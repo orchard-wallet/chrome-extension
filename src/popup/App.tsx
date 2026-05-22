@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { Address } from "viem";
 import { formatTokenAmount, formatUsd, type AssetStore, type ChainAssetSnapshot } from "../core/assets";
 import type { ActivityEventInput } from "../core/activity";
@@ -153,11 +154,12 @@ function txExplorerUrl(hash: string, network: WalletNetworkSetting | null): stri
 }
 
 export function App() {
+  const { t } = useTranslation();
   const [view, setView] = useState<PopupView>("home");
   const [wallet, setWallet] = useState<WalletRecord | null>(null);
   const [status, setStatus] = useState<Status>("checking");
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("intro");
-  const [walletName, setWalletName] = useState("My Wallet");
+  const [walletName, setWalletName] = useState(t("popup:onboarding.name.placeholder"));
   const [portfolioStatus, setPortfolioStatus] = useState<PortfolioLoadStatus>("idle");
   const [portfolioStore, setPortfolioStore] = useState<AssetStore | null>(null);
   const [portfolioError, setPortfolioError] = useState<string | null>(null);
@@ -225,7 +227,7 @@ export function App() {
         setStatus(record ? "ready" : "idle");
       })
       .catch((cause: unknown) => {
-        setError(cause instanceof Error ? cause.message : "Unable to load wallet state.");
+        setError(cause instanceof Error ? cause.message : t("popup:errors.loadWallet"));
         setStatus("error");
       });
   }, []);
@@ -264,7 +266,7 @@ export function App() {
       })
       .catch((cause: unknown) => {
         if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : "Unable to load enabled networks.");
+          setError(cause instanceof Error ? cause.message : t("popup:errors.loadNetworks"));
           applyNetworkSettings([]);
         }
       });
@@ -305,14 +307,14 @@ export function App() {
     };
   }, [networkSettings]);
 
-  const displayAddress = useMemo(() => (wallet ? formatAddress(wallet.address) : "No wallet yet"), [wallet]);
+  const displayAddress = useMemo(() => (wallet ? formatAddress(wallet.address) : t("popup:header.noWallet")), [wallet, t]);
   const displayPortfolioTotal = useMemo(() => {
     if (!wallet) {
       return "$0.00";
     }
 
     if (portfolioStatus === "loading") {
-      return "Loading";
+      return t("common:status.loading");
     }
 
     return formatUsd(portfolioStore?.portfolioSnapshot?.totalValueUsd);
@@ -423,7 +425,7 @@ export function App() {
       })
       .catch((cause: unknown) => {
         if (!cancelled) {
-          setPortfolioError(cause instanceof Error ? cause.message : "Unable to refresh portfolio.");
+          setPortfolioError(cause instanceof Error ? cause.message : t("popup:errors.refreshPortfolio"));
           setPortfolioStatus("error");
         }
       });
@@ -431,7 +433,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [wallet]);
+  }, [wallet, t]);
 
   useEffect(() => {
     if (!wallet) {
@@ -475,7 +477,7 @@ export function App() {
       })
       .catch((cause: unknown) => {
         if (!cancelled) {
-          setFeeError(cause instanceof Error ? cause.message : "Unable to estimate network fee.");
+          setFeeError(cause instanceof Error ? cause.message : t("popup:errors.estimateFee"));
           setFeeStatus("error");
         }
       });
@@ -501,7 +503,7 @@ export function App() {
             setRecipientResolution({
               kind: "invalid",
               input: recipientInput,
-              reason: cause instanceof Error ? cause.message : "Unable to resolve recipient."
+              reason: cause instanceof Error ? cause.message : t("popup:errors.resolveRecipient")
             });
           }
         })
@@ -520,7 +522,7 @@ export function App() {
 
   async function handleCreateWallet(nextWalletName = walletName.trim()) {
     if (!nextWalletName) {
-      setError("Enter a wallet name before creating the passkey.");
+      setError(t("popup:errors.enterWalletName"));
       setOnboardingStep("name");
       return;
     }
@@ -549,7 +551,7 @@ export function App() {
         severity: "success"
       });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to create wallet.");
+      setError(cause instanceof Error ? cause.message : t("popup:errors.createWallet"));
       setStatus("error");
     }
   }
@@ -569,7 +571,7 @@ export function App() {
     setWallet(null);
     setStatus("idle");
     setOnboardingStep("intro");
-    setWalletName("My Wallet");
+    setWalletName(t("popup:onboarding.name.placeholder"));
     setError(null);
     setPortfolioStore(null);
     setSelectedChainId(null);
@@ -594,7 +596,7 @@ export function App() {
       setPortfolioStore(store);
       setPortfolioStatus("ready");
     } catch (cause) {
-      setPortfolioError(cause instanceof Error ? cause.message : "Unable to refresh portfolio.");
+      setPortfolioError(cause instanceof Error ? cause.message : t("popup:errors.refreshPortfolio"));
       setPortfolioStatus("error");
     }
   }
@@ -617,7 +619,7 @@ export function App() {
         defaultSendNetworkId: networkId
       });
     } catch {
-      setError("Default send network changed for this popup, but could not be saved.");
+      setError(t("popup:errors.defaultSendNetwork"));
     }
   }
 
@@ -628,7 +630,7 @@ export function App() {
     try {
       await writeNetworkSettings(nextNetworks);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to save network settings.");
+      setError(cause instanceof Error ? cause.message : t("popup:errors.saveNetwork"));
     }
   }
 
@@ -643,7 +645,7 @@ export function App() {
         privacyMode: nextPrivacyMode
       });
     } catch {
-      setError("Privacy mode changed for this popup, but could not be saved.");
+      setError(t("popup:errors.privacyMode"));
     }
   }
 
@@ -659,7 +661,7 @@ export function App() {
         widgetOrder: nextWidgetOrder
       });
     } catch {
-      setError("Widget layout changed for this popup, but could not be saved.");
+      setError(t("popup:errors.widgetLayout"));
     }
   }
 
@@ -763,7 +765,7 @@ export function App() {
           .catch(() => undefined);
       }
     } catch (cause) {
-      setSigningError(cause instanceof Error ? cause.message : "Unable to sign or broadcast transaction.");
+      setSigningError(cause instanceof Error ? cause.message : t("popup:errors.signOrBroadcast"));
       setSigningStatus("error");
       void recordActivity({
         type: "signing_failed",
@@ -780,7 +782,7 @@ export function App() {
 
     try {
       if (!wallet) {
-        throw new Error("Create or unlock a wallet before pairing WalletConnect.");
+        throw new Error(t("popup:errors.wcNoWallet"));
       }
 
       const response = await sendRuntimeMessage<{ result?: { pairings: number; sessions: number }; error?: { message: string } }>({
@@ -793,11 +795,11 @@ export function App() {
       }
 
       setWalletConnectStatus("paired");
-      setWalletConnectMessage(`Pairing sent. Active pairings: ${response.result?.pairings ?? 0}`);
+      setWalletConnectMessage(t("popup:walletConnect.pairingSent", { count: response.result?.pairings ?? 0 }));
       await refreshWalletConnectSessions();
     } catch (cause) {
       setWalletConnectStatus("error");
-      setWalletConnectMessage(cause instanceof Error ? cause.message : "Unable to pair WalletConnect URI.");
+      setWalletConnectMessage(cause instanceof Error ? cause.message : t("popup:errors.wcPair"));
     }
   }
 
@@ -820,7 +822,7 @@ export function App() {
       setWalletConnectSessions(response.result?.sessions ?? []);
       setWalletConnectSessionsStatus("ready");
     } catch (cause) {
-      setWalletConnectSessionsError(cause instanceof Error ? cause.message : "Unable to load WalletConnect sessions.");
+      setWalletConnectSessionsError(cause instanceof Error ? cause.message : t("popup:errors.wcSessions"));
       setWalletConnectSessionsStatus("error");
     }
   }
@@ -844,7 +846,7 @@ export function App() {
       setWalletConnectProposals(response.result?.proposals ?? []);
       setWalletConnectProposalsStatus("ready");
     } catch (cause) {
-      setWalletConnectProposalsError(cause instanceof Error ? cause.message : "Unable to load WalletConnect proposals.");
+      setWalletConnectProposalsError(cause instanceof Error ? cause.message : t("popup:errors.wcProposals"));
       setWalletConnectProposalsStatus("error");
     }
   }
@@ -878,7 +880,7 @@ export function App() {
         severity: "success"
       });
     } catch (cause) {
-      setWalletConnectProposalsError(cause instanceof Error ? cause.message : "Unable to approve WalletConnect proposal.");
+      setWalletConnectProposalsError(cause instanceof Error ? cause.message : t("popup:errors.wcApprove"));
       setWalletConnectProposalsStatus("error");
     } finally {
       setActingProposalId(null);
@@ -912,7 +914,7 @@ export function App() {
         severity: "warning"
       });
     } catch (cause) {
-      setWalletConnectProposalsError(cause instanceof Error ? cause.message : "Unable to reject WalletConnect proposal.");
+      setWalletConnectProposalsError(cause instanceof Error ? cause.message : t("popup:errors.wcReject"));
       setWalletConnectProposalsStatus("error");
     } finally {
       setActingProposalId(null);
@@ -945,7 +947,7 @@ export function App() {
         severity: "info"
       });
     } catch (cause) {
-      setWalletConnectSessionsError(cause instanceof Error ? cause.message : "Unable to disconnect WalletConnect session.");
+      setWalletConnectSessionsError(cause instanceof Error ? cause.message : t("popup:errors.wcDisconnect"));
       setWalletConnectSessionsStatus("error");
     } finally {
       setDisconnectingTopic(null);
@@ -977,7 +979,7 @@ export function App() {
         severity: "info"
       });
     } catch (cause) {
-      setWalletConnectSessionsError(cause instanceof Error ? cause.message : "Unable to disconnect WalletConnect sessions.");
+      setWalletConnectSessionsError(cause instanceof Error ? cause.message : t("popup:errors.wcDisconnectAll"));
       setWalletConnectSessionsStatus("error");
     } finally {
       setDisconnectingTopic(null);
@@ -1133,18 +1135,19 @@ function WalletOnboarding({
   onCreate: () => void;
   onPortal: () => void;
 }) {
+  const { t } = useTranslation();
   const checking = status === "checking";
   const creating = status === "creating";
-  const displayName = walletName.trim() || "My Wallet";
+  const displayName = walletName.trim() || t("popup:onboarding.name.placeholder");
 
   return (
-    <section className={`wallet-onboarding onboarding-step-${step}`} aria-label="Create passkey wallet">
+    <section className={`wallet-onboarding onboarding-step-${step}`} aria-label={t("popup:onboarding.sectionLabel")}>
       <header className="onboarding-brandbar">
         <div>
           <OrchardMark />
-          <strong>Orchard Wallet</strong>
+          <strong>{t("popup:onboarding.brandName")}</strong>
         </div>
-        <button type="button" aria-label="Close onboarding" onClick={() => window.close()}>
+        <button type="button" aria-label={t("popup:onboarding.close")} onClick={() => window.close()}>
           <X size={22} />
         </button>
       </header>
@@ -1152,26 +1155,26 @@ function WalletOnboarding({
       {checking ? (
         <div className="onboarding-loading">
           <Loader2 className="spin" size={22} />
-          <span>Checking local wallet state.</span>
+          <span>{t("popup:onboarding.checkingState")}</span>
         </div>
       ) : step === "intro" ? (
         <div className="onboarding-stage onboarding-intro">
           <div className="onboarding-copy">
-            <h1>Fast with Passkey. Flexible with EOA.</h1>
-            <p>Unlock with Face ID or Touch ID while keeping a self-custody wallet that works across web3.</p>
+            <h1>{t("popup:onboarding.intro.heading")}</h1>
+            <p>{t("popup:onboarding.intro.subtext")}</p>
           </div>
 
           <PasskeyOrbitIllustration />
 
           <div className="onboarding-feature-grid">
-            <OnboardingFeature icon={<ShieldCheck size={18} />} title="Unlock with Face ID or Touch ID" detail="Use biometrics to unlock instantly." tone="green" />
-            <OnboardingFeature icon={<KeyRound size={18} />} title="Fast sign-in on this device" detail="Skip passwords and get straight to web3." tone="lilac" />
-            <OnboardingFeature icon={<Network size={18} />} title="Works with EOA across web3" detail="Use your wallet across apps and chains." tone="blue" />
-            <OnboardingFeature icon={<Check size={18} />} title="Self-custody by default" detail="You own your keys and assets." tone="green" />
+            <OnboardingFeature icon={<ShieldCheck size={18} />} title={t("popup:onboarding.feature.biometrics.title")} detail={t("popup:onboarding.feature.biometrics.detail")} tone="green" />
+            <OnboardingFeature icon={<KeyRound size={18} />} title={t("popup:onboarding.feature.signin.title")} detail={t("popup:onboarding.feature.signin.detail")} tone="lilac" />
+            <OnboardingFeature icon={<Network size={18} />} title={t("popup:onboarding.feature.eoa.title")} detail={t("popup:onboarding.feature.eoa.detail")} tone="blue" />
+            <OnboardingFeature icon={<Check size={18} />} title={t("popup:onboarding.feature.selfCustody.title")} detail={t("popup:onboarding.feature.selfCustody.detail")} tone="green" />
           </div>
 
           <button type="button" className="onboarding-cta" onClick={onContinue}>
-            Continue
+            {t("popup:onboarding.cta")}
             <ArrowRight size={20} />
           </button>
         </div>
@@ -1184,65 +1187,65 @@ function WalletOnboarding({
           }}
         >
           <div className="onboarding-copy">
-            <h1>Name your wallet.</h1>
-            <p>Choose a name for this wallet. You can change it later in Settings.</p>
+            <h1>{t("popup:onboarding.name.heading")}</h1>
+            <p>{t("popup:onboarding.name.subtext")}</p>
           </div>
 
           <section className="wallet-name-card">
-            <label htmlFor="wallet-name">Wallet name</label>
+            <label htmlFor="wallet-name">{t("popup:onboarding.name.label")}</label>
             <input
               id="wallet-name"
               autoFocus
               autoComplete="off"
               maxLength={48}
               onChange={(event) => onWalletName(event.target.value)}
-              placeholder="My Wallet"
+              placeholder={t("popup:onboarding.name.placeholder")}
               value={walletName}
             />
-            <small>Used to identify this wallet on this device.</small>
+            <small>{t("popup:onboarding.name.hint")}</small>
             <div className="wallet-name-preview">
               <span>
                 <Wallet size={24} />
               </span>
               <div>
                 <strong>{displayName}</strong>
-                <em>This device</em>
+                <em>{t("popup:onboarding.name.thisDevice")}</em>
               </div>
             </div>
           </section>
 
           <p className="onboarding-note">
             <KeyRound size={18} />
-            <span>Passkey secures access. Your EOA wallet will be created next.</span>
+            <span>{t("popup:onboarding.name.passkeyNote")}</span>
           </p>
 
           <button type="submit" className="onboarding-cta" disabled={!walletName.trim() || creating}>
             {creating ? <Loader2 className="spin" size={20} /> : null}
-            {creating ? "Creating Wallet..." : "Create Wallet"}
+            {creating ? t("popup:onboarding.creating") : t("popup:onboarding.createWallet")}
           </button>
         </form>
       ) : (
         <div className="onboarding-stage onboarding-ready">
           <div className="onboarding-copy">
-            <h1>Your wallet is ready.</h1>
-            <p>Passkey and EOA wallet are set up. You can start using Orchard Wallet now.</p>
+            <h1>{t("popup:onboarding.ready.heading")}</h1>
+            <p>{t("popup:onboarding.ready.subtext")}</p>
           </div>
 
           <WalletReadyIllustration />
 
-          <section className="onboarding-checklist" aria-label="Wallet setup completed">
-            <OnboardingCheck label="Passkey ready" />
-            <OnboardingCheck label="EOA wallet created" />
-            <OnboardingCheck label="Common networks enabled automatically" />
+          <section className="onboarding-checklist" aria-label={t("popup:onboarding.walletSetupCompleted")}>
+            <OnboardingCheck label={t("popup:onboarding.checklist.passkey")} />
+            <OnboardingCheck label={t("popup:onboarding.checklist.eoa")} />
+            <OnboardingCheck label={t("popup:onboarding.checklist.networks")} />
           </section>
 
           <p className="onboarding-backup">
             <ShieldCheck size={18} />
-            Backup can be added later in Security.
+            {t("popup:onboarding.backup")}
           </p>
 
           <button type="button" className="onboarding-cta" onClick={onPortal}>
-            Go to Portal
+            {t("popup:onboarding.goToPortal")}
             <ArrowRight size={20} />
           </button>
         </div>
@@ -1342,27 +1345,29 @@ function AppHeader({
   onSelect: (view: PopupView) => void;
   onOpenSettings: () => void;
 }) {
+  const { t } = useTranslation();
+
   return (
-    <section className="topbar orchard-header" aria-label="Wallet status">
+    <section className="topbar orchard-header" aria-label={t("popup:regions.walletStatus")}>
       {view === "home" ? (
         <div className="brand-mark" aria-hidden="true">
           <KeyRound size={18} />
         </div>
       ) : (
-        <button type="button" className="settings-icon-button" onClick={onBack} aria-label="Back to home">
+        <button type="button" className="settings-icon-button" onClick={onBack} aria-label={t("popup:header.backToHome")}>
           <ArrowLeft size={17} />
         </button>
       )}
       <div>
-        <p className="eyebrow">{wallet ? displayAddress : "No wallet yet"}</p>
+        <p className="eyebrow">{wallet ? displayAddress : t("popup:header.noWallet")}</p>
       </div>
       <button
         type="button"
         className={`settings-icon-button ${view === "send" ? "active" : ""}`}
         disabled={!wallet}
         onClick={() => onSelect("send")}
-        aria-label="Send"
-        title="Send"
+        aria-label={t("popup:header.send")}
+        title={t("popup:header.send")}
       >
         <Send size={17} />
       </button>
@@ -1371,12 +1376,12 @@ function AppHeader({
         className={`settings-icon-button ${view === "receive" ? "active" : ""}`}
         disabled={!wallet}
         onClick={() => onSelect("receive")}
-        aria-label="Receive"
-        title="Receive"
+        aria-label={t("popup:header.receive")}
+        title={t("popup:header.receive")}
       >
         <QrCode size={17} />
       </button>
-      <button type="button" className="settings-icon-button" onClick={onOpenSettings} aria-label="Settings">
+      <button type="button" className="settings-icon-button" onClick={onOpenSettings} aria-label={t("popup:header.settings")}>
         <Settings2 size={17} />
       </button>
     </section>
@@ -1422,6 +1427,7 @@ function HomeDashboard({
   onOpenPortfolioSettings: () => void;
   onOpenActivitySettings: () => void;
 }) {
+  const { t } = useTranslation();
   const topAssets = snapshots
     .filter((snapshot) => snapshot.status === "ready")
     .sort((a, b) => Number(b.totalValueUsd ?? 0) - Number(a.totalValueUsd ?? 0))
@@ -1430,10 +1436,10 @@ function HomeDashboard({
 
   const visibleWidgetSet = new Set(visibleWidgets.length ? visibleWidgets : DEFAULT_WALLET_UI_SETTINGS.visibleWidgets);
   const actionWidgets = [
-    { id: "send", node: <ActionWidget icon={<Send size={18} />} title="Send" detail="0.32 ETH" disabled={!wallet} onClick={() => onNavigate("send")} key="send" /> },
-    { id: "receive", node: <ActionWidget icon={<QrCode size={18} />} title="Receive" detail="2 New" disabled={!wallet} onClick={() => onNavigate("receive")} key="receive" /> },
-    { id: "swap", node: <ActionWidget icon={<RefreshCcw size={18} />} title="Swap" detail="Best rate" disabled onClick={() => undefined} key="swap" /> },
-    { id: "activity", node: <ActionWidget icon={<Activity size={18} />} title="Activity" detail="History" disabled={!wallet} onClick={onOpenActivitySettings} key="activity" /> }
+    { id: "send", node: <ActionWidget icon={<Send size={18} />} title={t("popup:widgets.send.title")} detail={t("popup:widgets.send.detail")} disabled={!wallet} onClick={() => onNavigate("send")} key="send" /> },
+    { id: "receive", node: <ActionWidget icon={<QrCode size={18} />} title={t("popup:widgets.receive.title")} detail={t("popup:widgets.receive.detail")} disabled={!wallet} onClick={() => onNavigate("receive")} key="receive" /> },
+    { id: "swap", node: <ActionWidget icon={<RefreshCcw size={18} />} title={t("popup:widgets.swap.title")} detail={t("popup:widgets.swap.detail")} disabled onClick={() => undefined} key="swap" /> },
+    { id: "activity", node: <ActionWidget icon={<Activity size={18} />} title={t("popup:widgets.activity.title")} detail={t("popup:widgets.activity.detail")} disabled={!wallet} onClick={onOpenActivitySettings} key="activity" /> }
   ]
     .filter((widget) => visibleWidgetSet.has(widget.id))
     .sort((a, b) => {
@@ -1446,21 +1452,21 @@ function HomeDashboard({
   ));
 
   return (
-    <section className="portal-shell" aria-label="Wallet portal">
-      {visibleWidgetSet.has("balance") ? <section className="hero-widget" aria-label="Portfolio balance">
+    <section className="portal-shell" aria-label={t("popup:regions.walletPortal")}>
+      {visibleWidgetSet.has("balance") ? <section className="hero-widget" aria-label={t("popup:regions.portfolioBalance")}>
         <div className="orchard-hero-copy">
           <div>
-            <span>Total Balance</span>
-            <strong>{privacyMode ? "Hidden" : displayPortfolioTotal}</strong>
-            <small>+2.10% today</small>
+            <span>{t("popup:home.balance.label")}</span>
+            <strong>{privacyMode ? t("popup:home.balance.hidden") : displayPortfolioTotal}</strong>
+            <small>{t("popup:home.balance.today")}</small>
           </div>
           <span className="time-badge">1D</span>
           <Sparkline className="hero-line" />
         </div>
 
         <div className="widget-meta-row">
-          <span>{portfolioStatus === "loading" ? "Refreshing balances" : portfolioStore?.portfolioSnapshot?.lastUpdatedAt ? `Updated ${new Date(portfolioStore.portfolioSnapshot.lastUpdatedAt).toLocaleTimeString()}` : "No refresh yet"}</span>
-          <button type="button" className="mini-icon-button" disabled={!wallet || portfolioStatus === "loading"} onClick={onRefreshPortfolio} aria-label="Refresh portfolio">
+          <span>{portfolioStatus === "loading" ? t("popup:home.balance.refreshing") : portfolioStore?.portfolioSnapshot?.lastUpdatedAt ? t("popup:home.balance.updated", { time: new Date(portfolioStore.portfolioSnapshot.lastUpdatedAt).toLocaleTimeString() }) : t("popup:home.balance.noRefresh")}</span>
+          <button type="button" className="mini-icon-button" disabled={!wallet || portfolioStatus === "loading"} onClick={onRefreshPortfolio} aria-label={t("popup:home.balance.refreshAriaLabel")}>
             <RefreshCcw className={portfolioStatus === "loading" ? "spin" : undefined} size={15} />
           </button>
         </div>
@@ -1472,9 +1478,9 @@ function HomeDashboard({
           {actionWidgets.length ? <div className="portal-action-grid">{actionWidgets}</div> : null}
           {visibleWidgetSet.has("portfolio") ? <SummaryWidget
             icon={<Network size={17} />}
-            label="Portfolio"
-            value={privacyMode ? "Hidden" : displayPortfolioTotal}
-            detail={failedNetworkCount > 0 ? `${failedNetworkCount} failed refresh` : "+2.10%"}
+            label={t("popup:portfolio.heading")}
+            value={privacyMode ? t("popup:home.balance.hidden") : displayPortfolioTotal}
+            detail={failedNetworkCount > 0 ? t("popup:home.failedRefresh", { count: failedNetworkCount }) : "+2.10%"}
             tone={failedNetworkCount > 0 ? "warning" : "ready"}
             onClick={onOpenPortfolioSettings}
           /> : null}
@@ -1485,7 +1491,7 @@ function HomeDashboard({
       </section> : null}
 
       <button type="button" className="view-all-assets portal-view-all" disabled={!wallet} onClick={onOpenPortfolioSettings}>
-        <span>View all assets</span>
+        <span>{t("popup:home.viewAllAssets")}</span>
         <ChevronDown size={16} />
       </button>
       <SettingsView
@@ -1563,16 +1569,17 @@ function SmartInsightWidget({
   enabledNetworkCount: number;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   const copy =
     sessions.length > 0
-      ? `${sessions.length} dapp${sessions.length === 1 ? "" : "s"} connected across ${enabledNetworkCount} enabled networks.`
-      : "You can earn up to 4.2% APY on idle USDC through curated strategies.";
+      ? t("popup:smartInsight.dappsConnected", { count: sessions.length, networks: enabledNetworkCount })
+      : t("popup:smartInsight.usdcApy");
 
   return (
     <button type="button" className="smart-insight-card" onClick={onClick}>
       <span aria-hidden="true">◌</span>
       <div>
-        <strong>Smart Insight</strong>
+        <strong>{t("popup:smartInsight.label")}</strong>
         <small>{copy}</small>
       </div>
       <ChevronDown size={16} />
@@ -1581,8 +1588,9 @@ function SmartInsightWidget({
 }
 
 function Sparkline({ className = "" }: { className?: string }) {
+  const { t } = useTranslation();
   return (
-    <svg className={`mini-sparkline ${className}`.trim()} viewBox="0 0 180 64" role="img" aria-label="Portfolio trend">
+    <svg className={`mini-sparkline ${className}`.trim()} viewBox="0 0 180 64" role="img" aria-label={t("popup:home.balance.label")}>
       <polyline
         points="2,45 18,45 32,37 45,42 60,25 76,18 91,22 107,34 123,35 140,24 158,13 178,18"
         fill="none"
@@ -1660,6 +1668,7 @@ function AssetWidgetRow({
   privacyMode: boolean;
   toneIndex?: number;
 }) {
+  const { t } = useTranslation();
   const isFallbackChange = snapshot.nativeBalance?.startsWith("+") || snapshot.nativeBalance?.startsWith("-");
 
   return (
@@ -1670,8 +1679,8 @@ function AssetWidgetRow({
         <span>{snapshot.nativeCurrencySymbol}</span>
       </div>
       <div>
-        <strong>{privacyMode ? "Hidden" : formatUsd(snapshot.totalValueUsd)}</strong>
-        <span>{privacyMode ? "Hidden" : isFallbackChange ? snapshot.nativeBalance : snapshot.nativeBalance ? `${formatTokenAmount(snapshot.nativeBalance)} ${snapshot.nativeCurrencySymbol}` : "+0.01%"}</span>
+        <strong>{privacyMode ? t("popup:home.balance.hidden") : formatUsd(snapshot.totalValueUsd)}</strong>
+        <span>{privacyMode ? t("popup:home.balance.hidden") : isFallbackChange ? snapshot.nativeBalance : snapshot.nativeBalance ? `${formatTokenAmount(snapshot.nativeBalance)} ${snapshot.nativeCurrencySymbol}` : "+0.01%"}</span>
       </div>
       <Sparkline />
       <ChevronDown size={15} />
@@ -1714,16 +1723,17 @@ function PortfolioPanel({
   onRefresh: () => void;
   onSelect: (networkId: string) => void;
 }) {
+  const { t } = useTranslation();
   const groupedAssets = groupAssets(store, accountId, snapshots);
 
   return (
-    <section className="portfolio-panel" aria-label="Multi-chain assets">
+    <section className="portfolio-panel" aria-label={t("popup:regions.multiChainAssets")}>
       <div className="resolver-heading">
         <div>
-          <span className="muted">Assets</span>
-          <h3>Enabled networks</h3>
+          <span className="muted">{t("popup:assets.heading")}</span>
+          <h3>{t("popup:assets.enabled")}</h3>
         </div>
-        <button type="button" className="mini-icon-button" disabled={loading} onClick={onRefresh} title="Refresh assets">
+        <button type="button" className="mini-icon-button" disabled={loading} onClick={onRefresh} title={t("popup:assets.refreshButton")}>
           <RefreshCcw className={loading ? "spin" : undefined} size={15} />
         </button>
       </div>
@@ -1739,19 +1749,19 @@ function PortfolioPanel({
             >
               <div>
                 <strong>{snapshot.networkName}</strong>
-                <span>{chainStatusLabel(snapshot)}</span>
+                <span>{chainStatusLabel(snapshot, t)}</span>
               </div>
               <div>
-                <strong>{privacyMode ? "Hidden" : formatUsd(snapshot.totalValueUsd)}</strong>
+                <strong>{privacyMode ? t("popup:home.balance.hidden") : formatUsd(snapshot.totalValueUsd)}</strong>
                 <span>
-                  {privacyMode ? "Hidden" : snapshot.nativeBalance ? formatTokenAmount(snapshot.nativeBalance) : "--"} {snapshot.nativeCurrencySymbol}
+                  {privacyMode ? t("popup:home.balance.hidden") : snapshot.nativeBalance ? formatTokenAmount(snapshot.nativeBalance) : "--"} {snapshot.nativeCurrencySymbol}
                 </span>
               </div>
             </button>
           ))}
         </div>
       ) : (
-        <p className="resolver-hint">Enable networks in Settings, then refresh assets.</p>
+        <p className="resolver-hint">{t("popup:assets.hint")}</p>
       )}
 
       {selectedChain ? <ChainAssetDetail snapshot={selectedChain} store={store} accountId={accountId} privacyMode={privacyMode} onRefresh={onRefresh} /> : null}
@@ -1809,6 +1819,7 @@ function groupAssets(store: AssetStore | null, accountId: string | null, snapsho
 }
 
 function TokenDistribution({ groups, privacyMode }: { groups: AssetGroup[]; privacyMode: boolean }) {
+  const { t } = useTranslation();
   const selected = groups[0];
   const total = groups.reduce((sum, group) => sum + group.totalValueUsd, 0);
   const highestNetwork = selected.rows
@@ -1820,16 +1831,16 @@ function TokenDistribution({ groups, privacyMode }: { groups: AssetGroup[]; priv
 
   return (
     <div className="token-distribution">
-      <WidgetHeader label="Distribution" title={`${selected.symbol} across networks`} />
+      <WidgetHeader label={t("popup:portfolio.distribution.heading")} title={t("popup:portfolio.distribution.label", { symbol: selected.symbol })} />
       <div className="distribution-hero">
         <TokenIcon symbol={selected.symbol} />
         <div>
           <strong>{selected.symbol}</strong>
-          <span>{privacyMode ? "Hidden" : formatUsd(selected.totalValueUsd.toFixed(2))}</span>
+          <span>{privacyMode ? t("popup:home.balance.hidden") : formatUsd(selected.totalValueUsd.toFixed(2))}</span>
         </div>
         <div className="distribution-ring" aria-hidden="true" />
       </div>
-      <div className="token-tabs" aria-label="Token distribution selector">
+      <div className="token-tabs" aria-label={t("popup:regions.tokenDistributionSelector")}>
         {groups.map((group) => (
           <button type="button" className={group.symbol === selected.symbol ? "selected" : ""} key={group.symbol}>
             {group.symbol}
@@ -1837,8 +1848,8 @@ function TokenDistribution({ groups, privacyMode }: { groups: AssetGroup[]; priv
         ))}
       </div>
       <div className="distribution-summary">
-        <SummaryTile label="Top network" value={highestNetwork?.networkName ?? "None"} detail={privacyMode ? "Hidden" : formatUsd(highestNetwork?.valueUsd.toFixed(2))} />
-        <SummaryTile label="Lowest network" value={lowestNetwork?.networkName ?? "None"} detail={privacyMode ? "Hidden" : formatUsd(lowestNetwork?.valueUsd.toFixed(2))} />
+        <SummaryTile label={t("popup:portfolio.distribution.topNetwork")} value={highestNetwork?.networkName ?? t("popup:portfolio.distribution.none")} detail={privacyMode ? t("popup:home.balance.hidden") : formatUsd(highestNetwork?.valueUsd.toFixed(2))} />
+        <SummaryTile label={t("popup:portfolio.distribution.lowestNetwork")} value={lowestNetwork?.networkName ?? t("popup:portfolio.distribution.none")} detail={privacyMode ? t("popup:home.balance.hidden") : formatUsd(lowestNetwork?.valueUsd.toFixed(2))} />
       </div>
       <div className="distribution-bars">
         {selected.rows.map((row) => {
@@ -1848,12 +1859,12 @@ function TokenDistribution({ groups, privacyMode }: { groups: AssetGroup[]; priv
             <div className="distribution-row" key={`${row.networkId}-${row.symbol}`}>
               <div>
                 <strong>{row.networkName}</strong>
-                <span>{privacyMode ? "Hidden" : `${row.balance ? formatTokenAmount(row.balance) : "--"} ${row.symbol}`}</span>
+                <span>{privacyMode ? t("popup:home.balance.hidden") : `${row.balance ? formatTokenAmount(row.balance) : "--"} ${row.symbol}`}</span>
               </div>
               <div className="progress-track" aria-hidden="true">
                 <span style={{ width: `${percent}%` }} />
               </div>
-              <em>{privacyMode ? "Hidden" : formatUsd(row.valueUsd.toFixed(2))}</em>
+              <em>{privacyMode ? t("popup:home.balance.hidden") : formatUsd(row.valueUsd.toFixed(2))}</em>
             </div>
           );
         })}
@@ -1885,6 +1896,7 @@ function ChainAssetDetail({
   privacyMode: boolean;
   onRefresh: () => void;
 }) {
+  const { t } = useTranslation();
   const tokenRows = (snapshot.tokenAssetIds ?? [])
     .map((assetId) => ({
       definition: store?.assetDefinitions[assetId],
@@ -1896,35 +1908,35 @@ function ChainAssetDetail({
   return (
     <div className="chain-detail">
       <div className="preview-row">
-        <span>Network</span>
+        <span>{t("popup:chainDetail.network")}</span>
         <div>
           <strong>{snapshot.networkName}</strong>
-          <small>{snapshot.chainId ? `Chain ID ${snapshot.chainId}` : snapshot.family}</small>
+          <small>{snapshot.chainId ? t("popup:chainDetail.chainId", { chainId: snapshot.chainId }) : snapshot.family}</small>
         </div>
       </div>
       <div className="preview-row">
-        <span>Native asset</span>
+        <span>{t("popup:chainDetail.nativeAsset")}</span>
         <div>
           <strong>
-            {privacyMode ? "Hidden" : snapshot.nativeBalance ? formatTokenAmount(snapshot.nativeBalance) : "--"} {snapshot.nativeCurrencySymbol}
+            {privacyMode ? t("popup:home.balance.hidden") : snapshot.nativeBalance ? formatTokenAmount(snapshot.nativeBalance) : "--"} {snapshot.nativeCurrencySymbol}
           </strong>
-          <small>{privacyMode ? "Hidden" : `${formatUsd(snapshot.totalValueUsd)} - ${assetFreshnessLabel(snapshot.refreshedAt, snapshot.staleAt)}`}</small>
+          <small>{privacyMode ? t("popup:home.balance.hidden") : `${formatUsd(snapshot.totalValueUsd)} - ${assetFreshnessLabel(snapshot.refreshedAt, snapshot.staleAt, t)}`}</small>
         </div>
       </div>
       <button type="button" className="secondary-button" onClick={onRefresh}>
         <RefreshCcw size={16} />
-        Refresh {snapshot.nativeCurrencySymbol}
+        {t("popup:chainDetail.refreshButton", { symbol: snapshot.nativeCurrencySymbol })}
       </button>
       <div className="preview-row">
-        <span>Status</span>
+        <span>{t("popup:chainDetail.status")}</span>
         <div>
-          <strong>{chainStatusLabel(snapshot)}</strong>
-          {snapshot.error ? <small>{snapshot.error}</small> : snapshot.staleAt ? <small>Fresh until {new Date(snapshot.staleAt).toLocaleTimeString()}</small> : null}
+          <strong>{chainStatusLabel(snapshot, t)}</strong>
+          {snapshot.error ? <small>{snapshot.error}</small> : snapshot.staleAt ? <small>{t("popup:chainDetail.freshUntil", { time: new Date(snapshot.staleAt).toLocaleTimeString() })}</small> : null}
         </div>
       </div>
       {tokenRows.length > 0 ? (
         <div className="token-balance-list">
-          <span>Tokens</span>
+          <span>{t("popup:chainDetail.tokens")}</span>
           {tokenRows.map((row) => {
             const value = row.balance && row.price ? Number(row.balance.decimalAmount) * Number(row.price.value) : null;
             return (
@@ -1932,13 +1944,13 @@ function ChainAssetDetail({
                 <TokenIcon symbol={row.definition?.symbol ?? "?"} />
               <div>
                 <strong>{row.definition?.symbol}</strong>
-                  <span>{row.definition?.name} - {assetFreshnessLabel(row.balance?.refreshedAt, undefined)}</span>
+                  <span>{row.definition?.name} - {assetFreshnessLabel(row.balance?.refreshedAt, undefined, t)}</span>
               </div>
                 <div>
-                  <strong>{privacyMode ? "Hidden" : value === null || !Number.isFinite(value) ? "--" : formatUsd(value.toFixed(2))}</strong>
-                  <span>{privacyMode ? "Hidden" : `${row.balance ? formatTokenAmount(row.balance.decimalAmount) : "--"} ${row.definition?.symbol}`}</span>
+                  <strong>{privacyMode ? t("popup:home.balance.hidden") : value === null || !Number.isFinite(value) ? "--" : formatUsd(value.toFixed(2))}</strong>
+                  <span>{privacyMode ? t("popup:home.balance.hidden") : `${row.balance ? formatTokenAmount(row.balance.decimalAmount) : "--"} ${row.definition?.symbol}`}</span>
               </div>
-              <button type="button" className="mini-icon-button" onClick={onRefresh} aria-label={`Refresh ${row.definition?.symbol}`}>
+              <button type="button" className="mini-icon-button" onClick={onRefresh} aria-label={t("popup:chainDetail.refreshSymbol", { symbol: row.definition?.symbol ?? "" })}>
                 <RefreshCcw size={14} />
               </button>
             </div>
@@ -1950,32 +1962,34 @@ function ChainAssetDetail({
   );
 }
 
-function assetFreshnessLabel(refreshedAt?: string, staleAt?: string): string {
+function assetFreshnessLabel(refreshedAt?: string, staleAt?: string, t?: (key: string, opts?: Record<string, unknown>) => string): string {
   if (!refreshedAt) {
-    return "Not refreshed";
+    return t ? t("popup:chainDetail.notRefreshed") : "Not refreshed";
   }
 
   if (staleAt && Date.parse(staleAt) < Date.now()) {
-    return `Stale since ${new Date(staleAt).toLocaleTimeString()}`;
+    return t ? t("popup:chainDetail.stale", { time: new Date(staleAt).toLocaleTimeString() }) : `Stale since ${new Date(staleAt).toLocaleTimeString()}`;
   }
 
-  return `Updated ${new Date(refreshedAt).toLocaleTimeString()}`;
+  return t ? t("popup:chainDetail.updated", { time: new Date(refreshedAt).toLocaleTimeString() }) : `Updated ${new Date(refreshedAt).toLocaleTimeString()}`;
 }
 
-function chainStatusLabel(snapshot: ChainAssetSnapshot): string {
+function chainStatusLabel(snapshot: ChainAssetSnapshot, t?: (key: string) => string): string {
   if (snapshot.status === "ready" && snapshot.totalValueUsd === null) {
-    return "Balance ready, price unavailable";
+    return t ? t("popup:portfolio.balancePriceUnavailable") : "Balance ready, price unavailable";
   }
 
   if (snapshot.status === "ready") {
-    return "Ready";
+    return t ? t("common:status.ready") : "Ready";
   }
 
   if (snapshot.status === "unsupported") {
-    return "Adapter pending";
+    return t ? t("popup:portfolio.adapterPending") : "Adapter pending";
   }
 
-  return snapshot.status === "error" ? "Refresh failed" : "Refreshing";
+  return snapshot.status === "error"
+    ? (t ? t("popup:portfolio.refreshFailed") : "Refresh failed")
+    : (t ? t("popup:portfolio.refreshing") : "Refreshing");
 }
 
 function ReceiveView({
@@ -1991,6 +2005,7 @@ function ReceiveView({
   onCopy: () => void;
   onDone: () => void;
 }) {
+  const { t } = useTranslation();
   const [showFullAddress, setShowFullAddress] = useState(false);
   const asset = network?.nativeCurrencySymbol ?? "ETH";
   const networkName = network?.name.replace(/\s+(Mainnet|network)$/i, "") ?? "Ethereum";
@@ -2000,7 +2015,7 @@ function ReceiveView({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Receive ${asset}`,
+          title: t("popup:receive.heading", { asset }),
           text: wallet.address
         });
         return;
@@ -2013,11 +2028,11 @@ function ReceiveView({
   }
 
   return (
-    <section className="receive-panel receive-sheet" aria-label="Receive assets">
+    <section className="receive-panel receive-sheet" aria-label={t("popup:receive.sectionLabel")}>
       <div className="receive-sheet-heading">
         <div>
-          <span>Receive</span>
-          <h3>Receive {asset}</h3>
+          <span>{t("popup:receive.label")}</span>
+          <h3>{t("popup:receive.heading", { asset })}</h3>
         </div>
         <strong>{networkName}</strong>
       </div>
@@ -2026,12 +2041,12 @@ function ReceiveView({
         <div className="qr-wrap receive-qr-card">
           <QRCodeSVG value={wallet.address} size={212} marginSize={2} level="M" />
         </div>
-        <p>Scan to receive {asset} on {networkName}</p>
+        <p>{t("popup:receive.qrHint", { asset, network: networkName })}</p>
       </div>
 
-      <section className="receive-address-card" aria-label="Receiving address">
+      <section className="receive-address-card" aria-label={t("popup:receive.addressLabel")}>
         <div className="receive-address-tabs" aria-hidden="true">
-          <span>Address</span>
+          <span>{t("popup:receive.addressTab")}</span>
           <em>ENS</em>
         </div>
         <div className="receive-address-line">
@@ -2039,32 +2054,32 @@ function ReceiveView({
             <strong>{address}</strong>
             <small title={wallet.address}>{wallet.address}</small>
           </div>
-          <button type="button" onClick={onCopy} aria-label={copied ? "Address copied" : "Copy address"}>
+          <button type="button" onClick={onCopy} aria-label={copied ? t("popup:receive.addressCopied") : t("popup:receive.copyAddress")}>
             {copied ? <Check size={20} /> : <Copy size={20} />}
           </button>
-          <button type="button" onClick={() => void handleShare()} aria-label="Share address">
+          <button type="button" onClick={() => void handleShare()} aria-label={t("popup:receive.shareAddress")}>
             <Share2 size={20} />
           </button>
         </div>
       </section>
 
-      <div className="receive-options" aria-label="Receive options">
+      <div className="receive-options" aria-label={t("popup:regions.receiveOptions")}>
         <button type="button" onClick={() => setShowFullAddress((current) => !current)}>
           <Eye size={17} />
-          {showFullAddress ? "Show short address" : "Show full address"}
+          {showFullAddress ? t("popup:receive.showShortAddress") : t("popup:receive.showFullAddress")}
         </button>
         <button type="button" disabled>
           <SlidersHorizontal size={17} />
-          Set amount (optional)
+          {t("popup:receive.setAmount")}
         </button>
       </div>
 
       <button type="button" className="primary-button receive-done" onClick={onDone}>
-        Done
+        {t("common:actions.done")}
       </button>
       <button type="button" className="receive-copy-footer" onClick={onCopy}>
         <Copy size={16} />
-        {copied ? "Address copied" : "Copy address"}
+        {copied ? t("popup:receive.addressCopied") : t("popup:receive.copyAddress")}
       </button>
     </section>
   );
@@ -2119,13 +2134,14 @@ function SendView({
   onPreviewAction: () => void;
   onCancelPreview: () => void;
 }) {
+  const { t } = useTranslation();
   const selectedSnapshot = selectedSendNetwork
     ? chainSnapshots.find((snapshot) => snapshot.networkId === selectedSendNetwork.networkId)
     : undefined;
   const maxAmount = selectedSnapshot?.nativeBalance ?? "";
   const recipientHint =
     resolverStatus === "resolving"
-      ? "Resolving recipient..."
+      ? t("popup:send.resolvingRecipient")
       : recipientResolution.kind === "ens"
         ? `${recipientResolution.normalizedName} resolves to ${formatAddress(recipientResolution.address)}`
         : recipientResolution.kind === "address" && recipientResolution.primaryName
@@ -2150,7 +2166,7 @@ function SendView({
 
   if (previewAccepted) {
     return (
-      <section className="send-preview-screen" aria-label="Transaction preview">
+      <section className="send-preview-screen" aria-label={t("popup:regions.transactionPreview")}>
         <ClearSigningPreviewSheet
           result={previewResult}
           feeStatus={feeStatus}
@@ -2162,18 +2178,18 @@ function SendView({
 
         {signatureResult ? (
           <div className="signature-box">
-            <span>Signed transaction hash</span>
+            <span>{t("popup:send.signedTxHash")}</span>
             <strong>{signatureResult.txHash}</strong>
           </div>
         ) : null}
 
         {broadcastHash ? (
           <div className="signature-box broadcasted">
-            <span>Broadcast hash</span>
+            <span>{t("popup:send.broadcastHash")}</span>
             <strong>{broadcastHash}</strong>
             {broadcastExplorerUrl ? (
               <a href={broadcastExplorerUrl} target="_blank" rel="noreferrer">
-                View on explorer
+                {t("popup:send.viewOnExplorer")}
               </a>
             ) : null}
           </div>
@@ -2185,10 +2201,10 @@ function SendView({
   }
 
   return (
-    <section className="send-panel portal-send-panel" aria-label="Send native token">
-      <section className="portal-send-sheet" aria-label="Send transfer form">
+    <section className="send-panel portal-send-panel" aria-label={t("popup:send.sectionLabel")}>
+      <section className="portal-send-sheet" aria-label={t("popup:send.formLabel")}>
         <div className="portal-send-heading">
-          <h2>Send</h2>
+          <h2>{t("popup:send.heading")}</h2>
           <strong>{networkName}</strong>
         </div>
 
@@ -2197,7 +2213,7 @@ function SendView({
             <TokenIcon symbol={selectedSendNetwork?.nativeCurrencySymbol ?? "?"} />
             <div>
               <strong>{selectedSendNetwork?.nativeCurrencySymbol ?? "TOKEN"}</strong>
-              <small>{selectedSendNetwork?.name ?? "Enable an EVM network"}</small>
+              <small>{selectedSendNetwork?.name ?? t("popup:send.enableEvm")}</small>
             </div>
             <ChevronDown size={22} />
           </button>
@@ -2214,7 +2230,7 @@ function SendView({
           ) : null}
         </div>
 
-        <label className="portal-send-label" htmlFor="portal-send-amount">Amount</label>
+        <label className="portal-send-label" htmlFor="portal-send-amount">{t("popup:send.amount")}</label>
         <div className="portal-send-amount">
           <div className="portal-send-amount-value">
             <input
@@ -2226,24 +2242,24 @@ function SendView({
               placeholder="0.00"
               spellCheck={false}
             />
-            <small>$0.00 USD</small>
+            <small>{t("popup:send.usdEquivalent")}</small>
           </div>
           <button type="button" disabled={!maxAmount} onClick={() => onAmountInput(maxAmount)}>
-            Max
+            {t("popup:send.max")}
           </button>
         </div>
 
-        <label className="portal-send-label" htmlFor="portal-send-recipient">Recipient</label>
+        <label className="portal-send-label" htmlFor="portal-send-recipient">{t("popup:send.recipient")}</label>
         <div className="portal-send-recipient">
           <input
             id="portal-send-recipient"
             type="text"
             value={recipientInput}
             onChange={(event) => onRecipientInput(event.target.value)}
-            placeholder="ENS name or address"
+            placeholder={t("popup:send.recipientPlaceholder")}
             spellCheck={false}
           />
-          <button type="button" onClick={() => void handlePasteRecipient()} aria-label="Paste recipient">
+          <button type="button" onClick={() => void handlePasteRecipient()} aria-label={t("popup:send.pasteRecipient")}>
             <Copy size={17} />
           </button>
         </div>
@@ -2252,12 +2268,12 @@ function SendView({
         <section className="portal-send-fee" aria-live="polite">
           <Wallet size={20} />
           <div>
-            <strong>Estimated network fee</strong>
-            <small>{feeStatus === "estimating" ? "Estimating from RPC" : feeError ?? selectedSendNetwork?.name ?? "Complete transfer details"}</small>
+            <strong>{t("popup:send.estimatedFee")}</strong>
+            <small>{feeStatus === "estimating" ? t("popup:send.estimating") : feeError ?? selectedSendNetwork?.name ?? t("popup:send.completeDetails")}</small>
           </div>
           <div>
             <strong>{previewResult.ok ? previewResult.preview.estimatedNetworkFee : "~$0.00"}</strong>
-            <small>{maxAmount ? `${formatTokenAmount(maxAmount)} ${selectedSendNetwork?.nativeCurrencySymbol ?? ""} available` : "Balance unavailable"}</small>
+            <small>{maxAmount ? t("popup:send.available", { amount: formatTokenAmount(maxAmount), symbol: selectedSendNetwork?.nativeCurrencySymbol ?? "" }) : t("popup:send.balanceUnavailable")}</small>
           </div>
         </section>
 
@@ -2274,29 +2290,29 @@ function SendView({
           onClick={onPreviewAction}
         >
           {signingStatus === "signing"
-            ? "Signing..."
+            ? t("popup:send.signing")
             : signingStatus === "broadcasting"
-              ? "Broadcasting..."
+              ? t("popup:send.broadcasting")
               : signingStatus === "broadcasted"
-                ? "Transaction broadcast"
-                : "Continue"}
+                ? t("popup:send.broadcastSuccess")
+                : t("popup:send.continue")}
         </button>
       </section>
 
       {signatureResult ? (
         <div className="signature-box">
-          <span>Signed transaction hash</span>
+          <span>{t("popup:send.signedTxHash")}</span>
           <strong>{signatureResult.txHash}</strong>
         </div>
       ) : null}
 
       {broadcastHash ? (
         <div className="signature-box broadcasted">
-          <span>Broadcast hash</span>
+          <span>{t("popup:send.broadcastHash")}</span>
           <strong>{broadcastHash}</strong>
           {broadcastExplorerUrl ? (
             <a href={broadcastExplorerUrl} target="_blank" rel="noreferrer">
-              View on explorer
+              {t("popup:send.viewOnExplorer")}
             </a>
           ) : null}
         </div>
@@ -2318,16 +2334,17 @@ function TokenPickerSheet({
   chainSnapshots: ChainAssetSnapshot[];
   onSelect: (networkId: string) => void;
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const visibleNetworks = networks.filter((network) =>
     [network.name, network.nativeCurrencySymbol, network.chainId?.toString() ?? ""].join(" ").toLowerCase().includes(query.trim().toLowerCase())
   );
 
   return (
-    <div className="sheet-panel" aria-label="Choose token">
+    <div className="sheet-panel" aria-label={t("popup:tokenPicker.heading")}>
       <label className="settings-search compact-search">
         <Search size={16} />
-        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search token or network" />
+        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("popup:tokenPicker.searchPlaceholder")} />
       </label>
       <div className="token-option-list">
         {visibleNetworks.map((network) => {
@@ -2345,7 +2362,7 @@ function TokenPickerSheet({
         })}
       </div>
       <button type="button" className="secondary-button" disabled>
-        Manage tokens
+        {t("popup:tokenPicker.manageTokens")}
       </button>
     </div>
   );
@@ -2392,6 +2409,7 @@ function ConnectedSessionsView({
   onDisconnect: (topic: string) => void;
   onDisconnectAll: () => void;
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "expiring">("all");
   const [sort, setSort] = useState<"name" | "last-active" | "expiry">("name");
@@ -2425,17 +2443,17 @@ function ConnectedSessionsView({
   const detailSession = sessions.find((session) => session.topic === detailTopic) ?? null;
 
   return (
-    <section className="resolver-panel" aria-label="WalletConnect">
-      <WidgetHeader label="WalletConnect v2" title="Connected Sessions" />
+    <section className="resolver-panel" aria-label={t("popup:walletConnect.sectionLabel")}>
+      <WidgetHeader label={t("popup:walletConnect.heading")} title={t("popup:walletConnect.connectedSessions")} />
 
       <label className="recipient-field">
-        <span>Pairing URI</span>
-        <input type="text" value={walletConnectUri} onChange={(event) => onUriInput(event.target.value)} placeholder="wc:..." spellCheck={false} />
+        <span>{t("popup:walletConnect.pairingLabel")}</span>
+        <input type="text" value={walletConnectUri} onChange={(event) => onUriInput(event.target.value)} placeholder={t("popup:walletConnect.pairingPlaceholder")} spellCheck={false} />
       </label>
 
       <button type="button" className="secondary-button" disabled={!walletConnectUri.trim() || walletConnectStatus === "pairing"} onClick={onPair}>
         {walletConnectStatus === "pairing" ? <Loader2 className="spin" size={17} /> : <Settings2 size={17} />}
-        {walletConnectStatus === "pairing" ? "Pairing..." : "Pair WalletConnect"}
+        {walletConnectStatus === "pairing" ? t("popup:walletConnect.pairing") : t("popup:walletConnect.pair")}
       </button>
 
       {walletConnectMessage ? <p className={walletConnectStatus === "error" ? "resolver-result invalid" : "resolver-result valid"}>{walletConnectMessage}</p> : null}
@@ -2452,23 +2470,23 @@ function ConnectedSessionsView({
 
       <label className="settings-search compact-search">
         <Search size={16} />
-        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search dapp or chain" />
+        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("popup:walletConnect.searchPlaceholder")} />
       </label>
       <div className="session-controls">
         <label>
-          <span>Filter</span>
+          <span>{t("popup:walletConnect.filterLabel")}</span>
           <select value={filter} onChange={(event) => setFilter(event.target.value as "all" | "active" | "expiring")}>
-            <option value="all">All</option>
-            <option value="active">Recently active</option>
-            <option value="expiring">Expiring soon</option>
+            <option value="all">{t("popup:walletConnect.allSessions")}</option>
+            <option value="active">{t("popup:walletConnect.noActiveFilter")}</option>
+            <option value="expiring">{t("popup:walletConnect.expiringFilter")}</option>
           </select>
         </label>
         <label>
-          <span>Sort</span>
+          <span>{t("popup:walletConnect.sortLabel")}</span>
           <select value={sort} onChange={(event) => setSort(event.target.value as "name" | "last-active" | "expiry")}>
-            <option value="name">Name</option>
-            <option value="last-active">Last active</option>
-            <option value="expiry">Expiry</option>
+            <option value="name">{t("popup:walletConnect.nameSort")}</option>
+            <option value="last-active">{t("popup:walletConnect.lastActive")}</option>
+            <option value="expiry">{t("popup:walletConnect.expirySort")}</option>
           </select>
         </label>
       </div>
@@ -2505,14 +2523,16 @@ function PendingProposalPanel({
   onApprove: (id: number) => void;
   onReject: (id: number) => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <div className="wc-session-panel">
       <div className="wc-session-heading">
         <div>
-          <span>Connection requests</span>
+          <span>{t("popup:walletConnect.connectionRequests")}</span>
           <strong>{proposals.length}</strong>
         </div>
-        <button type="button" className="mini-icon-button" disabled={status === "loading"} onClick={onRefresh} title="Refresh connection requests">
+        <button type="button" className="mini-icon-button" disabled={status === "loading"} onClick={onRefresh} title={t("popup:walletConnect.refreshRequests")}>
           <RefreshCcw className={status === "loading" ? "spin" : undefined} size={15} />
         </button>
       </div>
@@ -2523,16 +2543,16 @@ function PendingProposalPanel({
             <article className="proposal-row" key={proposal.id}>
               <div className="wc-session-main">
                 <strong>{proposal.name}</strong>
-                <span>{proposal.url || "No origin provided"}</span>
+                <span>{proposal.url || t("popup:walletConnect.noOrigin")}</span>
                 <small>{proposalSummary(proposal)}</small>
               </div>
               <div className="proposal-actions">
                 <button type="button" className="secondary-button" disabled={actingProposalId === proposal.id} onClick={() => onReject(proposal.id)}>
-                  Reject
+                  {t("popup:walletConnect.reject")}
                 </button>
                 <button type="button" className="primary-button" disabled={actingProposalId === proposal.id || proposal.riskyMethods.length > 0} onClick={() => onApprove(proposal.id)}>
                   {actingProposalId === proposal.id ? <Loader2 className="spin" size={15} /> : <Check size={15} />}
-                  Approve
+                  {t("popup:walletConnect.approve")}
                 </button>
               </div>
               {proposal.riskyMethods.length > 0 || proposal.unsupportedChains.length > 0 || proposal.domainMismatch ? (
@@ -2540,19 +2560,19 @@ function PendingProposalPanel({
                   {proposal.riskyMethods.length > 0 ? (
                     <div className="warning-item danger">
                       <AlertTriangle size={14} />
-                      <span>Unsupported methods: {proposal.riskyMethods.join(", ")}</span>
+                      <span>{t("popup:walletConnect.riskyMethods", { methods: proposal.riskyMethods.join(", ") })}</span>
                     </div>
                   ) : null}
                   {proposal.unsupportedChains.length > 0 ? (
                     <div className="warning-item warning">
                       <AlertTriangle size={14} />
-                      <span>Unsupported chains: {proposal.unsupportedChains.join(", ")}</span>
+                      <span>{t("popup:walletConnect.unsupportedChains", { chains: proposal.unsupportedChains.join(", ") })}</span>
                     </div>
                   ) : null}
                   {proposal.domainMismatch ? (
                     <div className="warning-item warning">
                       <AlertTriangle size={14} />
-                      <span>Dapp name and URL do not clearly match.</span>
+                      <span>{t("popup:walletConnect.domainMismatch")}</span>
                     </div>
                   ) : null}
                 </div>
@@ -2561,7 +2581,7 @@ function PendingProposalPanel({
           ))}
         </div>
       ) : (
-        <p className="resolver-hint">{status === "loading" ? "Loading connection requests." : "No pending connection requests."}</p>
+        <p className="resolver-hint">{status === "loading" ? t("popup:walletConnect.loadingRequests") : t("popup:walletConnect.noPendingRequests")}</p>
       )}
 
       {error ? <p className="resolver-result invalid">{error}</p> : null}
@@ -2590,13 +2610,14 @@ function NetworksView({
   onUpdateNetwork: (networkId: string, updater: (network: WalletNetworkSetting) => WalletNetworkSetting) => void;
   onOpenSettings: () => void;
 }) {
+  const { t } = useTranslation();
   const [expandedNetworkId, setExpandedNetworkId] = useState<string | null>(selectedSendNetworkId);
 
   return (
-    <section className="portfolio-panel" aria-label="Networks">
-      <WidgetHeader label="Networks" title="Enabled and built-in chains" actionLabel="Edit" onAction={onOpenSettings} />
+    <section className="portfolio-panel" aria-label={t("popup:network.heading")}>
+      <WidgetHeader label={t("popup:network.heading")} title={t("popup:network.enabledAndBuiltIn")} actionLabel={t("popup:network.editAction")} onAction={onOpenSettings} />
       <label className="recipient-field">
-        <span>Default send network</span>
+        <span>{t("popup:network.defaultSendNetwork")}</span>
         <select className="network-select" value={selectedSendNetworkId ?? ""} onChange={(event) => onSelectDefaultSendNetwork(event.target.value || null)}>
           {sendNetworks.map((network) => (
             <option value={network.networkId} key={network.networkId}>
@@ -2615,10 +2636,10 @@ function NetworksView({
                 <TokenIcon symbol={network.nativeCurrencySymbol} />
                 <div>
                   <strong>{network.name}</strong>
-                  <span>{network.chainId ? `Chain ID ${network.chainId}` : network.family}</span>
+                  <span>{network.chainId ? t("popup:network.chainId", { chainId: network.chainId }) : network.family}</span>
                 </div>
-                {selectedSendNetworkId === network.networkId ? <span className="default-badge">Default</span> : null}
-                <StatusBadge ready={network.enabled && health?.status !== "error" && snapshot?.status !== "error"} label={network.enabled ? networkHealthLabel(health, networkHealthStatus) : "Disabled"} />
+                {selectedSendNetworkId === network.networkId ? <span className="default-badge">{t("popup:network.defaultBadge")}</span> : null}
+                <StatusBadge ready={network.enabled && health?.status !== "error" && snapshot?.status !== "error"} label={network.enabled ? networkHealthLabel(health, networkHealthStatus, t) : t("popup:network.disabled")} />
                 <ChevronDown size={16} />
               </button>
               {expandedNetworkId === network.networkId ? (
@@ -2634,11 +2655,11 @@ function NetworksView({
                         }))
                       }
                     />
-                    <span>{network.enabled ? "Enabled" : "Disabled"}</span>
+                    <span>{network.enabled ? t("popup:network.enabled_true") : t("popup:network.enabled_false")}</span>
                   </label>
-                  <PreviewRow label="Native token" value={network.nativeCurrencySymbol} detail={network.chain} />
+                  <PreviewRow label={t("popup:network.nativeToken")} value={network.nativeCurrencySymbol} detail={network.chain} />
                   <label className="recipient-field">
-                    <span>Selected RPC</span>
+                    <span>{t("popup:network.rpcSelected")}</span>
                     <select
                       className="network-select"
                       value={network.selectedRpcUrl}
@@ -2657,14 +2678,14 @@ function NetworksView({
                       ))}
                     </select>
                   </label>
-                  <PreviewRow label="RPC status" value={networkHealthLabel(health, networkHealthStatus)} detail={health?.failureReason ?? (health?.latestBlockNumber ? `Block ${health.latestBlockNumber} - ${health.latencyMs}ms` : undefined)} />
-                  <PreviewRow label="Explorer" value={network.explorerUrl ?? "Not configured"} />
-                  <PreviewRow label="Gas status" value={health?.status === "ready" ? "RPC ready for gas estimates" : "Unavailable"} />
+                  <PreviewRow label={t("popup:network.rpcStatus")} value={networkHealthLabel(health, networkHealthStatus, t)} detail={health?.failureReason ?? (health?.latestBlockNumber ? `Block ${health.latestBlockNumber} - ${health.latencyMs}ms` : undefined)} />
+                  <PreviewRow label={t("popup:network.explorer")} value={network.explorerUrl ?? t("popup:network.explorerNotConfigured")} />
+                  <PreviewRow label={t("popup:network.gasStatus")} value={health?.status === "ready" ? t("popup:network.gasStatusReady") : t("popup:network.gasStatusUnavailable")} />
                   <button type="button" className="secondary-button" disabled={!network.enabled || !sendNetworks.some((item) => item.networkId === network.networkId)} onClick={() => onSelectDefaultSendNetwork(network.networkId)}>
-                    Use for sends
+                    {t("popup:network.useForSends")}
                   </button>
                   <button type="button" className="secondary-button" onClick={onOpenSettings}>
-                    Add or edit custom RPC
+                    {t("popup:network.addOrEdit")}
                   </button>
                 </div>
               ) : null}
@@ -2676,24 +2697,24 @@ function NetworksView({
   );
 }
 
-function networkHealthLabel(health: NetworkHealthCheck | undefined, status: "idle" | "loading" | "ready"): string {
+function networkHealthLabel(health: NetworkHealthCheck | undefined, status: "idle" | "loading" | "ready", t?: (key: string, opts?: Record<string, unknown>) => string): string {
   if (status === "loading" && !health) {
-    return "Checking";
+    return t ? t("popup:network.checking") : "Checking";
   }
 
   if (!health) {
-    return "Not checked";
+    return t ? t("popup:network.notChecked") : "Not checked";
   }
 
   if (health.status === "ready") {
-    return `${health.latencyMs ?? "--"}ms`;
+    return t ? t("popup:network.rpcReady", { latency: health.latencyMs ?? "--" }) : `${health.latencyMs ?? "--"}ms`;
   }
 
   if (health.status === "unsupported") {
-    return "Unsupported";
+    return t ? t("popup:network.unsupported") : "Unsupported";
   }
 
-  return "RPC failed";
+  return t ? t("popup:network.rpcFailed") : "RPC failed";
 }
 
 function SecurityView({
@@ -2711,18 +2732,19 @@ function SecurityView({
   portfolioError: string | null;
   networkHealth: Record<string, NetworkHealthCheck>;
 }) {
+  const { t } = useTranslation();
   const failedNetworkCount = Object.values(networkHealth).filter((health) => health.status === "error").length;
   const riskyProposalCount = proposals.filter((proposal) => proposal.riskyMethods.length > 0 || proposal.unsupportedChains.length > 0 || proposal.domainMismatch).length;
 
   return (
-    <section className="portfolio-panel" aria-label="Security">
-      <WidgetHeader label="Security Center" title="Wallet safety summary" />
+    <section className="portfolio-panel" aria-label={t("popup:security.heading")}>
+      <WidgetHeader label={t("popup:security.heading")} title={t("popup:security.title")} />
       <div className="security-grid">
-        <SecurityRow label="Passkey wallet" value={wallet ? "Local encrypted keystore ready" : "No wallet created"} tone={wallet ? "ready" : "warning"} />
-        <SecurityRow label="Clear signing" value={previewReady ? "Native transfer parser active" : "Waiting for a valid transfer"} tone="ready" />
-        <SecurityRow label="Dapp sessions" value={`${sessions.length} connected, ${riskyProposalCount} risky request${riskyProposalCount === 1 ? "" : "s"}`} tone={sessions.length > 0 || riskyProposalCount > 0 ? "warning" : "ready"} />
-        <SecurityRow label="Portfolio refresh" value={portfolioError ?? "No refresh errors"} tone={portfolioError ? "warning" : "ready"} />
-        <SecurityRow label="Network mismatch" value={failedNetworkCount > 0 ? `${failedNetworkCount} RPC health issue${failedNetworkCount === 1 ? "" : "s"}` : "No RPC health issues"} tone={failedNetworkCount > 0 ? "warning" : "ready"} />
+        <SecurityRow label={t("popup:security.passkey.label")} value={wallet ? t("popup:security.passkey.ready") : t("popup:security.passkey.noWallet")} tone={wallet ? "ready" : "warning"} />
+        <SecurityRow label={t("popup:security.clearSigning.label")} value={previewReady ? t("popup:security.clearSigning.active") : t("popup:security.clearSigning.waiting")} tone="ready" />
+        <SecurityRow label={t("popup:security.dappSessions.label")} value={t("popup:security.dappSessions.value", { count: sessions.length, risky: riskyProposalCount })} tone={sessions.length > 0 || riskyProposalCount > 0 ? "warning" : "ready"} />
+        <SecurityRow label={t("popup:security.portfolioRefresh.label")} value={portfolioError ?? t("popup:security.portfolioRefresh.noErrors")} tone={portfolioError ? "warning" : "ready"} />
+        <SecurityRow label={t("popup:security.networkMismatch.label")} value={failedNetworkCount > 0 ? t("popup:security.networkMismatch.issue", { count: failedNetworkCount }) : t("popup:security.networkMismatch.noIssues")} tone={failedNetworkCount > 0 ? "warning" : "ready"} />
       </div>
     </section>
   );
@@ -2766,16 +2788,18 @@ function SettingsView({
   onResetWidgets: () => void;
   onOpenSettings: () => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <section className={compact ? "setup-panel compact-setup" : "setup-panel"}>
       <div className="setup-copy">
         <Wallet size={22} />
         <div>
-          <h3>{wallet ? "Wallet created" : "Create your wallet"}</h3>
+          <h3>{wallet ? t("popup:settings.walletCreated") : t("popup:settings.walletTitle")}</h3>
           <p>
             {wallet
-              ? "The encrypted tcx-wasm keystore is stored locally and unlocked by the passkey PRF."
-              : "Create a local HD wallet encrypted with a WebAuthn PRF key from your passkey."}
+              ? t("popup:settings.keystoreDescription")
+              : t("popup:settings.walletDescription")}
           </p>
         </div>
       </div>
@@ -2783,26 +2807,26 @@ function SettingsView({
       {!compact ? (
         <button type="button" className="secondary-button" onClick={onTogglePrivacy}>
           {privacyMode ? <EyeOff size={18} /> : <Eye size={18} />}
-          {privacyMode ? "Show balances" : "Hide balances"}
+          {privacyMode ? t("popup:settings.showBalances") : t("popup:settings.hideBalances")}
         </button>
       ) : null}
 
       {!wallet ? (
         <button type="button" className="primary-button" disabled={status === "creating"} onClick={onCreateWallet}>
           {status === "creating" ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}
-          {status === "creating" ? "Creating..." : "Create with Passkey"}
+          {status === "creating" ? t("popup:settings.creating") : t("popup:settings.createPasskey")}
         </button>
       ) : (
         <button type="button" className="secondary-button" onClick={onReset}>
           <RefreshCcw size={18} />
-          Reset local wallet
+          {t("popup:settings.resetLocalWallet")}
         </button>
       )}
 
       {!compact ? (
         <button type="button" className="secondary-button" onClick={onOpenSettings}>
           <Network size={18} />
-          Open network settings
+          {t("popup:settings.openNetworkSettings")}
         </button>
       ) : null}
 
@@ -2832,12 +2856,13 @@ function WidgetCustomizationList({
   onMoveWidget: (widgetId: string, direction: -1 | 1) => void;
   onResetWidgets: () => void;
 }) {
+  const { t } = useTranslation();
   const widgetDescriptions: Record<string, { title: string; detail: string; recommended?: boolean }> = {
-    balance: { title: "Balance", detail: "Portfolio hero and refresh status", recommended: true },
-    actions: { title: "Actions", detail: "Send, receive, swap, and activity shortcuts", recommended: true },
-    assets: { title: "Assets", detail: "Top native balances by chain", recommended: true },
-    networks: { title: "Networks", detail: "Enabled networks and RPC health" },
-    sessions: { title: "Sessions", detail: "WalletConnect dapp summary" }
+    balance: { title: t("popup:widgets.balance.title"), detail: t("popup:widgets.balance.detail"), recommended: true },
+    actions: { title: t("popup:widgets.actions.title"), detail: t("popup:widgets.actions.detail"), recommended: true },
+    assets: { title: t("popup:widgets.assets.title"), detail: t("popup:widgets.assets.detail"), recommended: true },
+    networks: { title: t("popup:widgets.networks.title"), detail: t("popup:widgets.networks.detail") },
+    sessions: { title: t("popup:widgets.sessions.title"), detail: t("popup:widgets.sessions.detail") }
   };
   const order = widgetOrder.length ? widgetOrder : Object.keys(widgetDescriptions);
 
@@ -2845,11 +2870,11 @@ function WidgetCustomizationList({
     <div className="customization-panel">
       <div className="resolver-heading">
         <div>
-          <span className="muted">Personalization</span>
-          <h3>Home widgets</h3>
+          <span className="muted">{t("popup:widgets.personalization")}</span>
+          <h3>{t("popup:widgets.heading")}</h3>
         </div>
         <button type="button" className="text-button" onClick={onResetWidgets}>
-          Reset
+          {t("popup:widgets.reset")}
         </button>
       </div>
       {order.map((widgetId, index) => {
@@ -2867,7 +2892,7 @@ function WidgetCustomizationList({
             <div>
               <strong>{widget.title}</strong>
               <small>{widget.detail}</small>
-              {widget.recommended ? <span>Recommended</span> : null}
+              {widget.recommended ? <span>{t("popup:widgets.recommended")}</span> : null}
             </div>
             <div className="customization-actions">
               <button type="button" className="mini-icon-button" disabled={index === 0} onClick={() => onMoveWidget(widgetId, -1)} aria-label={`Move ${widget.title} up`}>
@@ -2878,7 +2903,7 @@ function WidgetCustomizationList({
               </button>
               <label className="network-toggle">
                 <input type="checkbox" checked={(visibleWidgets.length ? visibleWidgets : order).includes(widgetId)} onChange={() => onToggleWidget(widgetId)} />
-                <span>{(visibleWidgets.length ? visibleWidgets : order).includes(widgetId) ? "Shown" : "Hidden"}</span>
+                <span>{(visibleWidgets.length ? visibleWidgets : order).includes(widgetId) ? t("popup:widgets.shown") : t("popup:widgets.hidden")}</span>
               </label>
             </div>
           </div>
@@ -2921,20 +2946,22 @@ function WalletConnectSessionsPanel({
   onDisconnectAll?: () => void;
   onShowDetail?: (topic: string) => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <div className="wc-session-panel">
       <div className="wc-session-heading">
         <div>
-          <span>Connected dapps</span>
+          <span>{t("popup:walletConnect.connectedDapps")}</span>
           <strong>{sessions.length}</strong>
         </div>
         <div className="wc-heading-actions">
           {sessions.length > 0 && onDisconnectAll ? (
-            <button type="button" className="mini-icon-button danger" disabled={disconnectingTopic === "__all__"} onClick={onDisconnectAll} title="Disconnect all dapps">
+            <button type="button" className="mini-icon-button danger" disabled={disconnectingTopic === "__all__"} onClick={onDisconnectAll} title={t("popup:walletConnect.disconnectAll")}>
               {disconnectingTopic === "__all__" ? <Loader2 className="spin" size={15} /> : <Unplug size={15} />}
             </button>
           ) : null}
-          <button type="button" className="mini-icon-button" disabled={status === "loading"} onClick={onRefresh} title="Refresh sessions">
+          <button type="button" className="mini-icon-button" disabled={status === "loading"} onClick={onRefresh} title={t("popup:walletConnect.refreshSessions")}>
             <RefreshCcw className={status === "loading" ? "spin" : undefined} size={15} />
           </button>
         </div>
@@ -2949,11 +2976,11 @@ function WalletConnectSessionsPanel({
               </div>
               <div className="wc-session-main">
                 <strong>{session.name}</strong>
-                <span>{session.url || "No origin provided"}</span>
+                <span>{session.url || t("popup:walletConnect.noOrigin")}</span>
                 <small>{walletConnectSessionMeta(session)}</small>
               </div>
               {onShowDetail ? (
-                <button type="button" className="wc-disconnect" onClick={() => onShowDetail(session.topic)} title="View session details">
+                <button type="button" className="wc-disconnect" onClick={() => onShowDetail(session.topic)} title={t("popup:walletConnect.viewDetails")}>
                   <ChevronDown size={15} />
                 </button>
               ) : null}
@@ -2962,7 +2989,7 @@ function WalletConnectSessionsPanel({
                 className="wc-disconnect"
                 disabled={disconnectingTopic === session.topic}
                 onClick={() => onDisconnect(session.topic)}
-                title="Disconnect dapp"
+                title={t("popup:walletConnect.disconnectSession")}
               >
                 {disconnectingTopic === session.topic ? <Loader2 className="spin" size={15} /> : <Unplug size={15} />}
               </button>
@@ -2971,7 +2998,7 @@ function WalletConnectSessionsPanel({
         </div>
       ) : (
         <p className="resolver-hint">
-          {status === "loading" ? "Loading connected dapps." : "No active WalletConnect sessions."}
+          {status === "loading" ? t("popup:walletConnect.loadingSessions") : t("popup:walletConnect.noSessions")}
         </p>
       )}
 
@@ -2989,18 +3016,20 @@ function SessionDetail({
   disconnectingTopic: string | null;
   onDisconnect: (topic: string) => void;
 }) {
+  const { t } = useTranslation();
+
   return (
-    <section className="session-detail" aria-label="WalletConnect session detail">
-      <WidgetHeader label="Session detail" title={session.name} />
-      <PreviewRow label="Domain" value={(session.domain ?? session.url) || "Not provided"} detail={session.url || undefined} />
-      <PreviewRow label="Connected account" value={session.accounts.length > 0 ? session.accounts.join(", ") : "No accounts"} />
-      <PreviewRow label="Allowed chains" value={session.chains.length > 0 ? session.chains.join(", ") : "No chains"} />
-      <PreviewRow label="Permissions" value={session.methods.length > 0 ? session.methods.join(", ") : "No methods"} />
-      <PreviewRow label="Last active" value={session.lastActiveAt ? new Date(session.lastActiveAt).toLocaleString() : "No activity yet"} />
-      <PreviewRow label="Expiry" value={session.expiry ? new Date(session.expiry * 1000).toLocaleString() : "Not provided"} />
+    <section className="session-detail" aria-label={t("popup:walletConnect.sessionDetail")}>
+      <WidgetHeader label={t("popup:walletConnect.sessionDetailHeading")} title={session.name} />
+      <PreviewRow label={t("popup:walletConnect.sessionDomain")} value={(session.domain ?? session.url) || t("popup:walletConnect.sessionNoExpiry")} detail={session.url || undefined} />
+      <PreviewRow label={t("popup:walletConnect.sessionAccounts")} value={session.accounts.length > 0 ? session.accounts.join(", ") : t("popup:walletConnect.sessionNoAccounts")} />
+      <PreviewRow label={t("popup:walletConnect.sessionAllowedChains")} value={session.chains.length > 0 ? session.chains.join(", ") : t("popup:walletConnect.sessionNoChains")} />
+      <PreviewRow label={t("popup:walletConnect.sessionPermissions")} value={session.methods.length > 0 ? session.methods.join(", ") : "No methods"} />
+      <PreviewRow label={t("popup:walletConnect.sessionLastActive")} value={session.lastActiveAt ? new Date(session.lastActiveAt).toLocaleString() : t("popup:walletConnect.sessionNoActivity")} />
+      <PreviewRow label={t("popup:walletConnect.sessionExpiry")} value={session.expiry ? new Date(session.expiry * 1000).toLocaleString() : t("popup:walletConnect.sessionNoExpiry")} />
       <button type="button" className="secondary-button" disabled={disconnectingTopic === session.topic} onClick={() => onDisconnect(session.topic)}>
         {disconnectingTopic === session.topic ? <Loader2 className="spin" size={16} /> : <Unplug size={16} />}
-        Disconnect session
+        {t("popup:walletConnect.disconnectSession")}
       </button>
     </section>
   );
@@ -3024,15 +3053,17 @@ function proposalSummary(proposal: PendingWalletConnectProposal): string {
 }
 
 function ResolverResult({ resolution }: { resolution: RecipientResolution }) {
+  const { t } = useTranslation();
+
   if (resolution.kind === "empty") {
-    return <p className="resolver-hint">Universal Resolver with CCIP Read gateway support.</p>;
+    return <p className="resolver-hint">{t("popup:resolver.hint")}</p>;
   }
 
   if (resolution.kind === "invalid") {
     return <p className="resolver-result invalid">{resolution.reason}</p>;
   }
 
-  const title = resolution.kind === "ens" ? resolution.normalizedName : (resolution.primaryName ?? "Ethereum address");
+  const title = resolution.kind === "ens" ? resolution.normalizedName : (resolution.primaryName ?? t("popup:resolver.ethAddress"));
 
   return (
     <div className="resolver-result valid">
@@ -3054,6 +3085,8 @@ function ClearSigningPreviewCard({
   feeStatus: FeeStatus;
   feeError: string | null;
 }) {
+  const { t } = useTranslation();
+
   if (!result.ok) {
     return <p className="resolver-hint">{result.reason}</p>;
   }
@@ -3069,15 +3102,15 @@ function ClearSigningPreviewCard({
         </strong>
       </div>
 
-      <PreviewRow label="Recipient" value={preview.recipientLabel} detail={formatAddress(preview.to)} />
-      <PreviewRow label="From" value={formatAddress(preview.from)} />
-      <PreviewRow label="Network" value={preview.networkName} detail={`Chain ID ${preview.chainId}`} />
-      <PreviewRow label="Contract data" value={preview.data} detail="Native ETH transfer" />
-      <PreviewRow label="Network fee" value={preview.estimatedNetworkFee} />
+      <PreviewRow label={t("popup:clearSigning.recipient")} value={preview.recipientLabel} detail={formatAddress(preview.to)} />
+      <PreviewRow label={t("popup:clearSigning.from")} value={formatAddress(preview.from)} />
+      <PreviewRow label={t("popup:network.heading")} value={preview.networkName} detail={t("popup:network.chainId", { chainId: preview.chainId })} />
+      <PreviewRow label={t("popup:clearSigning.contractData")} value={preview.data} detail={t("popup:clearSigning.contractDataDetail")} />
+      <PreviewRow label={t("popup:clearSigning.feeLabel")} value={preview.estimatedNetworkFee} />
       <PreviewRow
-        label="Gas"
-        value={preview.gasLimit ? preview.gasLimit.toString() : feeStatus === "estimating" ? "Estimating" : "Pending"}
-        detail={preview.nonce !== null ? `Nonce ${preview.nonce.toString()}` : undefined}
+        label={t("popup:clearSigning.gas")}
+        value={preview.gasLimit ? preview.gasLimit.toString() : feeStatus === "estimating" ? t("popup:clearSigning.estimating") : t("popup:clearSigning.pending")}
+        detail={preview.nonce !== null ? t("popup:clearSigning.nonce", { nonce: preview.nonce.toString() }) : undefined}
       />
 
       <div className="warning-list">
@@ -3113,6 +3146,8 @@ function ClearSigningPreviewSheet({
   onSign: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
+
   if (!result.ok) {
     return (
       <div className="preview-card risk-state">
@@ -3128,13 +3163,13 @@ function ClearSigningPreviewSheet({
   const canSign = canSignPreview(preview);
 
   return (
-    <section className="clear-signing-sheet" aria-label="Clear signing preview">
+    <section className="clear-signing-sheet" aria-label={t("popup:regions.clearSigningPreview")}>
       <div className="sheet-header">
         <div>
-          <span className="muted">Expires in</span>
+          <span className="muted">{t("popup:clearSigning.expiresIn")}</span>
           <h3>10:00</h3>
         </div>
-        <StatusBadge ready={canSign} label={canSign ? "Parsed" : "Risk"} />
+        <StatusBadge ready={canSign} label={canSign ? t("popup:clearSigning.parsed") : t("popup:clearSigning.risk")} />
       </div>
       <div className="preview-hero">
         <span className="preview-direction" aria-hidden="true">
@@ -3146,29 +3181,28 @@ function ClearSigningPreviewSheet({
         </strong>
         <small>{preview.networkName.replace(/\s+(Mainnet|network)$/i, "")}</small>
       </div>
-      <PreviewRow label="Recipient" value={preview.recipientLabel} detail={formatAddress(preview.to)} />
-      <PreviewRow label="From" value={formatAddress(preview.from)} />
-      <PreviewRow label="Network fee" value={preview.estimatedNetworkFee} />
+      <PreviewRow label={t("popup:clearSigning.recipient")} value={preview.recipientLabel} detail={formatAddress(preview.to)} />
+      <PreviewRow label={t("popup:clearSigning.from")} value={formatAddress(preview.from)} />
+      <PreviewRow label={t("popup:clearSigning.feeLabel")} value={preview.estimatedNetworkFee} />
       <div className="safety-scope">
         <ShieldCheck size={16} />
         <div>
-          <strong>Safety scope</strong>
+          <strong>{t("popup:clearSigning.safetyScope")}</strong>
           <span>
-            This request only transfers native {preview.asset}. No token approval, swap, or contract interaction is detected.
-            Contract calldata stays hidden unless expanded.
+            {t("popup:clearSigning.safetyScopeText", { asset: preview.asset })}
           </span>
         </div>
       </div>
       <details className="advanced-data">
-        <summary>Advanced data</summary>
-        <p>Raw calldata, nonce, gas limit, max fee, and more.</p>
-        <PreviewRow label="Calldata" value={preview.data} detail="Native transfer has no contract calldata" />
-        <PreviewRow label="Gas" value={preview.gasLimit ? preview.gasLimit.toString() : feeStatus === "estimating" ? "Estimating" : "Pending"} />
+        <summary>{t("popup:clearSigning.advancedData")}</summary>
+        <p>{t("popup:clearSigning.advancedDataSubtitle")}</p>
+        <PreviewRow label={t("popup:clearSigning.calldata")} value={preview.data} detail={t("popup:clearSigning.calldataDetail")} />
+        <PreviewRow label={t("popup:clearSigning.gas")} value={preview.gasLimit ? preview.gasLimit.toString() : feeStatus === "estimating" ? t("popup:clearSigning.estimating") : t("popup:clearSigning.pending")} />
       </details>
       <div className="warning-list">
         <div className="warning-item info clear-signing-review-note">
           <AlertTriangle size={14} />
-          <span>Review the recipient, amount, network, and fee before signing with your passkey.</span>
+          <span>{t("popup:clearSigning.reviewNote")}</span>
         </div>
         {feeError ? (
           <div className="warning-item danger">
@@ -3179,10 +3213,10 @@ function ClearSigningPreviewSheet({
       </div>
       <button type="button" className="primary-button" disabled={!canSign || signingStatus === "signing" || signingStatus === "broadcasting"} onClick={onSign}>
         {signingStatus === "signing" || signingStatus === "broadcasting" ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}
-        {signingStatus === "signing" ? "Signing..." : signingStatus === "broadcasting" ? "Broadcasting..." : "Sign and continue"}
+        {signingStatus === "signing" ? t("popup:clearSigning.signing") : signingStatus === "broadcasting" ? t("popup:clearSigning.broadcasting") : t("popup:clearSigning.signAndContinue")}
       </button>
       <button type="button" className="clear-signing-cancel" onClick={onCancel} disabled={signingStatus === "signing" || signingStatus === "broadcasting"}>
-        Cancel
+        {t("common:actions.cancel")}
       </button>
     </section>
   );
