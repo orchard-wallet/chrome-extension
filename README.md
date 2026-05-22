@@ -20,13 +20,14 @@ Chrome Extension wallet prototype using `@consenlabs/tcx-wasm` for local keystor
 
 ## Run
 
-WalletConnect uses a build-time extension environment variable. Configure it before building:
+WalletConnect and 0x use build-time extension environment variables. Configure them before building:
 
 ```bash
 VITE_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
+VITE_ZERO_EX_API_KEY=your_0x_api_key
 ```
 
-This repository includes a local `.env` value for the current extension build.
+This repository includes a local `.env` value for the current extension build. The 0x key enables indicative AllowanceHolder prices and firm swap quotes in the Settings Swap page.
 
 ```bash
 npm install

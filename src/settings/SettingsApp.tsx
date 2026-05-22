@@ -15,6 +15,7 @@ import {
   GripVertical,
   HelpCircle,
   Home,
+  Info,
   Link2,
   Loader2,
   PieChart,
@@ -36,7 +37,7 @@ import {
   Wallet
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { Address } from "viem";
+import { formatUnits, parseUnits, type Address } from "viem";
 import { buildNativeTokenTransferPreview, canSignPreview } from "../core/clearSigning";
 import {
   ACTIVITY_FILTERS,
@@ -54,9 +55,15 @@ import {
   type WalletNetworkSetting
 } from "../core/networks";
 import { readPortfolioStore, refreshPortfolio } from "../core/portfolio";
-import type { AssetStore, ChainAssetSnapshot } from "../core/assets";
+import type { AssetDefinition, AssetStore, ChainAssetSnapshot } from "../core/assets";
 import { searchAddressBookContacts, type AddressBookContact } from "../core/addressBook";
 import { estimateNativeTokenTransfer, type TransactionFeeEstimate } from "../core/rpc";
+import {
+  getZeroExSwapPrice,
+  getZeroExSwapQuote,
+  tokenAddressForZeroEx,
+  type ZeroExSwapQuote
+} from "../core/zeroEx";
 import {
   readNetworkSettings,
   readActivityEvents,
@@ -77,10 +84,17 @@ import {
 } from "../lib/storage";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
-type SettingsView = "networks" | "connected-dapps" | "portfolio" | "activity" | "address-book" | "send" | "security" | "settings";
+type SettingsView = "networks" | "connected-dapps" | "portfolio" | "activity" | "address-book" | "send" | "swap" | "security" | "settings";
 type WalletConnectSessionsStatus = "idle" | "loading" | "ready" | "error";
 type SendResolverStatus = "idle" | "resolving";
 type SendFeeStatus = "idle" | "estimating" | "ready" | "error";
+type SwapQuoteStatus = "idle" | "loading" | "ready" | "error";
+
+interface SwapAssetOption {
+  definition: AssetDefinition;
+  balance: string | null;
+  rawBalance: string | null;
+}
 
 interface WalletConnectSessionSummary {
   topic: string;
@@ -182,8 +196,10 @@ function settingsViewFromHash(): SettingsView {
       ? "settings"
     : window.location.hash === "#connected-dapps"
       ? "connected-dapps"
-      : window.location.hash === "#send"
+    : window.location.hash === "#send"
         ? "send"
+        : window.location.hash === "#swap"
+          ? "swap"
         : window.location.hash === "#security"
           ? "security"
         : "networks";
@@ -310,6 +326,15 @@ export function SettingsApp() {
   const [sendFeeStatus, setSendFeeStatus] = useState<SendFeeStatus>("idle");
   const [sendFeeError, setSendFeeError] = useState<string | null>(null);
   const [sendReviewError, setSendReviewError] = useState<string | null>(null);
+  const [swapNetworkId, setSwapNetworkId] = useState<string | null>(null);
+  const [swapSellAssetId, setSwapSellAssetId] = useState<string | null>(null);
+  const [swapBuyAssetId, setSwapBuyAssetId] = useState<string | null>(null);
+  const [swapSellAmount, setSwapSellAmount] = useState("");
+  const [swapPrice, setSwapPrice] = useState<ZeroExSwapQuote | null>(null);
+  const [swapPriceStatus, setSwapPriceStatus] = useState<SwapQuoteStatus>("idle");
+  const [swapQuote, setSwapQuote] = useState<ZeroExSwapQuote | null>(null);
+  const [swapQuoteStatus, setSwapQuoteStatus] = useState<SwapQuoteStatus>("idle");
+  const [swapError, setSwapError] = useState<string | null>(null);
   const [recentRecipients, setRecentRecipients] = useState<RecentRecipient[]>([]);
   const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
   const [activityQuery, setActivityQuery] = useState("");
@@ -476,6 +501,25 @@ export function SettingsApp() {
     () => sendNetworks.find((network) => network.networkId === sendNetworkId) ?? sendNetworks[0] ?? null,
     [sendNetworkId, sendNetworks]
   );
+  const selectedSwapNetwork = useMemo(
+    () => sendNetworks.find((network) => network.networkId === swapNetworkId) ?? sendNetworks[0] ?? null,
+    [sendNetworks, swapNetworkId]
+  );
+  const swapAssets = useMemo(
+    () => swapAssetsForNetwork(portfolioStore, selectedSwapNetwork),
+    [portfolioStore, selectedSwapNetwork]
+  );
+  const selectedSwapSellAsset = useMemo(
+    () => swapAssets.find((asset) => asset.definition.assetId === swapSellAssetId) ?? swapAssets[0] ?? null,
+    [swapAssets, swapSellAssetId]
+  );
+  const selectedSwapBuyAsset = useMemo(
+    () =>
+      swapAssets.find((asset) => asset.definition.assetId === swapBuyAssetId && asset.definition.assetId !== selectedSwapSellAsset?.definition.assetId) ??
+      swapAssets.find((asset) => asset.definition.assetId !== selectedSwapSellAsset?.definition.assetId) ??
+      null,
+    [selectedSwapSellAsset, swapAssets, swapBuyAssetId]
+  );
   const sendIntent = useMemo(
     () =>
       buildNativeTokenTransferPreview({
@@ -501,11 +545,61 @@ export function SettingsApp() {
   useEffect(() => {
     if (!sendNetworks.length) {
       setSendNetworkId(null);
+      setSwapNetworkId(null);
       return;
     }
 
     setSendNetworkId((current) => (current && sendNetworks.some((network) => network.networkId === current) ? current : sendNetworks[0].networkId));
+    setSwapNetworkId((current) => (current && sendNetworks.some((network) => network.networkId === current) ? current : sendNetworks[0].networkId));
   }, [sendNetworks]);
+
+  useEffect(() => {
+    setSwapSellAssetId((current) => (current && swapAssets.some((asset) => asset.definition.assetId === current) ? current : swapAssets[0]?.definition.assetId ?? null));
+  }, [swapAssets]);
+
+  useEffect(() => {
+    setSwapBuyAssetId((current) =>
+      current && swapAssets.some((asset) => asset.definition.assetId === current && asset.definition.assetId !== selectedSwapSellAsset?.definition.assetId)
+        ? current
+        : swapAssets.find((asset) => asset.definition.assetId !== selectedSwapSellAsset?.definition.assetId)?.definition.assetId ?? null
+    );
+  }, [selectedSwapSellAsset, swapAssets]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      setSwapPrice(null);
+      setSwapQuote(null);
+      setSwapError(null);
+
+      const request = buildZeroExRequest(selectedSwapNetwork, selectedSwapSellAsset, selectedSwapBuyAsset, swapSellAmount);
+
+      if (!request) {
+        setSwapPriceStatus("idle");
+        return;
+      }
+
+      setSwapPriceStatus("loading");
+      getZeroExSwapPrice(request)
+        .then((price) => {
+          if (!cancelled) {
+            setSwapPrice(price);
+            setSwapPriceStatus("ready");
+          }
+        })
+        .catch((cause: unknown) => {
+          if (!cancelled) {
+            setSwapPriceStatus("error");
+            setSwapError(cause instanceof Error ? cause.message : "Unable to load a 0x price.");
+          }
+        });
+    }, 360);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [selectedSwapBuyAsset, selectedSwapNetwork, selectedSwapSellAsset, swapSellAmount]);
 
   useEffect(() => {
     let cancelled = false;
@@ -719,6 +813,35 @@ export function SettingsApp() {
     }
   }
 
+  async function handleRequestSwapQuote() {
+    setSwapError(null);
+    setSwapQuote(null);
+
+    const request = buildZeroExRequest(selectedSwapNetwork, selectedSwapSellAsset, selectedSwapBuyAsset, swapSellAmount, walletAddress);
+
+    if (!request) {
+      setSwapError("Choose two assets and enter an amount before requesting a 0x quote.");
+      return;
+    }
+
+    setSwapQuoteStatus("loading");
+
+    try {
+      setSwapQuote(await getZeroExSwapQuote(request));
+      setSwapQuoteStatus("ready");
+    } catch (cause) {
+      setSwapQuoteStatus("error");
+      setSwapError(cause instanceof Error ? cause.message : "Unable to load an executable 0x quote.");
+    }
+  }
+
+  function handleFlipSwapAssets() {
+    setSwapSellAssetId(swapBuyAssetId);
+    setSwapBuyAssetId(swapSellAssetId);
+    setSwapPrice(null);
+    setSwapQuote(null);
+  }
+
   async function handleAddAddressBookContact() {
     const nextName = contactName.trim();
     const nextRecipient = contactRecipient.trim();
@@ -841,7 +964,7 @@ export function SettingsApp() {
           <SidebarItem icon={<Activity size={18} />} label="Activity" active={view === "activity"} onClick={() => selectView("activity")} />
           <SidebarItem icon={<Send size={18} />} label="Send" active={view === "send"} onClick={() => selectView("send")} />
           <SidebarItem icon={<Download size={18} />} label="Receive" />
-          <SidebarItem icon={<Repeat2 size={18} />} label="Swap" />
+          <SidebarItem icon={<Repeat2 size={18} />} label="Swap" active={view === "swap"} onClick={() => selectView("swap")} />
           <SidebarItem icon={<Globe2 size={18} />} label="Networks" active={view === "networks"} onClick={() => selectView("networks")} />
           <SidebarItem icon={<UsersRound size={18} />} label="Address Book" active={view === "address-book"} onClick={() => selectView("address-book")} />
           <SidebarItem
@@ -898,6 +1021,27 @@ export function SettingsApp() {
         onAmountInput={setSendAmountInput}
         onReviewTransfer={handleReviewSendTransfer}
         onOpenAddressBook={() => selectView("address-book")}
+      />
+      ) : view === "swap" ? (
+      <SwapSettingsPanel
+        walletAddress={walletAddress}
+        network={selectedSwapNetwork}
+        networks={sendNetworks}
+        assets={swapAssets}
+        sellAsset={selectedSwapSellAsset}
+        buyAsset={selectedSwapBuyAsset}
+        sellAmount={swapSellAmount}
+        price={swapPrice}
+        priceStatus={swapPriceStatus}
+        quote={swapQuote}
+        quoteStatus={swapQuoteStatus}
+        error={swapError}
+        onNetwork={setSwapNetworkId}
+        onSellAsset={setSwapSellAssetId}
+        onBuyAsset={setSwapBuyAssetId}
+        onSellAmount={setSwapSellAmount}
+        onFlip={handleFlipSwapAssets}
+        onQuote={handleRequestSwapQuote}
       />
       ) : view === "activity" ? (
       <ActivitySettingsPanel
@@ -2413,6 +2557,338 @@ function SendSettingsPanel({
       </div>
     </section>
   );
+}
+
+function swapAssetsForNetwork(store: AssetStore | null, network: WalletNetworkSetting | null): SwapAssetOption[] {
+  if (!store || !network) {
+    return [];
+  }
+
+  return Object.values(store.assetDefinitions)
+    .filter(
+      (definition) =>
+        definition.networkId === network.networkId &&
+        (definition.kind === "native" || (definition.kind === "erc20" && Boolean(definition.contractAddress)))
+    )
+    .map((definition) => {
+      const balance = Object.values(store.assetBalances).find((assetBalance) => assetBalance.assetId === definition.assetId);
+      return {
+        definition,
+        balance: balance?.decimalAmount ?? null,
+        rawBalance: balance?.rawAmount ?? null
+      };
+    })
+    .sort((a, b) => {
+      if (a.definition.kind === "native") {
+        return -1;
+      }
+
+      if (b.definition.kind === "native") {
+        return 1;
+      }
+
+      return a.definition.symbol.localeCompare(b.definition.symbol);
+    });
+}
+
+function buildZeroExRequest(
+  network: WalletNetworkSetting | null,
+  sellAsset: SwapAssetOption | null,
+  buyAsset: SwapAssetOption | null,
+  sellAmount: string,
+  taker?: string | null
+) {
+  if (!network?.chainId || !sellAsset || !buyAsset || sellAsset.definition.assetId === buyAsset.definition.assetId) {
+    return null;
+  }
+
+  const sellToken = tokenAddressForZeroEx(sellAsset.definition);
+  const buyToken = tokenAddressForZeroEx(buyAsset.definition);
+
+  if (!sellToken || !buyToken) {
+    return null;
+  }
+
+  try {
+    const rawAmount = parseUnits(sellAmount.trim().replace(",", "."), sellAsset.definition.decimals);
+
+    if (rawAmount <= 0n) {
+      return null;
+    }
+
+    return {
+      chainId: network.chainId,
+      sellToken,
+      buyToken,
+      sellAmount: rawAmount.toString(),
+      slippageBps: 50,
+      ...(taker ? { taker: taker as Address } : {})
+    };
+  } catch {
+    return null;
+  }
+}
+
+function SwapSettingsPanel({
+  walletAddress,
+  network,
+  networks,
+  assets,
+  sellAsset,
+  buyAsset,
+  sellAmount,
+  price,
+  priceStatus,
+  quote,
+  quoteStatus,
+  error,
+  onNetwork,
+  onSellAsset,
+  onBuyAsset,
+  onSellAmount,
+  onFlip,
+  onQuote
+}: {
+  walletAddress: string | null;
+  network: WalletNetworkSetting | null;
+  networks: WalletNetworkSetting[];
+  assets: SwapAssetOption[];
+  sellAsset: SwapAssetOption | null;
+  buyAsset: SwapAssetOption | null;
+  sellAmount: string;
+  price: ZeroExSwapQuote | null;
+  priceStatus: SwapQuoteStatus;
+  quote: ZeroExSwapQuote | null;
+  quoteStatus: SwapQuoteStatus;
+  error: string | null;
+  onNetwork: (networkId: string | null) => void;
+  onSellAsset: (assetId: string | null) => void;
+  onBuyAsset: (assetId: string | null) => void;
+  onSellAmount: (amount: string) => void;
+  onFlip: () => void;
+  onQuote: () => void;
+}) {
+  const displayQuote = quote ?? price;
+  const displayedBuyAmount = displayQuote && buyAsset ? formatSwapBaseAmount(displayQuote.buyAmount, buyAsset.definition.decimals) : "--";
+  const minimumReceived = quote?.minBuyAmount && buyAsset ? formatSwapBaseAmount(quote.minBuyAmount, buyAsset.definition.decimals) : "--";
+  const networkFee = displayQuote?.totalNetworkFee && network ? `${formatSwapBaseAmount(displayQuote.totalNetworkFee, 18)} ${network.nativeCurrencySymbol}` : "--";
+  const routeSources = Array.from(new Set(displayQuote?.route?.fills?.map((fill) => fill.source) ?? [])).slice(0, 3);
+  const balanceIssue = quote?.issues?.balance;
+  const allowanceIssue = quote?.issues?.allowance;
+  const quoteReady = Boolean(quote?.transaction);
+
+  return (
+    <section className="settings-main-panel swap-settings-panel">
+      <header className="settings-page-header swap-settings-header">
+        <div>
+          <h1>Swap</h1>
+          <p>Exchange assets with 0x routing, firm quotes, and transparent allowance checks.</p>
+        </div>
+        <button type="button" className="settings-help-button" aria-label="Swap help">
+          <HelpCircle size={18} />
+        </button>
+      </header>
+
+      <section className="swap-summary-hero" aria-label="Swap summary">
+        <SettingsMetric icon={<Repeat2 size={24} />} value={1} label="0x" detail="AllowanceHolder quote source" />
+        <SettingsMetric icon={<SlidersHorizontal size={24} />} value={50} label="Slippage bps" detail="Current quote tolerance" />
+        <SettingsMetric icon={<Clock3 size={24} />} value={30} label="Seconds" detail="Request a fresh quote before signing" />
+      </section>
+
+      <div className="swap-settings-layout">
+        <section className="swap-form-card" aria-label="0x swap form">
+          <label htmlFor="swap-network">Network</label>
+          <div className="swap-network-select">
+            {network ? <ChainBadge network={network} /> : <span className="chain-badge family-custom" />}
+            <select id="swap-network" value={network?.networkId ?? ""} onChange={(event) => onNetwork(event.target.value || null)}>
+              {networks.map((option) => (
+                <option value={option.networkId} key={option.networkId}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <SwapAssetRow
+            label="You pay"
+            asset={sellAsset}
+            assets={assets.filter((asset) => asset.definition.assetId !== buyAsset?.definition.assetId)}
+            amount={sellAmount}
+            editable
+            onAsset={onSellAsset}
+            onAmount={onSellAmount}
+          />
+
+          <button type="button" className="swap-flip-button" onClick={onFlip} aria-label="Flip swap assets" disabled={!sellAsset || !buyAsset}>
+            <Repeat2 size={17} />
+          </button>
+
+          <SwapAssetRow
+            label="You receive"
+            asset={buyAsset}
+            assets={assets.filter((asset) => asset.definition.assetId !== sellAsset?.definition.assetId)}
+            amount={displayedBuyAmount}
+            editable={false}
+            onAsset={onBuyAsset}
+            onAmount={() => undefined}
+          />
+
+          <div className="swap-quote-meta">
+            <span>
+              <ShieldCheck size={15} />
+              {priceStatus === "loading" ? "Requesting 0x price" : displayQuote ? "0x route ready" : "Enter an amount for pricing"}
+            </span>
+            <small>{walletAddress ? formatAddress(walletAddress) : "Create a wallet before a firm quote"}</small>
+          </div>
+
+          <section className="swap-detail-card" aria-label="Swap quote details">
+            <SwapDetail label="Rate" value={sellAsset && buyAsset && displayQuote ? `1 ${sellAsset.definition.symbol} ~ ${formatSwapRate(displayQuote, sellAsset, buyAsset)} ${buyAsset.definition.symbol}` : "--"} />
+            <SwapDetail label="Price impact" value={displayQuote?.estimatedPriceImpact ? `${displayQuote.estimatedPriceImpact}%` : "--"} />
+            <SwapDetail label="Network fee" value={networkFee} />
+            <SwapDetail label="Minimum received" value={`${minimumReceived} ${buyAsset?.definition.symbol ?? ""}`} />
+          </section>
+
+          <section className="swap-route-card" aria-label="0x route">
+            <strong>Route</strong>
+            <div>
+              <span>{sellAsset?.definition.symbol ?? "Sell asset"}</span>
+              <ArrowRight size={14} />
+              {routeSources.length ? routeSources.map((source) => <span key={source}>{source}</span>) : <span>0x route</span>}
+              <ArrowRight size={14} />
+              <span>{buyAsset?.definition.symbol ?? "Buy asset"}</span>
+            </div>
+          </section>
+
+          <button type="button" className="swap-review-button" disabled={!walletAddress || !sellAmount || quoteStatus === "loading"} onClick={onQuote}>
+            {quoteStatus === "loading" ? <Loader2 className="spin" size={18} /> : null}
+            {quoteReady ? "Refresh 0x Quote" : "Review Swap Quote"}
+            <ArrowRight size={18} />
+          </button>
+          {error ? <p className="error-box">{error}</p> : null}
+        </section>
+
+        <aside className="swap-side-column">
+          <section className="swap-best-quote" aria-label="0x quote status">
+            <header>
+              <strong>0x Quote</strong>
+              <small>{quote ? "Firm quote" : "Indicative price"}</small>
+            </header>
+            <article className={quoteReady ? "ready" : ""}>
+              <span className="token-badge family-custom">0x</span>
+              <div>
+                <strong>AllowanceHolder</strong>
+                <small>{routeSources.join(", ") || "Waiting for route"}</small>
+              </div>
+              <b>{displayedBuyAmount} {buyAsset?.definition.symbol ?? ""}</b>
+            </article>
+            <SwapIssue
+              tone={balanceIssue ? "warning" : "ready"}
+              title={balanceIssue ? "Balance issue" : "Balance check"}
+              detail={balanceIssue ? "0x reports the sell balance is below the requested amount." : "No balance issue reported by the latest quote."}
+            />
+            <SwapIssue
+              tone={allowanceIssue ? "warning" : "ready"}
+              title={allowanceIssue ? "Approval required" : "Allowance check"}
+              detail={allowanceIssue ? `Approve the returned spender ${formatAddress(allowanceIssue.spender)} before swapping this ERC-20.` : "Native sells or existing allowances need no approval step."}
+            />
+          </section>
+
+          <section className="swap-safety-card">
+            <ShieldCheck size={30} />
+            <div>
+              <strong>Clear swap boundary</strong>
+              <p>0x returns Settler calldata for execution. This page prepares quotes and allowance state; signing requires a dedicated swap clear-signing parser.</p>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function SwapAssetRow({
+  label,
+  asset,
+  assets,
+  amount,
+  editable,
+  onAsset,
+  onAmount
+}: {
+  label: string;
+  asset: SwapAssetOption | null;
+  assets: SwapAssetOption[];
+  amount: string;
+  editable: boolean;
+  onAsset: (assetId: string | null) => void;
+  onAmount: (amount: string) => void;
+}) {
+  return (
+    <section className={`swap-asset-row${editable ? " editable" : ""}`}>
+      <header>
+        <label>{label}</label>
+        <small>Balance: {asset?.balance ? formatWalletAmount(asset.balance) : "--"} {asset?.definition.symbol ?? ""}</small>
+      </header>
+      <div>
+        <TokenBadge symbol={asset?.definition.symbol ?? "?"} family="custom" />
+        <select value={asset?.definition.assetId ?? ""} onChange={(event) => onAsset(event.target.value || null)}>
+          {assets.map((option) => (
+            <option value={option.definition.assetId} key={option.definition.assetId}>
+              {option.definition.symbol} - {option.definition.name}
+            </option>
+          ))}
+        </select>
+        {editable ? (
+          <input inputMode="decimal" value={amount} onChange={(event) => onAmount(event.target.value)} placeholder="0.0" aria-label="Sell amount" />
+        ) : (
+          <strong>{amount}</strong>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SwapDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>
+        {label}
+        <Info size={12} />
+      </span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function SwapIssue({ tone, title, detail }: { tone: "ready" | "warning"; title: string; detail: string }) {
+  return (
+    <article className={`swap-issue ${tone}`}>
+      <CircleCheck size={18} />
+      <div>
+        <strong>{title}</strong>
+        <small>{detail}</small>
+      </div>
+    </article>
+  );
+}
+
+function formatSwapBaseAmount(amount: string, decimals: number): string {
+  try {
+    return formatWalletAmount(formatUnits(BigInt(amount), decimals));
+  } catch {
+    return "--";
+  }
+}
+
+function formatSwapRate(quote: ZeroExSwapQuote, sellAsset: SwapAssetOption, buyAsset: SwapAssetOption): string {
+  const sellAmount = Number(formatUnits(BigInt(quote.sellAmount), sellAsset.definition.decimals));
+  const buyAmount = Number(formatUnits(BigInt(quote.buyAmount), buyAsset.definition.decimals));
+
+  if (!Number.isFinite(sellAmount) || !Number.isFinite(buyAmount) || sellAmount <= 0) {
+    return "--";
+  }
+
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: buyAmount / sellAmount < 1 ? 6 : 4 }).format(buyAmount / sellAmount);
 }
 
 function formatWalletAmount(value: string): string {
