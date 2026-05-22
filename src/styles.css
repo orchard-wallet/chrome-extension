@@ -8097,10 +8097,6 @@ body.settings-body {
 /* ── PufETH portal widget (compact, 2-column span) ──────────────────────────── */
 
 /* Span the pufETH widget across 2 columns in the portal action grid */
-.portal-action-grid .pufeth-widget {
-  grid-column: span 2;
-}
-
 .pufeth-widget {
   display: flex;
   flex-direction: column;
@@ -8163,12 +8159,13 @@ body.settings-body {
 
 .pufeth-widget-amount-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   align-items: center;
 }
 
 .pufeth-widget-amount-input {
-  flex: 1;
+  flex: 1 1 100%;
   min-width: 0;
   padding: 5px 8px;
   border: 1px solid rgba(17, 17, 17, 0.12);
@@ -8214,7 +8211,7 @@ body.settings-body {
 }
 
 .pufeth-widget-mint {
-  flex-shrink: 0;
+  flex: 1;
   padding: 5px 12px;
   border: none;
   border-radius: 6px;
@@ -8254,10 +8251,9 @@ body.settings-body {
   font-size: 11px;
 }
 
-/* ── PufETH preview tile (settings portal preview — wide tile) ────────────── */
+/* ── PufETH preview tile (settings portal preview) ───────────────────────── */
 
 .portal-preview-tile.pufeth {
-  grid-column: span 2;
   min-height: 72px;
   gap: 6px;
 }
@@ -8296,12 +8292,13 @@ body.settings-body {
 
 .portal-preview-pufeth-body {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 3px;
 }
 
 .portal-preview-pufeth-input {
-  flex: 1;
+  flex: 1 1 100%;
   display: block;
   padding: 3px 5px;
   border: 1px solid rgba(17, 17, 17, 0.1);
@@ -8320,8 +8317,9 @@ body.settings-body {
 }
 
 .portal-preview-pufeth-mint {
-  flex-shrink: 0;
+  flex: 1;
   padding: 3px 7px;
+  text-align: center;
   border-radius: 4px;
   background: #111111;
   color: #ffffff;
