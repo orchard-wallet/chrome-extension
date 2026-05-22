@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "package": "npm run build && rm -f my-passkey-wallet.zip && cd dist && zip -qr ../my-passkey-wallet.zip . -x '*.DS_Store' && cd .. && echo \"Packaged dist/ -> my-passkey-wallet.zip\""
   },
   "dependencies": {
     "@consenlabs/tcx-wasm": "^0.9.1",
