@@ -1,4 +1,4 @@
-# Passkey Wallet
+# Orchard Wallet
 
 Chrome Extension wallet prototype using `@consenlabs/tcx-wasm` for local keystore creation and Ethereum account derivation.
 
@@ -65,7 +65,7 @@ npm run package
 ```
 
 This builds the extension and zips the `dist/` contents (with `manifest.json`
-at the archive root) into `my-passkey-wallet.zip`. Upload that zip in the
+at the archive root) into `orchard-wallet.zip`. Upload that zip in the
 Chrome Web Store developer console; bump `version` in `public/manifest.json`
 before each store update.
 

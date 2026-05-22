@@ -37,7 +37,7 @@ export async function createPasskeyPrf(displayName: string): Promise<PasskeyPrfR
     publicKey: {
       challenge: toArrayBuffer(challenge),
       rp: {
-        name: "Passkey Wallet"
+        name: "Orchard Wallet"
       },
       user: {
         id: toArrayBuffer(userIdBytes),

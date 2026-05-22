@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Passkey Wallet",
+  "name": "Orchard Wallet",
   "description": "A passkey-unlocked wallet prototype built with tcx-wasm.",
   "version": "0.1.0",
   "icons": {
