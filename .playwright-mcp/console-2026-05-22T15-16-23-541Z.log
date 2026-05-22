@@ -1,0 +1,5 @@
+[     462ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5179/node_modules/.vite/deps/react-dom_client.js?v=5e336329:14337
+[     633ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:5179/favicon.ico:0
+[    1154ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://polygon-rpc.com/:0
+[    1316ms] [ERROR] Access to fetch at 'https://eth.llamarpc.com/' from origin 'http://127.0.0.1:5179' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:5179/src/popup/index.html:0
+[    1316ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://eth.llamarpc.com/:0

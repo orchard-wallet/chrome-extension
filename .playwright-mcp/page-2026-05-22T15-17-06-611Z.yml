@@ -1,0 +1,270 @@
+- main [ref=e3]:
+  - complementary "Wallet settings navigation" [ref=e4]:
+    - navigation [ref=e5]:
+      - button "Home" [ref=e6] [cursor=pointer]:
+        - img [ref=e7]
+        - generic [ref=e10]: Home
+      - button "Portfolio" [ref=e11] [cursor=pointer]:
+        - img [ref=e12]
+        - generic [ref=e15]: Portfolio
+      - button "Activity" [ref=e16] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e19]: Activity
+      - button "Send" [ref=e20] [cursor=pointer]:
+        - img [ref=e21]
+        - generic [ref=e24]: Send
+      - button "Receive" [ref=e25] [cursor=pointer]:
+        - img [ref=e26]
+        - generic [ref=e29]: Receive
+      - button "Swap" [ref=e30] [cursor=pointer]:
+        - img [ref=e31]
+        - generic [ref=e36]: Swap
+      - button "Networks" [ref=e37] [cursor=pointer]:
+        - img [ref=e38]
+        - generic [ref=e43]: Networks
+      - button "Address Book" [ref=e44] [cursor=pointer]:
+        - img [ref=e45]
+        - generic [ref=e49]: Address Book
+      - button "Connected dApp" [ref=e50] [cursor=pointer]:
+        - img [ref=e51]
+        - generic [ref=e54]: Connected dApp
+      - button "Security" [ref=e55] [cursor=pointer]:
+        - img [ref=e56]
+        - generic [ref=e58]: Security
+      - button "Settings" [ref=e59] [cursor=pointer]:
+        - img [ref=e60]
+        - generic [ref=e63]: Settings
+    - region "Total Balance" [ref=e65]:
+      - generic [ref=e66]: Total Balance
+      - strong [ref=e67]: $3,447.07
+      - generic [ref=e68]: Updated 5月22日 下午11:17
+      - img [ref=e69]
+      - text: 1D
+    - region "Active wallet" [ref=e71]:
+      - generic [ref=e73]:
+        - strong [ref=e74]: Wallet 1
+        - generic "0x1111111111111111111111111111111111111111" [ref=e75]
+  - generic [ref=e76]:
+    - generic [ref=e78]:
+      - heading "Settings" [level=1] [ref=e79]
+      - paragraph [ref=e80]: Manage wallet preferences, security, and your Portal dashboard.
+    - region "Wallet settings overview" [ref=e81]:
+      - generic [ref=e82]:
+        - img [ref=e84]
+        - strong [ref=e87]: "1"
+        - paragraph [ref=e88]:
+          - generic [ref=e89]: Wallet
+          - generic [ref=e90]: Local wallet connected
+      - generic [ref=e91]:
+        - img [ref=e93]
+        - strong [ref=e99]: "7"
+        - paragraph [ref=e100]:
+          - generic [ref=e101]: Widgets Shown
+          - generic [ref=e102]: On your Portal dashboard
+      - generic [ref=e103]:
+        - img [ref=e105]
+        - strong [ref=e110]: "1"
+        - paragraph [ref=e111]:
+          - generic [ref=e112]: Hidden Widgets
+          - generic [ref=e113]: Not visible on Portal
+    - heading "Wallet Controls" [level=2] [ref=e114]
+    - region "Wallet controls" [ref=e115]:
+      - button "Hide balances Temporarily hide all balances" [ref=e116] [cursor=pointer]:
+        - img [ref=e118]
+        - strong [ref=e123]: Hide balances
+        - generic [ref=e124]: Temporarily hide all balances
+      - button "Reset local wallet Clear local wallet record" [ref=e125] [cursor=pointer]:
+        - img [ref=e127]
+        - strong [ref=e132]: Reset local wallet
+        - generic [ref=e133]: Clear local wallet record
+      - button "Open network settings Manage RPC and networks" [ref=e134] [cursor=pointer]:
+        - img [ref=e136]
+        - strong [ref=e141]: Open network settings
+        - generic [ref=e142]: Manage RPC and networks
+    - region "Portal dashboard layout" [ref=e143]:
+      - generic [ref=e144]:
+        - generic [ref=e145]:
+          - heading "Portal Dashboard Layout" [level=2] [ref=e146]
+          - paragraph [ref=e147]: Use controls to show, hide, or move widgets.
+        - generic [ref=e148]:
+          - article [ref=e149]:
+            - img [ref=e150]
+            - img [ref=e158]
+            - generic [ref=e161]:
+              - strong [ref=e162]: Balance
+              - generic [ref=e163]: Portfolio hero and refresh status
+            - emphasis [ref=e164]: Recommended
+            - generic [ref=e165]:
+              - button "Move Balance up" [disabled] [ref=e166]: ↑
+              - button "Move Balance down" [ref=e167] [cursor=pointer]: ↓
+              - button "Hide Balance" [ref=e168] [cursor=pointer]:
+                - img [ref=e169]
+          - article [ref=e172]:
+            - img [ref=e173]
+            - img [ref=e181]
+            - generic [ref=e184]:
+              - strong [ref=e185]: Assets
+              - generic [ref=e186]: Top native balances by chain
+            - emphasis [ref=e187]: Recommended
+            - generic [ref=e188]:
+              - button "Move Assets up" [ref=e189] [cursor=pointer]: ↑
+              - button "Move Assets down" [ref=e190] [cursor=pointer]: ↓
+              - button "Hide Assets" [ref=e191] [cursor=pointer]:
+                - img [ref=e192]
+          - article [ref=e195]:
+            - img [ref=e196]
+            - img [ref=e204]
+            - generic [ref=e207]:
+              - strong [ref=e208]: Send
+              - generic [ref=e209]: Send tokens and assets
+            - generic [ref=e210]:
+              - button "Move Send up" [ref=e211] [cursor=pointer]: ↑
+              - button "Move Send down" [ref=e212] [cursor=pointer]: ↓
+              - button "Hide Send" [ref=e213] [cursor=pointer]:
+                - img [ref=e214]
+          - article [ref=e217]:
+            - img [ref=e218]
+            - img [ref=e226]
+            - generic [ref=e232]:
+              - strong [ref=e233]: Receive
+              - generic [ref=e234]: Receive tokens and assets
+            - generic [ref=e235]:
+              - button "Move Receive up" [ref=e236] [cursor=pointer]: ↑
+              - button "Move Receive down" [ref=e237] [cursor=pointer]: ↓
+              - button "Hide Receive" [ref=e238] [cursor=pointer]:
+                - img [ref=e239]
+          - article [ref=e242]:
+            - img [ref=e243]
+            - img [ref=e251]
+            - generic [ref=e256]:
+              - strong [ref=e257]: Swap
+              - generic [ref=e258]: Exchange tokens
+            - generic [ref=e259]:
+              - button "Move Swap up" [ref=e260] [cursor=pointer]: ↑
+              - button "Move Swap down" [ref=e261] [cursor=pointer]: ↓
+              - button "Show Swap" [ref=e262] [cursor=pointer]:
+                - img [ref=e263]
+          - article [ref=e268]:
+            - img [ref=e269]
+            - img [ref=e277]
+            - generic [ref=e279]:
+              - strong [ref=e280]: Activity
+              - generic [ref=e281]: Recent transactions and activity
+            - generic [ref=e282]:
+              - button "Move Activity up" [ref=e283] [cursor=pointer]: ↑
+              - button "Move Activity down" [ref=e284] [cursor=pointer]: ↓
+              - button "Hide Activity" [ref=e285] [cursor=pointer]:
+                - img [ref=e286]
+          - article [ref=e289]:
+            - img [ref=e290]
+            - img [ref=e298]
+            - generic [ref=e301]:
+              - strong [ref=e302]: Portfolio
+              - generic [ref=e303]: Performance and allocation
+            - generic [ref=e304]:
+              - button "Move Portfolio up" [ref=e305] [cursor=pointer]: ↑
+              - button "Move Portfolio down" [ref=e306] [cursor=pointer]: ↓
+              - button "Hide Portfolio" [ref=e307] [cursor=pointer]:
+                - img [ref=e308]
+          - article [ref=e311]:
+            - img [ref=e312]
+            - img [ref=e320]
+            - generic [ref=e324]:
+              - strong [ref=e325]: pufETH Mint
+              - generic [ref=e326]: Stake ETH into pufETH to earn restaking yield
+            - generic [ref=e327]:
+              - button "Move pufETH Mint up" [ref=e328] [cursor=pointer]: ↑
+              - button "Move pufETH Mint down" [disabled] [ref=e329]: ↓
+              - button "Hide pufETH Mint" [ref=e330] [cursor=pointer]:
+                - img [ref=e331]
+        - generic [ref=e334]: Move widgets to reorder. Click the eye to show or hide.
+      - generic [ref=e335]:
+        - generic [ref=e336]:
+          - heading "Portal Preview" [level=2] [ref=e337]
+          - generic [ref=e338]:
+            - button "Reset Layout" [ref=e339] [cursor=pointer]:
+              - img [ref=e340]
+              - text: Reset Layout
+            - button "Preview Portal" [ref=e345] [cursor=pointer]:
+              - img [ref=e346]
+              - text: Preview Portal
+        - generic [ref=e349]:
+          - generic [ref=e350]:
+            - generic [ref=e351]: Total Balance
+            - strong [ref=e352]: $3,447.07
+            - generic [ref=e353]: +2.10% today
+            - img [ref=e354]
+          - generic [ref=e356]:
+            - generic [ref=e357]:
+              - generic "HYPE token icon" [ref=e358]:
+                - img [ref=e359]
+              - strong [ref=e361]: $3,423.53
+              - generic [ref=e362]: HyperEVM
+            - generic [ref=e363]:
+              - generic "ETH token icon" [ref=e364]:
+                - img [ref=e365]
+              - strong [ref=e369]: $23.54
+              - generic [ref=e370]: Arbitrum One
+            - generic [ref=e371]:
+              - generic "BTC token icon" [ref=e372]:
+                - img [ref=e373]
+              - strong [ref=e376]: Not refreshed
+              - generic [ref=e377]: Bitcoin Mainnet
+            - generic [ref=e378]:
+              - img [ref=e380]
+              - strong [ref=e383]: Send
+              - generic [ref=e384]: Send tokens and assets
+            - generic [ref=e385]:
+              - img [ref=e387]
+              - strong [ref=e393]: Receive
+              - generic [ref=e394]: Receive tokens and assets
+            - generic [ref=e395]:
+              - img [ref=e397]
+              - strong [ref=e399]: Activity
+              - generic [ref=e400]: Recent transactions and activity
+            - generic [ref=e401]:
+              - img [ref=e403]
+              - strong [ref=e406]: Portfolio
+              - generic [ref=e407]: Performance and allocation
+            - generic [ref=e408]:
+              - generic [ref=e409]:
+                - img [ref=e411]
+                - generic [ref=e415]:
+                  - strong [ref=e416]: pufETH Mint
+                  - generic [ref=e417]: Stake ETH
+              - generic [ref=e418]:
+                - generic [ref=e419]: "0.0"
+                - generic [ref=e420]: Max
+                - generic [ref=e421]: Mint
+        - generic [ref=e422]: Preview updates automatically.
+    - heading "Personalization" [level=2] [ref=e423]
+    - region "Portal personalization" [ref=e424]:
+      - generic [ref=e425]:
+        - img [ref=e427]
+        - strong [ref=e430]: Compact mode
+        - generic [ref=e431]: Use a denser layout across Portal
+        - checkbox "Compact mode Use a denser layout across Portal" [ref=e433]
+      - generic [ref=e435]:
+        - img [ref=e437]
+        - strong [ref=e439]: Default currency
+        - generic [ref=e440]: Pricing is currently sourced in USD
+        - combobox "Default currency Pricing is currently sourced in USD" [ref=e441]:
+          - option "USD" [selected]
+      - generic [ref=e442]:
+        - img [ref=e444]
+        - strong [ref=e447]: Start page
+        - generic [ref=e448]: Choose your default popup page
+        - combobox "Start page Choose your default popup page" [ref=e449]:
+          - option "Portal" [selected]
+          - option "Send"
+          - option "Receive"
+      - generic [ref=e450]:
+        - img [ref=e452]
+        - strong [ref=e457]: Language
+        - generic [ref=e458]: Choose the display language for the wallet.
+        - combobox "Language Choose the display language for the wallet." [ref=e459]:
+          - option "English" [selected]
+          - option "简体中文"
+          - option "繁體中文"
+          - option "日本語"
+    - generic [ref=e460]: "Active address: 0x1111111111111111111111111111111111111111"

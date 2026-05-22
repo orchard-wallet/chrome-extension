@@ -2217,13 +2217,13 @@ function PortalSettingsPreview({
                 <div className="portal-preview-pufeth-header">
                   <span className="portal-preview-pufeth-icon"><Database size={14} /></span>
                   <div>
-                    <strong>{t("settings:widgets.pufethTitle")}</strong>
+                    <strong>{t("popup:pufeth.widgetTitle")}</strong>
                     <small>{t("popup:pufeth.stakeEth")}</small>
                   </div>
                 </div>
                 <div className="portal-preview-pufeth-body">
                   <span className="portal-preview-pufeth-input">0.0</span>
-                  <span className="portal-preview-pufeth-max">Max</span>
+                  <span className="portal-preview-pufeth-max">{t("popup:pufeth.max")}</span>
                   <span className="portal-preview-pufeth-mint">{t("popup:pufeth.mint")}</span>
                 </div>
               </div>
