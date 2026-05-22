@@ -1,0 +1,19 @@
+{
+  "actions": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "save": "Save",
+    "copy": "Copy",
+    "copied": "Copied",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "done": "Done"
+  },
+  "status": {
+    "loading": "Loading…",
+    "ready": "Ready",
+    "error": "Error"
+  }
+}

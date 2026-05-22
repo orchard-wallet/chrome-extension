@@ -28,6 +28,7 @@ export interface WalletUiSettings {
   widgetOrder: string[];
   collapsedWidgets: string[];
   defaultSendNetworkId: string | null;
+  language: string;
 }
 
 export interface RecentRecipient {
@@ -89,7 +90,8 @@ export const DEFAULT_WALLET_UI_SETTINGS: WalletUiSettings = {
   visibleWidgets: ["balance", "assets", "send", "receive", "activity", "portfolio"],
   widgetOrder: ["balance", "assets", "send", "receive", "swap", "activity", "portfolio"],
   collapsedWidgets: [],
-  defaultSendNetworkId: null
+  defaultSendNetworkId: null,
+  language: "en"
 };
 
 const WALLET_KEY = "walletRecord";
@@ -169,7 +171,9 @@ function normalizeWalletUiSettings(settings: Partial<WalletUiSettings> | undefin
     defaultSendNetworkId:
       typeof settings?.defaultSendNetworkId === "string" || settings?.defaultSendNetworkId === null
         ? settings.defaultSendNetworkId
-        : DEFAULT_WALLET_UI_SETTINGS.defaultSendNetworkId
+        : DEFAULT_WALLET_UI_SETTINGS.defaultSendNetworkId,
+    language:
+      typeof settings?.language === "string" ? settings.language : DEFAULT_WALLET_UI_SETTINGS.language
   };
 }
 

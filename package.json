@@ -13,10 +13,12 @@
     "@vitejs/plugin-react": "^6.0.2",
     "@walletconnect/jsonrpc-utils": "^1.0.8",
     "@walletconnect/sign-client": "^2.23.9",
+    "i18next": "^26.2.0",
     "lucide-react": "^1.16.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-i18next": "^17.0.8",
     "viem": "^2.49.2",
     "vite": "^8.0.13"
   },
