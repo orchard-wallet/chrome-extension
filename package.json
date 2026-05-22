@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@consenlabs/tcx-wasm": "^0.9.1",
+    "@pufferfinance/puffer-sdk": "^1.31.0",
     "@vitejs/plugin-react": "^6.0.2",
     "@walletconnect/jsonrpc-utils": "^1.0.8",
     "@walletconnect/sign-client": "^2.23.9",
