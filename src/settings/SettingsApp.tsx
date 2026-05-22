@@ -314,8 +314,8 @@ export function SettingsApp() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [walletRecord, setWalletRecord] = useState<Awaited<ReturnType<typeof readWalletRecord>>>(null);
   const [portfolioStore, setPortfolioStore] = useState<AssetStore | null>(null);
-  const [portfolioTotal, setPortfolioTotal] = useState<string>("");
-  const [portfolioUpdatedAt, setPortfolioUpdatedAt] = useState<string>("");
+  const [portfolioTotal, setPortfolioTotal] = useState<string>(() => formatUsd(undefined));
+  const [portfolioUpdatedAt, setPortfolioUpdatedAt] = useState<string>(() => formatUpdatedAt(undefined));
   const [newNetworkName, setNewNetworkName] = useState("");
   const [newNetworkFamily, setNewNetworkFamily] = useState<NetworkFamily>("custom");
   const [newNetworkChain, setNewNetworkChain] = useState("");

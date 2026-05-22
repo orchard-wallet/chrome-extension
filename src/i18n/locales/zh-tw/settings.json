@@ -59,8 +59,8 @@
   },
   "connectedDapps": {
     "account1": "帳戶 1",
-    "active": "活躍工作階段",
-    "active_other": "活躍工作階段",
+    "active": "{{count}} 個活躍工作階段",
+    "active_other": "{{count}} 個活躍工作階段",
     "activeConnections": "所有連接均可查看。",
     "allowedChains": "允許的鏈",
     "connected": "已連接",

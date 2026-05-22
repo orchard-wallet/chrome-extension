@@ -59,8 +59,8 @@
   },
   "connectedDapps": {
     "account1": "账户 1",
-    "active": "活跃会话",
-    "active_other": "活跃会话",
+    "active": "{{count}} 个活跃会话",
+    "active_other": "{{count}} 个活跃会话",
     "activeConnections": "所有连接均可查看。",
     "allowedChains": "允许的链",
     "connected": "已连接",

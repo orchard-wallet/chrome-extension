@@ -59,8 +59,8 @@
   },
   "connectedDapps": {
     "account1": "Account 1",
-    "active": "Active Session",
-    "active_other": "Active Sessions",
+    "active": "{{count}} Active Session",
+    "active_other": "{{count}} Active Sessions",
     "activeConnections": "All connections are available for review.",
     "allowedChains": "Allowed Chains",
     "connected": "Connected",

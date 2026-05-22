@@ -59,8 +59,8 @@
   },
   "connectedDapps": {
     "account1": "アカウント 1",
-    "active": "アクティブなセッション",
-    "active_other": "アクティブなセッション",
+    "active": "{{count}} 件のアクティブセッション",
+    "active_other": "{{count}} 件のアクティブセッション",
     "activeConnections": "すべての接続を確認できます。",
     "allowedChains": "許可されたチェーン",
     "connected": "接続済み",
