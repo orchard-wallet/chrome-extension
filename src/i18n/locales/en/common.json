@@ -1,19 +1,58 @@
 {
   "actions": {
+    "back": "Back",
     "cancel": "Cancel",
     "close": "Close",
     "confirm": "Confirm",
-    "back": "Back",
-    "save": "Save",
-    "copy": "Copy",
     "copied": "Copied",
-    "retry": "Retry",
+    "copy": "Copy",
+    "done": "Done",
     "refresh": "Refresh",
-    "done": "Done"
+    "retry": "Retry",
+    "save": "Save"
+  },
+  "clearSigning": {
+    "fee": {
+      "pending": "Pending estimation"
+    },
+    "message": {
+      "typedDataRequest": "Typed data request"
+    },
+    "recipient": {
+      "ethereumAddress": "Ethereum address",
+      "unknown": "Unknown recipient"
+    },
+    "title": {
+      "sendNative": "Send {{symbol}}",
+      "tokenApproval": "Token approval",
+      "unlimitedTokenApproval": "Unlimited token approval",
+      "unsupportedContractCall": "Unsupported contract call",
+      "unsupportedMessageSignature": "Unsupported message signature",
+      "unsupportedWalletConnect": "Unsupported WalletConnect request"
+    },
+    "validation": {
+      "amountTooLow": "Amount must be greater than 0.",
+      "invalidAmount": "Enter a valid {{symbol}} amount.",
+      "noAmount": "Enter an amount.",
+      "noNetwork": "Choose an enabled EVM network before sending.",
+      "noRecipient": "Enter a recipient address or ENS name.",
+      "noWallet": "Create or unlock a wallet before sending."
+    },
+    "warning": {
+      "exactApproval": "This approval grants token spending permission to another address.",
+      "feeNotEstimated": "Network fee is not estimated yet. This preview only covers transaction intent.",
+      "rawAddress": "Recipient was entered as a raw address. Verify it out-of-band before signing.",
+      "reverseEns": "Reverse ENS points to {{name}}.",
+      "reviewBeforeSigning": "Review the recipient, amount, network, and fee before signing with your passkey.",
+      "unlimitedApproval": "This approval can let the spender move unlimited tokens until revoked.",
+      "unsupportedContractCall": "This contract call is not supported by the clear-signing parser and cannot be signed directly.",
+      "unsupportedMessage": "Message signing is not supported by the clear-signing parser yet.",
+      "unsupportedMethod": "{{method}} is not supported by the clear-signing parser."
+    }
   },
   "status": {
+    "error": "Error",
     "loading": "Loading…",
-    "ready": "Ready",
-    "error": "Error"
+    "ready": "Ready"
   }
 }

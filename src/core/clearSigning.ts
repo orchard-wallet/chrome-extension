@@ -1,4 +1,5 @@
 import { formatUnits, isAddress, maxUint256, parseUnits, type Address } from "viem";
+import i18n from "../i18n";
 import type { RecipientResolution } from "./ens";
 import type { WalletNetworkSetting } from "./networks";
 import type { TransactionFeeEstimate } from "./rpc";
@@ -94,10 +95,10 @@ function recipientLabel(recipient: RecipientResolution): string {
   }
 
   if (recipient.kind === "address") {
-    return recipient.primaryName ?? "Ethereum address";
+    return recipient.primaryName ?? i18n.t("common:clearSigning.recipient.ethereumAddress");
   }
 
-  return "Unknown recipient";
+  return i18n.t("common:clearSigning.recipient.unknown");
 }
 
 export function buildNativeEthTransferPreview(input: {
@@ -108,15 +109,15 @@ export function buildNativeEthTransferPreview(input: {
   feeEstimate?: TransactionFeeEstimate | null;
 }): ClearSigningPreviewResult {
   if (!input.from) {
-    return { ok: false, reason: "Create or unlock a wallet before sending." };
+    return { ok: false, reason: i18n.t("common:clearSigning.validation.noWallet") };
   }
 
   if (!input.network?.chainId) {
-    return { ok: false, reason: "Choose an enabled EVM network before sending." };
+    return { ok: false, reason: i18n.t("common:clearSigning.validation.noNetwork") };
   }
 
   if (input.recipient.kind === "empty") {
-    return { ok: false, reason: "Enter a recipient address or ENS name." };
+    return { ok: false, reason: i18n.t("common:clearSigning.validation.noRecipient") };
   }
 
   if (input.recipient.kind === "invalid") {
@@ -126,7 +127,7 @@ export function buildNativeEthTransferPreview(input: {
   const normalizedAmount = normalizeAmountInput(input.amount);
 
   if (!normalizedAmount) {
-    return { ok: false, reason: "Enter an amount." };
+    return { ok: false, reason: i18n.t("common:clearSigning.validation.noAmount") };
   }
 
   let amountWei: bigint;
@@ -134,38 +135,43 @@ export function buildNativeEthTransferPreview(input: {
   try {
     amountWei = parseUnits(normalizedAmount, 18);
   } catch {
-    return { ok: false, reason: `Enter a valid ${input.network.nativeCurrencySymbol} amount.` };
+    return {
+      ok: false,
+      reason: i18n.t("common:clearSigning.validation.invalidAmount", {
+        symbol: input.network.nativeCurrencySymbol
+      })
+    };
   }
 
   if (amountWei <= 0n) {
-    return { ok: false, reason: "Amount must be greater than 0." };
+    return { ok: false, reason: i18n.t("common:clearSigning.validation.amountTooLow") };
   }
 
   const warnings: PreviewWarning[] = input.feeEstimate
     ? [
         {
           severity: "info",
-          message: "Review the recipient, amount, network, and fee before signing with your passkey."
+          message: i18n.t("common:clearSigning.warning.reviewBeforeSigning")
         }
       ]
     : [
         {
           severity: "info",
-          message: "Network fee is not estimated yet. This preview only covers transaction intent."
+          message: i18n.t("common:clearSigning.warning.feeNotEstimated")
         }
       ];
 
   if (input.recipient.kind === "address" && !input.recipient.primaryName) {
     warnings.push({
       severity: "warning",
-      message: "Recipient was entered as a raw address. Verify it out-of-band before signing."
+      message: i18n.t("common:clearSigning.warning.rawAddress")
     });
   }
 
   if (input.recipient.primaryName && input.recipient.primaryName !== recipientLabel(input.recipient)) {
     warnings.push({
       severity: "info",
-      message: `Reverse ENS points to ${input.recipient.primaryName}.`
+      message: i18n.t("common:clearSigning.warning.reverseEns", { name: input.recipient.primaryName })
     });
   }
 
@@ -173,7 +179,9 @@ export function buildNativeEthTransferPreview(input: {
     ok: true,
     preview: {
       action: "send-native-token",
-      title: `Send ${input.network.nativeCurrencySymbol}`,
+      title: i18n.t("common:clearSigning.title.sendNative", {
+        symbol: input.network.nativeCurrencySymbol
+      }),
       networkId: input.network.networkId,
       chainId: input.network.chainId,
       networkName: input.network.name,
@@ -191,7 +199,7 @@ export function buildNativeEthTransferPreview(input: {
       maxPriorityFeePerGas: input.feeEstimate?.maxPriorityFeePerGas ?? null,
       estimatedNetworkFee: input.feeEstimate
         ? `${input.feeEstimate.estimatedFeeNative} ${input.network.nativeCurrencySymbol}`
-        : "Pending estimation",
+        : i18n.t("common:clearSigning.fee.pending"),
       warnings
     }
   };
@@ -233,7 +241,9 @@ export function buildContractCallPreview(input: {
     const unlimited = approval.amount > maxUint256 / 2n;
     return {
       action: "token-approval",
-      title: unlimited ? "Unlimited token approval" : "Token approval",
+      title: unlimited
+        ? i18n.t("common:clearSigning.title.unlimitedTokenApproval")
+        : i18n.t("common:clearSigning.title.tokenApproval"),
       networkId: input.network.networkId,
       chainId: input.network.chainId ?? 0,
       networkName: input.network.name,
@@ -247,8 +257,8 @@ export function buildContractCallPreview(input: {
         {
           severity: unlimited ? "danger" : "warning",
           message: unlimited
-            ? "This approval can let the spender move unlimited tokens until revoked."
-            : "This approval grants token spending permission to another address."
+            ? i18n.t("common:clearSigning.warning.unlimitedApproval")
+            : i18n.t("common:clearSigning.warning.exactApproval")
         }
       ],
       supported: false
@@ -257,7 +267,7 @@ export function buildContractCallPreview(input: {
 
   return {
     action: "contract-call",
-    title: "Unsupported contract call",
+    title: i18n.t("common:clearSigning.title.unsupportedContractCall"),
     networkId: input.network.networkId,
     chainId: input.network.chainId ?? 0,
     networkName: input.network.name,
@@ -267,7 +277,7 @@ export function buildContractCallPreview(input: {
     warnings: [
       {
         severity: "danger",
-        message: "This contract call is not supported by the clear-signing parser and cannot be signed directly."
+        message: i18n.t("common:clearSigning.warning.unsupportedContractCall")
       }
     ],
     supported: false
@@ -280,13 +290,13 @@ export function buildMessageSignaturePreview(input: {
 }): MessageSignaturePreview {
   return {
     action: "sign-message",
-    title: "Unsupported message signature",
+    title: i18n.t("common:clearSigning.title.unsupportedMessageSignature"),
     from: input.from,
     message: input.message,
     warnings: [
       {
         severity: "danger",
-        message: "Message signing is not supported by the clear-signing parser yet."
+        message: i18n.t("common:clearSigning.warning.unsupportedMessage")
       }
     ],
     supported: false
@@ -322,13 +332,13 @@ export function buildWalletConnectRequestPreview(input: {
   if (input.method.startsWith("eth_signTypedData")) {
     return buildMessageSignaturePreview({
       from: input.from,
-      message: "Typed data request"
+      message: i18n.t("common:clearSigning.message.typedDataRequest")
     });
   }
 
   return {
     action: "contract-call",
-    title: "Unsupported WalletConnect request",
+    title: i18n.t("common:clearSigning.title.unsupportedWalletConnect"),
     networkId: input.network.networkId,
     chainId: input.network.chainId ?? 0,
     networkName: input.network.name,
@@ -338,7 +348,7 @@ export function buildWalletConnectRequestPreview(input: {
     warnings: [
       {
         severity: "danger",
-        message: `${input.method} is not supported by the clear-signing parser.`
+        message: i18n.t("common:clearSigning.warning.unsupportedMethod", { method: input.method })
       }
     ],
     supported: false
