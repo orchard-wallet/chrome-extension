@@ -1,5 +1,5 @@
 import init, { create_keystore, derive_accounts, sign_tx } from "@consenlabs/tcx-wasm";
-import type { Hex } from "viem";
+import type { Address, Hex } from "viem";
 import type { NativeTransferPreview } from "./clearSigning";
 
 export interface CreatedWallet {
@@ -155,3 +155,54 @@ export async function signEthereumTransfer(input: {
 }
 
 export const signNativeTokenTransfer = signEthereumTransfer;
+
+export interface EthereumTxRequest {
+  nonce: number | bigint;
+  gasLimit: bigint;
+  to: Address;
+  value: bigint;
+  data?: Hex;
+  chainId: number;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+}
+
+export async function signEthereumTransaction(input: {
+  keystoreJson: string;
+  key: string;
+  derivationPath: string;
+  tx: EthereumTxRequest;
+}): Promise<EthereumSignResult> {
+  await initTcx();
+
+  const result = JSON.parse(
+    sign_tx(
+      JSON.stringify({
+        keystoreJson: input.keystoreJson,
+        key: input.key,
+        derivationPath: input.derivationPath,
+        input: {
+          nonce: input.tx.nonce.toString(),
+          gasLimit: input.tx.gasLimit.toString(),
+          to: input.tx.to,
+          value: input.tx.value.toString(),
+          data: input.tx.data ?? "0x",
+          chainId: input.tx.chainId.toString(),
+          txType: "02",
+          maxFeePerGas: input.tx.maxFeePerGas.toString(),
+          maxPriorityFeePerGas: input.tx.maxPriorityFeePerGas.toString(),
+          accessList: []
+        }
+      })
+    )
+  ) as EthereumSignResult;
+
+  if (!result.signature || !result.txHash) {
+    throw new Error("tcx-wasm did not return an Ethereum signature and transaction hash.");
+  }
+
+  return {
+    ...result,
+    serializedTransaction: normalizeSerializedTransaction(result.signature)
+  };
+}
