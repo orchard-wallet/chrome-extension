@@ -80,6 +80,7 @@ import {
   readRecentRecipients,
   readWalletUiSettings,
   readWalletRecord,
+  clearWalletBoundRecords,
   clearWalletRecord,
   writePendingNativeSendReview,
   removeAddressBookContact,
@@ -952,8 +953,12 @@ export function SettingsApp() {
 
     try {
       await clearWalletRecord();
+      await clearWalletBoundRecords();
       setWalletRecord(null);
       setWalletAddress(null);
+      setPortfolioStore(null);
+      setRecentRecipients([]);
+      setActivityEvents([]);
       setResetWalletPending(false);
     } catch (cause) {
       setUiSettingsError(cause instanceof Error ? cause.message : t("settings:errors.resetWallet"));

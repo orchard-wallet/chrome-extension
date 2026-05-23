@@ -235,6 +235,32 @@ export async function clearWalletRecord(): Promise<void> {
   localStorage.removeItem(WALLET_KEY);
 }
 
+// Keys tied to the currently-loaded wallet address (transaction history,
+// balances, pending sends, dApp sessions). Reset must wipe these so a fresh
+// wallet doesn't inherit the previous one's view.
+// Intentionally NOT cleared on reset: NETWORK_SETTINGS_KEY,
+// ADDRESS_BOOK_CONTACTS_KEY, WALLET_UI_SETTINGS_KEY, IMPORTED_ERC20_TOKENS_KEY
+// (token catalog is per-network, not per-wallet).
+const WALLET_BOUND_KEYS = [
+  ACTIVITY_EVENTS_KEY,
+  ASSET_STORE_KEY,
+  RECENT_RECIPIENTS_KEY,
+  PENDING_NATIVE_SEND_REVIEW_KEY,
+  WALLETCONNECT_SESSION_ACTIVITY_KEY,
+  WALLETCONNECT_PENDING_PROPOSALS_KEY
+] as const;
+
+export async function clearWalletBoundRecords(): Promise<void> {
+  if (hasChromeStorage()) {
+    await chromeLocalStorage().remove([...WALLET_BOUND_KEYS]);
+    return;
+  }
+
+  for (const key of WALLET_BOUND_KEYS) {
+    localStorage.removeItem(key);
+  }
+}
+
 export async function readNetworkSettings(): Promise<WalletNetworkSetting[]> {
   if (hasChromeStorage()) {
     const result = await chromeLocalStorage().get(NETWORK_SETTINGS_KEY);

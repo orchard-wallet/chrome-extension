@@ -56,6 +56,7 @@ import { ReceiveRequestWidget } from "./receive-request-widget";
 import {
   appendActivityEvent,
   clearPendingNativeSendReview,
+  clearWalletBoundRecords,
   clearWalletRecord,
   readNetworkSettings,
   readPendingNativeSendReview,
@@ -641,6 +642,8 @@ export function App() {
 
   async function handleReset() {
     await clearWalletRecord();
+    await clearWalletBoundRecords();
+    setPendingSendReview(null);
     setWallet(null);
     setStatus("idle");
     setOnboardingStep("intro");
@@ -648,6 +651,7 @@ export function App() {
     setError(null);
     setPortfolioStore(null);
     setSelectedChainId(null);
+    setRecentRecipients([]);
     void recordActivity({
       type: "wallet_reset",
       title: "Wallet reset",
