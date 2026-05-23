@@ -611,9 +611,9 @@ export function SettingsApp() {
         return;
       }
 
+      setSwapPriceStatus("loading");
       cancelPolling = schedulePricePolling(
         () => {
-          setSwapPriceStatus("loading");
           return provider.getPrice(request).then((price) => {
             if (!cancelled) {
               setSwapPrice(price);
