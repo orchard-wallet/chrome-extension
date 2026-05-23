@@ -53,7 +53,7 @@ export const GENERATED_ERC20_TOKENS: Record<string, GeneratedErc20Token[]> = {
       name: "LINK Chainlink",
       decimals: 18,
       contractAddress: "0x514910771AF9Ca656af840dff83E8264EcF986CA",
-      groupKey: "erc20:link (chainlink)"
+      groupKey: "erc20:link"
     },
     {
       symbol: "UNI",

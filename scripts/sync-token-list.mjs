@@ -74,7 +74,7 @@ async function fetchToken(chainDir, address) {
 }
 
 function pickGroupKey(symbol) {
-  const lower = symbol.toLowerCase();
+  const lower = symbol.split(/\s/)[0].toLowerCase().replace(/[^a-z0-9]/g, "");
   if (lower === "usdc" || lower === "usdt" || lower === "dai") {
     return `stablecoin:${lower}`;
   }
