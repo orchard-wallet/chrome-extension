@@ -3,6 +3,7 @@ import { readImportedErc20Tokens } from "../lib/storage";
 import type { AssetBalance, AssetDefinition, ChainAssetSnapshot } from "./assets";
 import { balanceKey, nativeAssetId, tokenAssetId } from "./assets";
 import type { WalletNetworkSetting } from "./networks";
+import { getKnownErc20Tokens, type KnownErc20Token } from "./tokenList";
 
 export interface NativeBalanceResult {
   definition: AssetDefinition;
@@ -10,15 +11,6 @@ export interface NativeBalanceResult {
   balance: AssetBalance;
   tokenBalances?: AssetBalance[];
   snapshot: ChainAssetSnapshot;
-}
-
-interface Erc20TokenDefinitionInput {
-  symbol: string;
-  name: string;
-  decimals: number;
-  contractAddress: Address;
-  priceKey?: string;
-  groupKey: string;
 }
 
 const ERC20_BALANCE_ABI = [
@@ -31,54 +23,11 @@ const ERC20_BALANCE_ABI = [
   }
 ] as const;
 
-const EVM_TOKEN_DEFINITIONS: Record<string, Erc20TokenDefinitionInput[]> = {
-  "ethereum-mainnet": [
-    {
-      symbol: "USDC",
-      name: "USD Coin",
-      decimals: 6,
-      contractAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-      priceKey: "ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-      groupKey: "stablecoin:usdc"
-    },
-    {
-      symbol: "USDT",
-      name: "Tether USD",
-      decimals: 6,
-      contractAddress: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-      priceKey: "ethereum:0xdac17f958d2ee523a2206206994597c13d831ec7",
-      groupKey: "stablecoin:usdt"
-    },
-    {
-      symbol: "WBTC",
-      name: "Wrapped BTC",
-      decimals: 8,
-      contractAddress: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
-      priceKey: "ethereum:0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
-      groupKey: "erc20:wbtc"
-    }
-  ],
-  "arbitrum-one": [
-    {
-      symbol: "USDC",
-      name: "USD Coin",
-      decimals: 6,
-      contractAddress: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-      priceKey: "arbitrum:0xaf88d065e77c8cc2239327c5edb3a432268e5831",
-      groupKey: "stablecoin:usdc"
-    }
-  ],
-  "polygon-mainnet": [
-    {
-      symbol: "USDC",
-      name: "USD Coin",
-      decimals: 6,
-      contractAddress: "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
-      priceKey: "polygon:0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
-      groupKey: "stablecoin:usdc"
-    }
-  ]
-};
+function isKnownErc20Token(networkId: string, contractAddress: string): boolean {
+  return getKnownErc20Tokens(networkId).some(
+    (token) => token.contractAddress.toLowerCase() === contractAddress.toLowerCase()
+  );
+}
 
 export function nativeAssetDefinition(network: WalletNetworkSetting): AssetDefinition {
   return {
@@ -94,10 +43,11 @@ export function nativeAssetDefinition(network: WalletNetworkSetting): AssetDefin
   };
 }
 
-// Curated, always-available EVM token list for the Swap selector, independent
-// of portfolio-refresh state. Native asset first, then known ERC-20 tokens.
+// Always-available EVM token list for the Swap selector, independent of
+// portfolio-refresh state. Native asset first, then known ERC-20 tokens
+// (curated overrides + ethereum-lists/tokens generated entries).
 export function curatedEvmSwapAssets(network: WalletNetworkSetting): AssetDefinition[] {
-  const tokens = EVM_TOKEN_DEFINITIONS[network.networkId] ?? [];
+  const tokens = getKnownErc20Tokens(network.networkId);
   return [
     nativeAssetDefinition(network),
     ...tokens.map<AssetDefinition>((token) => ({
@@ -219,13 +169,21 @@ async function fetchEvmTokenBalances(
     priceKey?: string;
   }>
 ): Promise<{ definitions: AssetDefinition[]; balances: AssetBalance[] }> {
-  const configuredTokens = [
-    ...(EVM_TOKEN_DEFINITIONS[network.networkId] ?? []),
-    ...importedTokens.map((token) => ({
-      ...token,
-      contractAddress: token.contractAddress as Address,
-      groupKey: `erc20:${token.symbol.toLowerCase()}`
-    }))
+  const knownTokens = getKnownErc20Tokens(network.networkId);
+  const importedAsKnown: KnownErc20Token[] = importedTokens.map((token) => ({
+    symbol: token.symbol,
+    name: token.name,
+    decimals: token.decimals,
+    contractAddress: token.contractAddress as Address,
+    priceKey: token.priceKey,
+    groupKey: `erc20:${token.symbol.toLowerCase()}`
+  }));
+  // Filter out user-imported entries that duplicate a known token (by
+  // contract address) to avoid double-counting in the balance list.
+  const knownAddresses = new Set(knownTokens.map((t) => t.contractAddress.toLowerCase()));
+  const configuredTokens: KnownErc20Token[] = [
+    ...knownTokens,
+    ...importedAsKnown.filter((t) => !knownAddresses.has(t.contractAddress.toLowerCase()))
   ];
   const definitions: AssetDefinition[] = [];
   const balances: AssetBalance[] = [];
@@ -243,9 +201,7 @@ async function fetchEvmTokenBalances(
       priceKey: token.priceKey,
       contractAddress: token.contractAddress,
       groupKey: token.groupKey,
-      imported: !EVM_TOKEN_DEFINITIONS[network.networkId]?.some(
-        (knownToken) => knownToken.contractAddress.toLowerCase() === token.contractAddress.toLowerCase()
-      )
+      imported: !isKnownErc20Token(network.networkId, token.contractAddress)
     });
 
     try {
