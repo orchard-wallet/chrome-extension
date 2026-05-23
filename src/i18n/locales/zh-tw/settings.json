@@ -110,6 +110,7 @@
     "savePreferences": "無法儲存錢包偏好設定。",
     "saveSettings": "無法儲存網路設定。",
     "swapNoAssets": "請選擇兩個資產並輸入金額後再請求 0x 報價。",
+    "swapNoProvider": "此網路目前尚未支援 Swap 報價。",
     "swapPrice": "無法載入 0x 價格。",
     "swapQuote": "無法載入可執行的 0x 報價。",
     "updateContact": "無法更新聯絡人。"

@@ -110,6 +110,7 @@
     "savePreferences": "Unable to save wallet preferences.",
     "saveSettings": "Unable to save network settings.",
     "swapNoAssets": "Choose two assets and enter an amount before requesting a 0x quote.",
+    "swapNoProvider": "Swap quotes are not available for this network yet.",
     "swapPrice": "Unable to load a 0x price.",
     "swapQuote": "Unable to load an executable 0x quote.",
     "updateContact": "Unable to update contact."

@@ -110,6 +110,7 @@
     "savePreferences": "无法保存钱包偏好设置。",
     "saveSettings": "无法保存网络设置。",
     "swapNoAssets": "请选择两种资产并输入金额后再请求 0x 报价。",
+    "swapNoProvider": "该网络暂未支持 Swap 报价。",
     "swapPrice": "无法加载 0x 价格。",
     "swapQuote": "无法加载可执行的 0x 报价。",
     "updateContact": "无法更新联系人。"

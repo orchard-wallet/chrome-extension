@@ -110,6 +110,7 @@
     "savePreferences": "ウォレット設定を保存できませんでした。",
     "saveSettings": "ネットワーク設定を保存できませんでした。",
     "swapNoAssets": "0x クオートをリクエストする前に2つの資産を選択して金額を入力してください。",
+    "swapNoProvider": "このネットワークの Swap クオートはまだ利用できません。",
     "swapPrice": "0x の価格を読み込めませんでした。",
     "swapQuote": "実行可能な 0x クオートを読み込めませんでした。",
     "updateContact": "連絡先を更新できませんでした。"
