@@ -94,6 +94,9 @@ async function syncNetwork(networkId, addresses) {
     process.stdout.write(`  ${networkId} ${address} … `);
     try {
       const raw = await fetchToken(chainDir, address);
+      if (!raw.address || typeof raw.symbol !== "string" || typeof raw.name !== "string" || !Number.isInteger(raw.decimals) || raw.decimals < 0) {
+        throw new Error(`Invalid upstream data for ${address}: ${JSON.stringify(raw)}`);
+      }
       const priceKey = PRICE_KEYS[networkId]?.[address.toLowerCase()];
       tokens.push({
         symbol: raw.symbol,
