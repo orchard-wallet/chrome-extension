@@ -4489,6 +4489,31 @@ body.settings-body {
   font-weight: 640;
 }
 
+.activity-tx-link,
+.activity-tx-hash {
+  display: block;
+  margin-top: 2px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-tx-link {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.activity-tx-link:hover {
+  text-decoration: underline;
+}
+
+.activity-tx-hash {
+  color: #7c8392;
+}
+
 .activity-amount {
   min-height: 1px;
   color: #2a2e38;

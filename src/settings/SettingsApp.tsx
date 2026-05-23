@@ -53,6 +53,7 @@ import {
   type ActivityStatus
 } from "../core/activity";
 import { resolveRecipient, type RecipientResolution } from "../core/ens";
+import { txExplorerUrl } from "./txExplorerUrl";
 import {
   createCustomNetwork,
   getBuiltInNetworkSettings,
@@ -277,6 +278,14 @@ function originLabel(session: WalletConnectSessionSummary): string {
   } catch {
     return session.domain ?? session.url ?? "Unknown origin";
   }
+}
+
+
+function shortenTxHash(hash: string): string {
+  if (hash.length <= 14) {
+    return hash;
+  }
+  return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
 }
 
 function sendRuntimeMessage<T>(message: unknown): Promise<T> {
@@ -1076,6 +1085,7 @@ export function SettingsApp() {
         summary={activitySummary}
         query={activityQuery}
         filter={activityFilter}
+        networks={networks}
         onQuery={setActivityQuery}
         onFilter={setActivityFilter}
       />
@@ -1465,6 +1475,7 @@ function ActivitySettingsPanel({
   summary,
   query,
   filter,
+  networks,
   onQuery,
   onFilter
 }: {
@@ -1473,11 +1484,19 @@ function ActivitySettingsPanel({
   summary: ReturnType<typeof activityTotals>;
   query: string;
   filter: "all" | ActivityCategory;
+  networks: WalletNetworkSetting[];
   onQuery: (query: string) => void;
   onFilter: (filter: "all" | ActivityCategory) => void;
 }) {
   const { t } = useTranslation();
   const eventGroups = activityGroups(events);
+  const networksByName = useMemo(() => {
+    const map = new Map<string, WalletNetworkSetting>();
+    for (const network of networks) {
+      map.set(network.name, network);
+    }
+    return map;
+  }, [networks]);
 
   return (
     <section className="settings-main-panel activity-settings-panel">
@@ -1520,18 +1539,33 @@ function ActivitySettingsPanel({
           <section className="activity-day-group" key={group.label}>
             <h2>{group.label}</h2>
             <div className="activity-table">
-              {group.events.map((event) => (
-                <article className="activity-table-row" key={event.id}>
-                  <span className={`activity-kind ${event.category} ${event.status}`}>{activityIcon(event)}</span>
-                  <div className="activity-main">
-                    <strong>{event.title}</strong>
-                    <small>{event.detail}</small>
-                  </div>
-                  <ActivityAmountCell event={event} />
-                  <time dateTime={event.createdAt}>{formatActivityTime(event.createdAt)}</time>
-                  <span className={`activity-status ${event.status}`}>{activityStatusLabel(event.status, t)}</span>
-                </article>
-              ))}
+              {group.events.map((event) => {
+                const explorerHref = event.txHash
+                  ? txExplorerUrl(event.txHash, event.networkName ? networksByName.get(event.networkName) ?? null : null)
+                  : null;
+                const detailIsTxHash = Boolean(event.txHash) && event.detail === event.txHash;
+                return (
+                  <article className="activity-table-row" key={event.id}>
+                    <span className={`activity-kind ${event.category} ${event.status}`}>{activityIcon(event)}</span>
+                    <div className="activity-main">
+                      <strong>{event.title}</strong>
+                      {detailIsTxHash ? null : <small>{event.detail}</small>}
+                      {event.txHash ? (
+                        explorerHref ? (
+                          <a className="activity-tx-link" href={explorerHref} target="_blank" rel="noreferrer">
+                            {shortenTxHash(event.txHash)}
+                          </a>
+                        ) : (
+                          <small className="activity-tx-hash">{shortenTxHash(event.txHash)}</small>
+                        )
+                      ) : null}
+                    </div>
+                    <ActivityAmountCell event={event} />
+                    <time dateTime={event.createdAt}>{formatActivityTime(event.createdAt)}</time>
+                    <span className={`activity-status ${event.status}`}>{activityStatusLabel(event.status, t)}</span>
+                  </article>
+                );
+              })}
             </div>
           </section>
         ))}

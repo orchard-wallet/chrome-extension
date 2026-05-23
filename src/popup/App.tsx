@@ -778,12 +778,6 @@ export function App() {
 
     if (!previewAccepted) {
       setPreviewAccepted(true);
-      void recordActivity({
-        type: "transfer_preview_accepted",
-        title: "Transfer preview reviewed",
-        detail: `${previewResult.preview.amount} ${previewResult.preview.asset} to ${previewResult.preview.recipientLabel}`,
-        severity: "info"
-      });
       return;
     }
 
