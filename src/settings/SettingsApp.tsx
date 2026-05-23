@@ -279,6 +279,40 @@ function originLabel(session: WalletConnectSessionSummary): string {
   }
 }
 
+function txExplorerUrl(hash: string, network: WalletNetworkSetting | null | undefined): string | null {
+  if (!hash) {
+    return null;
+  }
+
+  if (network?.explorerUrl) {
+    return `${network.explorerUrl.replace(/\/$/, "")}/tx/${hash}`;
+  }
+
+  switch (network?.chainId) {
+    case 1:
+      return `https://etherscan.io/tx/${hash}`;
+    case 11155111:
+      return `https://sepolia.etherscan.io/tx/${hash}`;
+    case 42161:
+      return `https://arbiscan.io/tx/${hash}`;
+    case 421614:
+      return `https://sepolia.arbiscan.io/tx/${hash}`;
+    case 137:
+      return `https://polygonscan.com/tx/${hash}`;
+    case 80002:
+      return `https://amoy.polygonscan.com/tx/${hash}`;
+    default:
+      return null;
+  }
+}
+
+function shortenTxHash(hash: string): string {
+  if (hash.length <= 14) {
+    return hash;
+  }
+  return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
+}
+
 function sendRuntimeMessage<T>(message: unknown): Promise<T> {
   return new Promise((resolve, reject) => {
     const runtime = typeof chrome === "undefined" ? undefined : chrome.runtime;
@@ -1076,6 +1110,7 @@ export function SettingsApp() {
         summary={activitySummary}
         query={activityQuery}
         filter={activityFilter}
+        networks={networks}
         onQuery={setActivityQuery}
         onFilter={setActivityFilter}
       />
@@ -1465,6 +1500,7 @@ function ActivitySettingsPanel({
   summary,
   query,
   filter,
+  networks,
   onQuery,
   onFilter
 }: {
@@ -1473,11 +1509,19 @@ function ActivitySettingsPanel({
   summary: ReturnType<typeof activityTotals>;
   query: string;
   filter: "all" | ActivityCategory;
+  networks: WalletNetworkSetting[];
   onQuery: (query: string) => void;
   onFilter: (filter: "all" | ActivityCategory) => void;
 }) {
   const { t } = useTranslation();
   const eventGroups = activityGroups(events);
+  const networksByName = useMemo(() => {
+    const map = new Map<string, WalletNetworkSetting>();
+    for (const network of networks) {
+      map.set(network.name, network);
+    }
+    return map;
+  }, [networks]);
 
   return (
     <section className="settings-main-panel activity-settings-panel">
@@ -1520,18 +1564,33 @@ function ActivitySettingsPanel({
           <section className="activity-day-group" key={group.label}>
             <h2>{group.label}</h2>
             <div className="activity-table">
-              {group.events.map((event) => (
-                <article className="activity-table-row" key={event.id}>
-                  <span className={`activity-kind ${event.category} ${event.status}`}>{activityIcon(event)}</span>
-                  <div className="activity-main">
-                    <strong>{event.title}</strong>
-                    <small>{event.detail}</small>
-                  </div>
-                  <ActivityAmountCell event={event} />
-                  <time dateTime={event.createdAt}>{formatActivityTime(event.createdAt)}</time>
-                  <span className={`activity-status ${event.status}`}>{activityStatusLabel(event.status, t)}</span>
-                </article>
-              ))}
+              {group.events.map((event) => {
+                const explorerHref = event.txHash
+                  ? txExplorerUrl(event.txHash, event.networkName ? networksByName.get(event.networkName) ?? null : null)
+                  : null;
+                const detailIsTxHash = Boolean(event.txHash) && event.detail === event.txHash;
+                return (
+                  <article className="activity-table-row" key={event.id}>
+                    <span className={`activity-kind ${event.category} ${event.status}`}>{activityIcon(event)}</span>
+                    <div className="activity-main">
+                      <strong>{event.title}</strong>
+                      {detailIsTxHash ? null : <small>{event.detail}</small>}
+                      {event.txHash ? (
+                        explorerHref ? (
+                          <a className="activity-tx-link" href={explorerHref} target="_blank" rel="noreferrer">
+                            {shortenTxHash(event.txHash)}
+                          </a>
+                        ) : (
+                          <small className="activity-tx-hash">{shortenTxHash(event.txHash)}</small>
+                        )
+                      ) : null}
+                    </div>
+                    <ActivityAmountCell event={event} />
+                    <time dateTime={event.createdAt}>{formatActivityTime(event.createdAt)}</time>
+                    <span className={`activity-status ${event.status}`}>{activityStatusLabel(event.status, t)}</span>
+                  </article>
+                );
+              })}
             </div>
           </section>
         ))}
