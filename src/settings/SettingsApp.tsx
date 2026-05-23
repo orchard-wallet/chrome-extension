@@ -73,6 +73,7 @@ import {
   type QuoteRequest,
   type QuoteResult
 } from "../core/quote/quoteProvider";
+import { schedulePricePolling } from "../core/quote/priceRefreshScheduler.js";
 import {
   readNetworkSettings,
   readActivityEvents,
@@ -590,7 +591,7 @@ export function SettingsApp() {
 
   useEffect(() => {
     let cancelled = false;
-    let intervalId: number | null = null;
+    let cancelPolling: (() => void) | null = null;
     const timeoutId = window.setTimeout(() => {
       setSwapPrice(null);
       setSwapQuote(null);
@@ -610,34 +611,30 @@ export function SettingsApp() {
         return;
       }
 
-      const runRefresh = () => {
-        setSwapPriceStatus("loading");
-        provider
-          .getPrice(request)
-          .then((price) => {
+      cancelPolling = schedulePricePolling(
+        () => {
+          setSwapPriceStatus("loading");
+          return provider.getPrice(request).then((price) => {
             if (!cancelled) {
               setSwapPrice(price);
               setSwapPriceStatus("ready");
             }
-          })
-          .catch((cause: unknown) => {
-            if (!cancelled) {
-              setSwapPriceStatus("error");
-              setSwapError(cause instanceof Error ? cause.message : t("settings:errors.swapPrice"));
-            }
           });
-      };
-
-      runRefresh();
-      intervalId = window.setInterval(runRefresh, PRICE_REFRESH_INTERVAL_MS);
+        },
+        PRICE_REFRESH_INTERVAL_MS,
+        (cause: unknown) => {
+          if (!cancelled) {
+            setSwapPriceStatus("error");
+            setSwapError(cause instanceof Error ? cause.message : t("settings:errors.swapPrice"));
+          }
+        },
+      );
     }, 360);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timeoutId);
-      if (intervalId !== null) {
-        window.clearInterval(intervalId);
-      }
+      cancelPolling?.();
     };
   }, [selectedSwapBuyAsset, selectedSwapNetwork, selectedSwapSellAsset, swapSellAmount, t]);
 
