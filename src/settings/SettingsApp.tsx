@@ -53,6 +53,7 @@ import {
   type ActivityStatus
 } from "../core/activity";
 import { resolveRecipient, type RecipientResolution } from "../core/ens";
+import { txExplorerUrl } from "./txExplorerUrl";
 import {
   createCustomNetwork,
   getBuiltInNetworkSettings,
@@ -279,32 +280,6 @@ function originLabel(session: WalletConnectSessionSummary): string {
   }
 }
 
-function txExplorerUrl(hash: string, network: WalletNetworkSetting | null | undefined): string | null {
-  if (!hash) {
-    return null;
-  }
-
-  if (network?.explorerUrl) {
-    return `${network.explorerUrl.replace(/\/$/, "")}/tx/${hash}`;
-  }
-
-  switch (network?.chainId) {
-    case 1:
-      return `https://etherscan.io/tx/${hash}`;
-    case 11155111:
-      return `https://sepolia.etherscan.io/tx/${hash}`;
-    case 42161:
-      return `https://arbiscan.io/tx/${hash}`;
-    case 421614:
-      return `https://sepolia.arbiscan.io/tx/${hash}`;
-    case 137:
-      return `https://polygonscan.com/tx/${hash}`;
-    case 80002:
-      return `https://amoy.polygonscan.com/tx/${hash}`;
-    default:
-      return null;
-  }
-}
 
 function shortenTxHash(hash: string): string {
   if (hash.length <= 14) {
