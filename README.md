@@ -210,6 +210,9 @@ Deeper dives:
 
 - [Multichain asset architecture](docs/multichain-assets-architecture.md)
 - [Orchard UI implementation plan](docs/orchard-ui-implementation-plan.md)
+- [Token list pipeline](docs/token-list.md) — how ERC-20 metadata is sourced
+  and refreshed from [ethereum-lists/tokens](https://github.com/ethereum-lists/tokens)
+  (MIT, attributed in [LICENSES.md](LICENSES.md))
 
 ## Privacy
 
