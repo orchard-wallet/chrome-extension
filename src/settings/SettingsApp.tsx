@@ -68,11 +68,11 @@ import { searchAddressBookContacts, type AddressBookContact } from "../core/addr
 import { estimateNativeTokenTransfer, type TransactionFeeEstimate } from "../core/rpc";
 import { buildNativeReceiveRequestUri } from "../core/eip681";
 import {
-  getZeroExSwapPrice,
-  getZeroExSwapQuote,
-  tokenAddressForZeroEx,
-  type ZeroExSwapQuote
-} from "../core/zeroEx";
+  PRICE_REFRESH_INTERVAL_MS,
+  selectQuoteProvider,
+  type QuoteRequest,
+  type QuoteResult
+} from "../core/quote/quoteProvider";
 import {
   readNetworkSettings,
   readActivityEvents,
@@ -353,9 +353,9 @@ export function SettingsApp() {
   const [swapSellAssetId, setSwapSellAssetId] = useState<string | null>(null);
   const [swapBuyAssetId, setSwapBuyAssetId] = useState<string | null>(null);
   const [swapSellAmount, setSwapSellAmount] = useState("");
-  const [swapPrice, setSwapPrice] = useState<ZeroExSwapQuote | null>(null);
+  const [swapPrice, setSwapPrice] = useState<QuoteResult | null>(null);
   const [swapPriceStatus, setSwapPriceStatus] = useState<SwapQuoteStatus>("idle");
-  const [swapQuote, setSwapQuote] = useState<ZeroExSwapQuote | null>(null);
+  const [swapQuote, setSwapQuote] = useState<QuoteResult | null>(null);
   const [swapQuoteStatus, setSwapQuoteStatus] = useState<SwapQuoteStatus>("idle");
   const [swapError, setSwapError] = useState<string | null>(null);
   const [recentRecipients, setRecentRecipients] = useState<RecentRecipient[]>([]);
@@ -590,39 +590,56 @@ export function SettingsApp() {
 
   useEffect(() => {
     let cancelled = false;
+    let intervalId: number | null = null;
     const timeoutId = window.setTimeout(() => {
       setSwapPrice(null);
       setSwapQuote(null);
       setSwapError(null);
 
-      const request = buildZeroExRequest(selectedSwapNetwork, selectedSwapSellAsset, selectedSwapBuyAsset, swapSellAmount);
+      const request = buildQuoteRequest(selectedSwapNetwork, selectedSwapSellAsset, selectedSwapBuyAsset, swapSellAmount);
 
       if (!request) {
         setSwapPriceStatus("idle");
         return;
       }
 
-      setSwapPriceStatus("loading");
-      getZeroExSwapPrice(request)
-        .then((price) => {
-          if (!cancelled) {
-            setSwapPrice(price);
-            setSwapPriceStatus("ready");
-          }
-        })
-        .catch((cause: unknown) => {
-          if (!cancelled) {
-            setSwapPriceStatus("error");
-            setSwapError(cause instanceof Error ? cause.message : t("settings:errors.swapPrice"));
-          }
-        });
+      const provider = selectQuoteProvider(request.network);
+      if (!provider) {
+        setSwapPriceStatus("error");
+        setSwapError(t("settings:errors.swapNoProvider"));
+        return;
+      }
+
+      const runRefresh = () => {
+        setSwapPriceStatus("loading");
+        provider
+          .getPrice(request)
+          .then((price) => {
+            if (!cancelled) {
+              setSwapPrice(price);
+              setSwapPriceStatus("ready");
+            }
+          })
+          .catch((cause: unknown) => {
+            if (!cancelled) {
+              setSwapPriceStatus("error");
+              setSwapError(cause instanceof Error ? cause.message : t("settings:errors.swapPrice"));
+            }
+          });
+      };
+
+      runRefresh();
+      intervalId = window.setInterval(runRefresh, PRICE_REFRESH_INTERVAL_MS);
     }, 360);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timeoutId);
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
     };
-  }, [selectedSwapBuyAsset, selectedSwapNetwork, selectedSwapSellAsset, swapSellAmount]);
+  }, [selectedSwapBuyAsset, selectedSwapNetwork, selectedSwapSellAsset, swapSellAmount, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -840,17 +857,23 @@ export function SettingsApp() {
     setSwapError(null);
     setSwapQuote(null);
 
-    const request = buildZeroExRequest(selectedSwapNetwork, selectedSwapSellAsset, selectedSwapBuyAsset, swapSellAmount, walletAddress);
+    const request = buildQuoteRequest(selectedSwapNetwork, selectedSwapSellAsset, selectedSwapBuyAsset, swapSellAmount, walletAddress);
 
     if (!request) {
       setSwapError(t("settings:errors.swapNoAssets"));
       return;
     }
 
+    const provider = selectQuoteProvider(request.network);
+    if (!provider) {
+      setSwapError(t("settings:errors.swapNoProvider"));
+      return;
+    }
+
     setSwapQuoteStatus("loading");
 
     try {
-      setSwapQuote(await getZeroExSwapQuote(request));
+      setSwapQuote(await provider.getQuote(request));
       setSwapQuoteStatus("ready");
     } catch (cause) {
       setSwapQuoteStatus("error");
@@ -2876,21 +2899,25 @@ function swapAssetsForNetwork(store: AssetStore | null, network: WalletNetworkSe
     });
 }
 
-function buildZeroExRequest(
+function buildQuoteRequest(
   network: WalletNetworkSetting | null,
   sellAsset: SwapAssetOption | null,
   buyAsset: SwapAssetOption | null,
   sellAmount: string,
   taker?: string | null
-) {
-  if (!network?.chainId || !sellAsset || !buyAsset || sellAsset.definition.assetId === buyAsset.definition.assetId) {
+): QuoteRequest | null {
+  if (!network || !sellAsset || !buyAsset || sellAsset.definition.assetId === buyAsset.definition.assetId) {
     return null;
   }
 
-  const sellToken = tokenAddressForZeroEx(sellAsset.definition);
-  const buyToken = tokenAddressForZeroEx(buyAsset.definition);
-
-  if (!sellToken || !buyToken) {
+  // Each provider validates its own per-chain address requirements (e.g. 0x's native
+  // sentinel vs. ERC-20 contract address). We just forward the kind + contract.
+  const sellKind = sellAsset.definition.kind;
+  const buyKind = buyAsset.definition.kind;
+  if (sellKind !== "native" && !sellAsset.definition.contractAddress) {
+    return null;
+  }
+  if (buyKind !== "native" && !buyAsset.definition.contractAddress) {
     return null;
   }
 
@@ -2902,9 +2929,19 @@ function buildZeroExRequest(
     }
 
     return {
-      chainId: network.chainId,
-      sellToken,
-      buyToken,
+      network,
+      sellToken: {
+        symbol: sellAsset.definition.symbol,
+        decimals: sellAsset.definition.decimals,
+        kind: sellKind,
+        contractAddress: sellAsset.definition.contractAddress
+      },
+      buyToken: {
+        symbol: buyAsset.definition.symbol,
+        decimals: buyAsset.definition.decimals,
+        kind: buyKind,
+        contractAddress: buyAsset.definition.contractAddress
+      },
       sellAmount: rawAmount.toString(),
       slippageBps: 50,
       ...(taker ? { taker: taker as Address } : {})
@@ -2941,9 +2978,9 @@ function SwapSettingsPanel({
   sellAsset: SwapAssetOption | null;
   buyAsset: SwapAssetOption | null;
   sellAmount: string;
-  price: ZeroExSwapQuote | null;
+  price: QuoteResult | null;
   priceStatus: SwapQuoteStatus;
-  quote: ZeroExSwapQuote | null;
+  quote: QuoteResult | null;
   quoteStatus: SwapQuoteStatus;
   error: string | null;
   onNetwork: (networkId: string | null) => void;
@@ -3167,7 +3204,7 @@ function formatSwapBaseAmount(amount: string, decimals: number): string {
   }
 }
 
-function formatSwapRate(quote: ZeroExSwapQuote, sellAsset: SwapAssetOption, buyAsset: SwapAssetOption): string {
+function formatSwapRate(quote: QuoteResult, sellAsset: SwapAssetOption, buyAsset: SwapAssetOption): string {
   const sellAmount = Number(formatUnits(BigInt(quote.sellAmount), sellAsset.definition.decimals));
   const buyAmount = Number(formatUnits(BigInt(quote.buyAmount), buyAsset.definition.decimals));
 
