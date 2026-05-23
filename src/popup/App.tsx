@@ -643,6 +643,7 @@ export function App() {
   async function handleReset() {
     await clearWalletRecord();
     await clearWalletBoundRecords();
+    setPendingSendReview(null);
     setWallet(null);
     setStatus("idle");
     setOnboardingStep("intro");
